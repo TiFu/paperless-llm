@@ -1,0 +1,102 @@
+import React from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Checkbox,
+  Typography,
+  Box,
+} from '@mui/material';
+import { Document } from '../types/api';
+
+interface DocumentListProps {
+  documents: Document[];
+  selectedIds: string[];
+  onSelectionChange: (selectedIds: string[]) => void;
+}
+
+export const DocumentList: React.FC<DocumentListProps> = ({
+  documents,
+  selectedIds,
+  onSelectionChange,
+}) => {
+  const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.checked) {
+      onSelectionChange(documents.map((doc) => doc.id));
+    } else {
+      onSelectionChange([]);
+    }
+  };
+
+  const handleSelectOne = (documentId: string) => {
+    const isSelected = selectedIds.includes(documentId);
+    if (isSelected) {
+      onSelectionChange(selectedIds.filter((id) => id !== documentId));
+    } else {
+      onSelectionChange([...selectedIds, documentId]);
+    }
+  };
+
+  const isAllSelected = documents.length > 0 && selectedIds.length === documents.length;
+  const isIndeterminate = selectedIds.length > 0 && selectedIds.length < documents.length;
+
+  if (documents.length === 0) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="body1" color="text.secondary">
+          No documents found with the specified tag.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <TableContainer component={Paper}>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell padding="checkbox">
+              <Checkbox
+                checked={isAllSelected}
+                indeterminate={isIndeterminate}
+                onChange={handleSelectAll}
+              />
+            </TableCell>
+            <TableCell>ID</TableCell>
+            <TableCell>Title</TableCell>
+            <TableCell>Content</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {documents.map((doc) => {
+            const isSelected = selectedIds.includes(doc.id);
+            return (
+              <TableRow
+                key={doc.id}
+                hover
+                onClick={() => handleSelectOne(doc.id)}
+                selected={isSelected}
+                sx={{ cursor: 'pointer' }}
+              >
+                <TableCell padding="checkbox">
+                  <Checkbox checked={isSelected} />
+                </TableCell>
+                <TableCell>{doc.id}</TableCell>
+                <TableCell>{doc.title || '(No Title)'}</TableCell>
+                <TableCell>
+                  <Typography variant="body2" color="text.secondary" noWrap>
+                    {doc.content}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};

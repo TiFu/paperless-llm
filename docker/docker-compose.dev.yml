@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: paperless-llm-db-dev
+    environment:
+      POSTGRES_DB: paperless_llm_dev
+      POSTGRES_USER: paperless_llm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      # Mount migrations for easy updates
+      - ../server/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless_llm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - paperless-llm-dev
+
+  # Development environment with both backend and frontend
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/dev.Dockerfile
+    container_name: paperless-llm-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: paperless_llm_dev
+      DATABASE_USER: ${DB_USERNAME:-paperless_llm}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-devpassword}
+      DATABASE_SSL: "false"
+      
+      # Worker config
+      WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-5}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-3000}
+      WORKER_MAX_RETRIES: ${WORKER_MAX_RETRIES:-3}
+      WORKER_CLAIM_TIMEOUT_MS: ${WORKER_CLAIM_TIMEOUT_MS:-300000}
+      
+      # LLM config
+      LLM_URL: ${LLM_URL:-http://host.docker.internal:11434}
+      LLM_MODEL: ${LLM_MODEL:-llama3}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.7}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-500}
+      LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-30000}
+      
+      # Paperless config
+      PAPERLESS_URL: ${PAPERLESS_URL:-http://host.docker.internal:8000}
+      PAPERLESS_TOKEN: ${PAPERLESS_TOKEN}
+      
+      # API config
+      API_PORT: 3000
+      API_CORS_ORIGINS: "*"
+      
+      # Frontend config
+      VITE_API_BASE_URL: http://localhost:3000
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      LOG_PRETTY: "true"
+      
+      # Node environment
+      NODE_ENV: development
+    volumes:
+      # Mount entire worker and frontend directories
+      - ../:/app
+    ports:
+      - "3000:3000"  # Backend API
+      - "5173:5173"  # Frontend Vite dev server
+    networks:
+      - paperless-llm-dev
+    stdin_open: true  # Keep STDIN open for interactive shell
+    tty: true         # Allocate a pseudo-TTY
+    command: /bin/sh  # Drop into shell (or run /app/start-dev.sh to start services)
+
+  # Optional: Ollama service for local LLM testing
+  ollama:
+    image: ollama/ollama:latest
+    container_name: paperless-llm-ollama-dev
+    volumes:
+      - ollama_data_dev:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - paperless-llm-dev
+    profiles:
+      - with-ollama
+
+networks:
+  paperless-llm-dev:
+    driver: bridge
+
+volumes:
+  postgres_data_dev:
+  ollama_data_dev:
+  worker_node_modules:
+  frontend_node_modules:

@@ -1,0 +1,56 @@
+# Ignore node_modules (they're installed in container)
+**/node_modules
+**/npm-debug.log
+
+# Ignore build artifacts
+**/dist
+**/.next
+**/build
+**/out
+
+# Ignore dev files
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Ignore git
+.git
+.gitignore
+.gitattributes
+
+# Ignore IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Ignore test files and coverage
+**/coverage
+**/.nyc_output
+**/*.test.ts
+**/*.spec.ts
+**/tests
+**/__tests__
+**/test
+
+# Ignore docs
+**/README.md
+**/CHANGELOG.md
+**/LICENSE
+**/*.md
+
+# Ignore CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore Helm charts (not needed in dev container)
+helm/
+
+# Keep migrations
+!migrations/

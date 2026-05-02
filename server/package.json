@@ -1,0 +1,47 @@
+{
+  "name": "paperless-llm-server",
+  "version": "1.0.0",
+  "description": "Backend server and workers for Paperless LLM processing",
+  "main": "dist/api.js",
+  "scripts": {
+    "build": "tsc",
+    "dev:api": "nodemon --watch src --ext ts --exec 'ts-node src/api.ts'",
+    "dev:worker": "nodemon --watch src --ext ts --exec 'ts-node src/worker.ts'",
+    "start:api": "node dist/api.js",
+    "start:worker": "node dist/worker.js",
+    "migrate:up": "node -r ts-node/register migrations/migrate-up.ts",
+    "migrate:down": "node -r ts-node/register migrations/migrate-down.ts",
+    "test": "jest",
+    "test:unit": "jest --selectProject=unit",
+    "test:integration": "jest --selectProject=integration",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "keywords": [
+    "paperless",
+    "llm",
+    "document-processing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.8",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "express-validator": "^7.0.1",
+    "pg": "^8.11.5",
+    "pino": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.12.7",
+    "@types/pg": "^8.11.5",
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.0",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
