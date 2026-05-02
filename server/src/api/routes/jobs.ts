@@ -53,12 +53,14 @@ export function createJobsRouter(txManager: TransactionManager, logger: pino.Log
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { documents } = req.body as BatchJobRequest;
-
+        
         const result = await txManager.execute(async (repos) => {
           const llmQueue = repos.getLLMWorkQueue();
           const createdJobs: { documentId: string; jobType: JobType; workItemId: string }[] = [];
 
+          // TODO: this can be done more efficiently in one insert operation...
           for (const doc of documents) {
+            logger.debug({ msg: "Processing doc ", 'doc': doc })
             for (const jobType of doc.jobTypes) {
               const workItem = await llmQueue.insert(doc.documentId, jobType);
               createdJobs.push({

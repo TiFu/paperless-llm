@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # Start the backend server with hot reload (nodemon + ts-node)
+# Now includes both API server and background workers
 
 set -e
 
-echo "🚀 Starting Paperless LLM Backend Server"
+echo "🚀 Starting Paperless LLM Server (API + Workers)"
 echo ""
 
 # Check if Node.js is installed
@@ -14,11 +15,11 @@ if ! command -v node &> /dev/null; then
     exit 1
 fi
 
-# Check if .env exists, create from example if not
-if [ ! -f ".env" ]; then
-    echo "📝 Creating .env from .env.example..."
-    cp .env.example .env
-    echo "⚠️  Please review and update .env with your configuration"
+# Check if config.yaml exists, create from example if not
+if [ ! -f "config.yaml" ]; then
+    echo "📝 Creating config.yaml from config.example.yaml..."
+    cp config.example.yaml config.yaml
+    echo "⚠️  Please review and update config.yaml with your configuration"
     echo ""
 fi
 

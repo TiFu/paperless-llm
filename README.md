@@ -14,15 +14,30 @@ Scalable worker service that integrates Large Language Models (LLMs) with Paperl
 
 ## Architecture
 
+### Deployment Modes
+
+**All-in-One (Default)**:
+- Single process runs API server + both workers
+- Simplest setup for development and small deployments
+- Start with: `npm run dev` or `npm start`
+
+**Separate Workers (Advanced)**:
+- API server and workers run in separate processes
+- Enables horizontal scaling and resource isolation
+- Start API: `npm run start:api`
+- Start workers: `npm run start:worker` (can run multiple instances)
+
 ### Worker Types
 
-1. **LLM Worker** (`--mode=llm`): 
+Both workers run concurrently in the same process (or separately in advanced deployments):
+
+1. **LLM Worker**: 
    - Claims documents from the LLM work queue
    - Fetches document content from Paperless-NG
    - Sends prompts to Ollama for processing
    - Creates action items in the document update queue
 
-2. **Document Update Worker** (`--mode=doc-update`):
+2. **Document Update Worker**:
    - Claims action items from the document update queue
    - Applies updates to Paperless-NG documents
    - Creates audit log entries
@@ -51,6 +66,10 @@ External API calls (Paperless-NG, Ollama) happen **OUTSIDE** transactions since 
 ### Local Development
 
 ```bash
+# Configure application
+cp config.example.yaml config.yaml
+# Edit config.yaml with your Paperless token, database credentials, etc.
+
 # First, start PostgreSQL (using Docker or local install)
 docker run -d \
   --name paperless-llm-db \
@@ -149,20 +168,39 @@ docker-compose up -d --scale llm-worker=4 --scale doc-update-worker=2
 
 ## Configuration
 
-Environment variables (see [.env.example](worker/.env.example)):
+Configuration is managed via `config.yaml` (see [config.example.yaml](config.example.yaml)):
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `WORKER_MODE` | Worker mode: `llm` or `doc-update` | Required |
-| `DATABASE_URL` | PostgreSQL connection string | Required |
-| `WORKER_BATCH_SIZE` | Number of items to process per batch | 10 |
-| `WORKER_POLL_INTERVAL_MS` | Polling interval in milliseconds | 5000 |
-| `WORKER_MAX_RETRIES` | Maximum retry attempts | 5 |
-| `WORKER_CLAIM_TIMEOUT_MS` | Timeout for claimed items | 300000 |
-| `LLM_URL` | Ollama API URL | Required |
-| `LLM_MODEL` | Model name to use | llama3 |
-| `LLM_TEMPERATURE` | LLM temperature (0-2) | 0.7 |
-| `PAPERLESS_URL` | Paperless-NG base URL | Required |
+```yaml
+database:
+  host: localhost
+  port: 5432
+  username: paperless_llm
+  password: devpassword
+  database: paperless_llm_dev
+
+paperless:
+  url: http://localhost:8000
+  token: your_paperless_token_here
+  tags: llm-process
+
+llm:
+  url: http://localhost:11434
+  model: llama3
+  temperature: 0.7
+  timeoutMs: 30000
+
+worker:
+  instanceId: null  # Auto-generated if not specified
+  batchSize: 5
+  pollIntervalMs: 3000
+  maxRetries: 3
+  claimTimeoutMs: 300000
+
+api:
+  port: 3000
+  corsOrigins:
+    - "*"
+```
 | `PAPERLESS_TOKEN` | Paperless-NG API token | Required |
 | `PAPERLESS_TAGS` | Comma-separated tags to filter documents | llm-pending |
 | `LOG_PRETTY` | Enable pretty-printed logs | false |

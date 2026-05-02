@@ -1,0 +1,40 @@
+# Paperless LLM Configuration Example
+# Copy this file to config.yaml and update with your settings
+
+database:
+  host: localhost
+  port: 5432
+  username: paperless_llm
+  password: devpassword
+  database: paperless_llm_dev
+
+paperless:
+  url: http://localhost:8000
+  token: your_paperless_token_here
+  tags: llm-process
+
+llm:
+  url: http://localhost:11434
+  model: llama3
+  temperature: 0.7
+  timeoutMs: 30000
+
+worker:
+  instanceId: null  # Auto-generated if not specified
+  batchSize: 5
+  pollIntervalMs: 3000
+  maxRetries: 3
+  claimTimeoutMs: 300000
+
+orchestration:
+  llmCycleDurationMs: 30000
+  docUpdateCycleDurationMs: 30000
+
+logging:
+  level: debug
+  pretty: true
+
+api:
+  port: 3000
+  corsOrigins:
+    - "*"

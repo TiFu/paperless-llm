@@ -1,7 +1,16 @@
 #!/usr/bin/env node
 
-import { loadEnv } from './utils/loadEnv';
-loadEnv();
+/**
+ * Standalone worker process
+ * 
+ * This file is kept for deployments that need to scale workers separately from the API.
+ * For simpler deployments, use api.ts which runs both API server and workers together.
+ * 
+ * Use cases for standalone workers:
+ * - Horizontal scaling: Run multiple worker instances
+ * - Resource isolation: Separate CPU/memory limits for API vs workers
+ * - Different deployment strategies: API in one service, workers in another
+ */
 
 import { createAppConfig } from './config/AppConfig';
 import { Database } from './infrastructure/Database';

@@ -1,3 +1,7 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as yaml from 'js-yaml';
+
 /**
  * Database configuration
  */
@@ -64,6 +68,28 @@ export interface ApiConfig {
 }
 
 /**
+ * Raw config structure from YAML file
+ */
+interface RawConfig {
+  database: DatabaseConfig;
+  paperless: PaperlessConfig;
+  llm: LLMConfig;
+  worker: {
+    instanceId?: string | null;
+    batchSize: number;
+    pollIntervalMs: number;
+    maxRetries: number;
+    claimTimeoutMs: number;
+  };
+  orchestration: OrchestrationConfig;
+  logging: LoggingConfig;
+  api: {
+    port: number;
+    corsOrigins: string[];
+  };
+}
+
+/**
  * Application configuration
  */
 export class AppConfig {
@@ -75,114 +101,111 @@ export class AppConfig {
   public readonly llm: LLMConfig;
   public readonly api: ApiConfig;
 
-  constructor() {
-    const workerName = 'unified-worker';
+  constructor(configPath?: string) {
+    const rawConfig = this.loadConfig(configPath);
 
     // Database Configuration
-    this.database = {
-      host: this.getEnvOrDefault('DB_HOST', 'localhost'),
-      port: parseInt(this.getEnvOrDefault('DB_PORT', '5432'), 10),
-      username: this.getEnvOrThrow('DB_USERNAME'),
-      password: this.getEnvOrThrow('DB_PASSWORD'),
-      database: this.getEnvOrDefault('DB_DATABASE', 'paperless_llm'),
-    };
+    this.database = rawConfig.database;
 
-    // Worker Configuration
+    // Worker Configuration - auto-generate instanceId if not provided
     this.worker = {
-      instanceId: this.getEnvOrDefault(
-        'WORKER_INSTANCE_ID',
-        `${workerName}-${Date.now()}`,
-      ),
-      batchSize: parseInt(this.getEnvOrDefault('WORKER_BATCH_SIZE', '10'), 10),
-      pollIntervalMs: parseInt(
-        this.getEnvOrDefault('WORKER_POLL_INTERVAL_MS', '5000'),
-        10,
-      ),
-      maxRetries: parseInt(this.getEnvOrDefault('WORKER_MAX_RETRIES', '5'), 10),
-      claimTimeoutMs: parseInt(
-        this.getEnvOrDefault('WORKER_CLAIM_TIMEOUT_MS', '300000'),
-        10,
-      ),
+      instanceId: rawConfig.worker.instanceId || `unified-worker-${Date.now()}`,
+      batchSize: rawConfig.worker.batchSize,
+      pollIntervalMs: rawConfig.worker.pollIntervalMs,
+      maxRetries: rawConfig.worker.maxRetries,
+      claimTimeoutMs: rawConfig.worker.claimTimeoutMs,
     };
 
-    // Orchestration Configuration
-    this.orchestration = {
-      llmCycleDurationMs: parseInt(
-        this.getEnvOrDefault('LLM_CYCLE_DURATION_MS', '30000'),
-        10,
-      ),
-      docUpdateCycleDurationMs: parseInt(
-        this.getEnvOrDefault('DOC_UPDATE_CYCLE_DURATION_MS', '30000'),
-        10,
-      ),
-    };
-
-    // Paperless-NG Configuration
-    this.paperless = {
-      url: this.getEnvOrThrow('PAPERLESS_URL'),
-      token: this.getEnvOrThrow('PAPERLESS_TOKEN'),
-      tags: this.getEnvOrDefault('PAPERLESS_TAGS', 'llm-process'),
-    };
-
-    // Logging Configuration
-    this.logging = {
-      level: this.getEnvOrDefault('LOG_LEVEL', 'info'),
-      pretty: this.getEnvOrDefault('LOG_PRETTY', 'false') === 'true',
-    };
-
-    // LLM Configuration
-    this.llm = {
-      url: this.getEnvOrDefault('LLM_URL', 'http://localhost:11434'),
-      model: this.getEnvOrDefault('LLM_MODEL', 'llama3'),
-      temperature: parseFloat(this.getEnvOrDefault('LLM_TEMPERATURE', '0.7')),
-      timeoutMs: parseInt(this.getEnvOrDefault('LLM_TIMEOUT_MS', '60000'), 10),
-    };
-
-    // API Configuration
-    this.api = {
-      port: parseInt(this.getEnvOrDefault('API_PORT', '3000'), 10),
-      corsOrigins: this.getEnvOrDefault('API_CORS_ORIGINS', '*')
-        .split(',')
-        .map((origin) => origin.trim()),
-    };
+    // Copy remaining configurations
+    this.orchestration = rawConfig.orchestration;
+    this.paperless = rawConfig.paperless;
+    this.logging = rawConfig.logging;
+    this.llm = rawConfig.llm;
+    this.api = rawConfig.api;
 
     this.validate();
     this.validateLLMConfig();
   }
 
-  private getEnvOrThrow(key: string): string {
-    const value = process.env[key];
-    if (!value) {
-      throw new Error(`Missing required environment variable: ${key}`);
+  private loadConfig(configPath?: string): RawConfig {
+    // Look for config.yaml in project root (three levels up from src/config/)
+    const defaultPath = path.resolve(__dirname, '../../../config.yaml');
+    const finalPath = configPath || defaultPath;
+
+    if (!fs.existsSync(finalPath)) {
+      throw new Error(
+        `Configuration file not found at: ${finalPath}\n` +
+        'Please create config.yaml from config.example.yaml'
+      );
     }
-    return value;
+
+    try {
+      const fileContents = fs.readFileSync(finalPath, 'utf8');
+      const config = yaml.load(fileContents) as RawConfig;
+      
+      if (!config) {
+        throw new Error('Empty configuration file');
+      }
+
+      // Validate required fields exist
+      this.validateRequiredFields(config);
+
+      return config;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Failed to load configuration: ${error.message}`);
+      }
+      throw error;
+    }
   }
 
-  private getEnvOrDefault(key: string, defaultValue: string): string {
-    return process.env[key] || defaultValue;
+  private validateRequiredFields(config: any): void {
+    const required = [
+      'database',
+      'paperless',
+      'llm',
+      'worker',
+      'orchestration',
+      'logging',
+      'api',
+    ];
+
+    for (const field of required) {
+      if (!config[field]) {
+        throw new Error(`Missing required configuration section: ${field}`);
+      }
+    }
+
+    // Validate critical fields
+    if (!config.database.username || !config.database.password) {
+      throw new Error('Missing required database credentials');
+    }
+    if (!config.paperless.url || !config.paperless.token) {
+      throw new Error('Missing required Paperless configuration');
+    }
   }
 
   private validate(): void {
     if (this.worker.batchSize < 1) {
-      throw new Error('WORKER_BATCH_SIZE must be greater than 0');
+      throw new Error('worker.batchSize must be greater than 0');
     }
     if (this.worker.maxRetries < 0) {
-      throw new Error('WORKER_MAX_RETRIES must be non-negative');
+      throw new Error('worker.maxRetries must be non-negative');
     }
     if (this.worker.pollIntervalMs < 100) {
-      throw new Error('WORKER_POLL_INTERVAL_MS must be at least 100ms');
+      throw new Error('worker.pollIntervalMs must be at least 100ms');
     }
     if (this.orchestration.llmCycleDurationMs < 1000) {
-      throw new Error('LLM_CYCLE_DURATION_MS must be at least 1000ms');
+      throw new Error('orchestration.llmCycleDurationMs must be at least 1000ms');
     }
     if (this.orchestration.docUpdateCycleDurationMs < 1000) {
-      throw new Error('DOC_UPDATE_CYCLE_DURATION_MS must be at least 1000ms');
+      throw new Error('orchestration.docUpdateCycleDurationMs must be at least 1000ms');
     }
   }
 
   private validateLLMConfig(): void {
     if (this.llm.temperature < 0 || this.llm.temperature > 2) {
-      throw new Error('LLM_TEMPERATURE must be between 0 and 2');
+      throw new Error('llm.temperature must be between 0 and 2');
     }
   }
 }
@@ -190,6 +213,6 @@ export class AppConfig {
 /**
  * Factory function to create the application config
  */
-export function createAppConfig(): AppConfig {
-  return new AppConfig();
+export function createAppConfig(configPath?: string): AppConfig {
+  return new AppConfig(configPath);
 }

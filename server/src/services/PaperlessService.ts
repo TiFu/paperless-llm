@@ -7,6 +7,8 @@ interface PaperlessDocument {
   id: number;
   title: string;
   content: string;
+  document_type: number;
+  correspondent: number;
   tags: number[];
   created: string;
   modified: string;
@@ -59,6 +61,8 @@ export class PaperlessService implements IDocumentManagementSystem {
           },
         },
       );
+      
+      console.log(docsResponse.data)
 
       return Promise.all(
         docsResponse.data.results.map((doc) => this.convertToIDocument(doc)),
@@ -118,7 +122,7 @@ export class PaperlessService implements IDocumentManagementSystem {
   private async convertToIDocument(doc: PaperlessDocument): Promise<IDocument> {
     const tagNames = await this.getTagNames(doc.tags);
 
-    return {
+    const result = {
       id: doc.id.toString(),
       content: doc.content || '',
       title: doc.title || null,
@@ -132,6 +136,8 @@ export class PaperlessService implements IDocumentManagementSystem {
       createdDate: doc.created ? new Date(doc.created) : null,
       modifiedDate: doc.modified ? new Date(doc.modified) : null,
     };
+    console.log(result)
+    return result
   }
 
   private async getTagNames(tagIds: number[]): Promise<string[]> {

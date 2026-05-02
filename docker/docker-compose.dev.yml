@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database (shared by paperless-llm and paperless-ngx)
   postgres:
     image: postgres:15-alpine
     container_name: paperless-llm-db-dev
@@ -9,10 +9,13 @@ services:
       POSTGRES_DB: paperless_llm_dev
       POSTGRES_USER: paperless_llm
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
-      # Mount migrations for easy updates
-      - ../server/migrations:/docker-entrypoint-initdb.d:ro
+      # Mount init scripts - runs on first startup
+      - ./postgres-init/create-databases.sh:/docker-entrypoint-initdb.d/00-create-databases.sh:ro
+      # Mount migrations for paperless-llm (accessed by init script)
+      - ../server/migrations:/migrations:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -20,8 +23,62 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - paperless-llm-dev
+    network_mode: host
+
+  # Redis for Paperless-ngx
+  redis:
+    image: redis:7-alpine
+    container_name: paperless-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    network_mode: host
+
+  # Paperless-ngx Document Management System
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless-ngx-dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      PAPERLESS_REDIS: redis://localhost:6379
+      PAPERLESS_DBHOST: localhost
+      PAPERLESS_DBPORT: 5432
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_DBPASS: paperless
+      PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:-admin}
+      PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD:-admin}
+      PAPERLESS_ADMIN_MAIL: ${PAPERLESS_ADMIN_MAIL:-admin@localhost}
+      PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY:-change-me-in-production}
+      PAPERLESS_URL: http://localhost:8000
+      PAPERLESS_CSRF_TRUSTED_ORIGINS: http://localhost:8000
+      PAPERLESS_ALLOWED_HOSTS: localhost,127.0.0.1
+      PAPERLESS_TIME_ZONE: ${PAPERLESS_TIME_ZONE:-UTC}
+      PAPERLESS_OCR_LANGUAGE: ${PAPERLESS_OCR_LANGUAGE:-eng}
+      PAPERLESS_CONSUMER_POLLING: 60
+      PAPERLESS_CONSUMER_RECURSIVE: "true"
+      PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "true"
+      USERMAP_UID: ${UID:-1000}
+      USERMAP_GID: ${GID:-1000}
+    volumes:
+      - paperless_data_dev:/usr/src/paperless/data
+      - paperless_media_dev:/usr/src/paperless/media
+      - paperless_export_dev:/usr/src/paperless/export
+      # Map consume folder for easy document ingestion
+      - ../test-documents/consume:/usr/src/paperless/consume
+    ports:
+      - "8000:8000"
+    network_mode: host
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   # Development environment with both backend and frontend
   dev:
@@ -29,8 +86,11 @@ services:
       context: ..
       dockerfile: docker/dev.Dockerfile
     container_name: paperless-llm-dev
+    user: "${UID:-1000}:${GID:-1000}"
     depends_on:
       postgres:
+        condition: service_healthy
+      paperless:
         condition: service_healthy
     environment:
       # Database
@@ -55,7 +115,7 @@ services:
       LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-30000}
       
       # Paperless config
-      PAPERLESS_URL: ${PAPERLESS_URL:-http://host.docker.internal:8000}
+      PAPERLESS_URL: ${PAPERLESS_URL:-http://localhost:8000}
       PAPERLESS_TOKEN: ${PAPERLESS_TOKEN}
       
       # API config
@@ -77,31 +137,16 @@ services:
     ports:
       - "3000:3000"  # Backend API
       - "5173:5173"  # Frontend Vite dev server
-    networks:
-      - paperless-llm-dev
+    network_mode: host
     stdin_open: true  # Keep STDIN open for interactive shell
     tty: true         # Allocate a pseudo-TTY
     command: /bin/sh  # Drop into shell (or run /app/start-dev.sh to start services)
 
-  # Optional: Ollama service for local LLM testing
-  ollama:
-    image: ollama/ollama:latest
-    container_name: paperless-llm-ollama-dev
-    volumes:
-      - ollama_data_dev:/root/.ollama
-    ports:
-      - "11434:11434"
-    networks:
-      - paperless-llm-dev
-    profiles:
-      - with-ollama
-
-networks:
-  paperless-llm-dev:
-    driver: bridge
-
 volumes:
   postgres_data_dev:
+  paperless_data_dev:
+  paperless_media_dev:
+  paperless_export_dev:
   ollama_data_dev:
   worker_node_modules:
   frontend_node_modules:
