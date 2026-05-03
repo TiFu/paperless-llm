@@ -10,6 +10,7 @@ import { createQueueRouter } from './routes/queue';
 import { createAuditRouter } from './routes/audit';
 import { createHealthRouter } from './routes/health';
 import { createDocumentsRouter } from './routes/documents';
+import { createApprovalsRouter } from './routes/approvals';
 
 export interface ApiServerConfig {
   port: number;
@@ -26,7 +27,14 @@ export function createApiServer(
 
   // Middleware
   app.use(express.json());
-  app.use(cors({ origin: config.corsOrigins }));
+  
+  // Handle CORS origins - convert ["*"] to "*" for cors package
+  // The cors middleware expects "*" as a string for wildcard, not in an array
+  let corsOrigin: string | string[] | boolean = config.corsOrigins;
+  if (Array.isArray(config.corsOrigins) && config.corsOrigins.length === 1 && config.corsOrigins[0] === '*') {
+    corsOrigin = '*';
+  }
+  app.use(cors({ origin: corsOrigin }));
 
   // Request logging
   app.use((req, _res, next) => {
@@ -48,6 +56,7 @@ export function createApiServer(
   app.use('/api/documents', createDocumentsRouter(paperlessService, logger));
   app.use('/api/prompts', createPromptsRouter(txManager, logger));
   app.use('/api/jobs', createJobsRouter(txManager, logger));
+  app.use('/api/approvals', createApprovalsRouter(txManager, logger));
   app.use('/api/queue', createQueueRouter(txManager, logger));
   app.use('/api/audit', createAuditRouter(txManager, logger));
 

@@ -54,17 +54,19 @@ export class PostgreSQLLLMWorkQueueRepository implements ILLMWorkQueueRepository
     return result.rows.map((row) => WorkItem.fromDb(row));
   }
 
-  async insert(documentId: string, jobType: JobType): Promise<WorkItem> {
+  async insert(jobId: string, documentId: string, jobType: JobType, requiresApproval: boolean = false): Promise<WorkItem> {
     const query = `
-      INSERT INTO llm_work_queue (document_id, job_type, status, retry_count)
-      VALUES ($1, $2, $3, 0)
+      INSERT INTO llm_work_queue (job_id, document_id, job_type, status, retry_count, requires_approval)
+      VALUES ($1, $2, $3, $4, 0, $5)
       RETURNING *
     `;
 
     const result = await this.getClient().query(query, [
+      jobId,
       documentId,
       jobType,
       WorkItemStatus.PENDING,
+      requiresApproval,
     ]);
 
     return WorkItem.fromDb(result.rows[0]);
@@ -103,6 +105,17 @@ export class PostgreSQLLLMWorkQueueRepository implements ILLMWorkQueueRepository
   async getById(id: string): Promise<WorkItem | null> {
     const query = `SELECT * FROM llm_work_queue WHERE id = $1`;
     const result = await this.getClient().query(query, [id]);
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return WorkItem.fromDb(result.rows[0]);
+  }
+
+  async getByJobId(jobId: string): Promise<WorkItem | null> {
+    const query = `SELECT * FROM llm_work_queue WHERE job_id = $1`;
+    const result = await this.getClient().query(query, [jobId]);
 
     if (result.rows.length === 0) {
       return null;

@@ -1,8 +1,9 @@
 import { TransactionManager } from '../infrastructure/TransactionManager';
 import { IDocumentManagementSystem } from '../domain/interfaces/IDocumentManagementSystem';
-import { Action } from '../domain/actions/Action';
-import { ActionFactory } from '../domain/actions/ActionFactory';
+import { DocumentAction } from '../domain/actions/DocumentAction';
+import { DocumentActionFactory } from '../domain/actions/DocumentActionFactory';
 import { AuditStatus } from '../domain/entities/AuditEntry';
+import { JobStatus } from '../domain/enums/JobStatus';
 import { createChildLogger } from '../utils/logger';
 import pino from 'pino';
 
@@ -24,7 +25,7 @@ export class ActionService {
    *
    * @param action The action to execute
    */
-  async executeAction(action: Action): Promise<void> {
+  async executeAction(action: DocumentAction): Promise<void> {
     const actionLogger = this.logger.child({
       correlationId: action.id,
       documentId: action.documentId,
@@ -66,6 +67,15 @@ export class ActionService {
 
           // Mark action item as completed (even if DMS update failed, we logged it)
           await repos.getDocumentUpdateQueue().markCompleted(action.id);
+          
+          // Update job status to completed if successful, or failed if not
+          if (action.jobId) {
+            if (auditStatus === AuditStatus.SUCCESS) {
+              await repos.getJobs().updateStatus(action.jobId, JobStatus.COMPLETED);
+            } else {
+              await repos.getJobs().updateStatus(action.jobId, JobStatus.FAILED, errorMessage);
+            }
+          }
         });
       } catch (txError) {
         actionLogger.error({ error: txError }, 'Failed to commit audit log');

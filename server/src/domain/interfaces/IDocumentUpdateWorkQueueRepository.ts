@@ -30,12 +30,14 @@ export interface IDocumentUpdateWorkQueueRepository {
    * @param documentSystem Document management system identifier
    * @param actionType Type of action to perform
    * @param actionPayload Payload data for the action
+   * @param jobId Optional job ID for tracking end-to-end
    */
   insert(
     documentId: string,
     documentSystem: string,
     actionType: ActionType,
     actionPayload: Record<string, unknown>,
+    jobId?: string,
   ): Promise<void>;
 
   /**
@@ -57,6 +59,13 @@ export interface IDocumentUpdateWorkQueueRepository {
    * @returns Action item or null if not found
    */
   getById(id: string): Promise<ActionItem | null>;
+
+  /**
+   * Get action items by job ID
+   * @param jobId Job ID to query
+   * @returns Array of action items for this job
+   */
+  getByJobId(jobId: string): Promise<ActionItem[]>;
 
   /**
    * List action items with cursor-based pagination

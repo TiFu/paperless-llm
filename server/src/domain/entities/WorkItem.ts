@@ -4,6 +4,7 @@ import { WorkItemStatus } from '../enums/WorkItemStatus';
 export class WorkItem {
   constructor(
     public readonly id: string,
+    public readonly jobId: string,
     public readonly documentId: string,
     public readonly jobType: JobType,
     public readonly status: WorkItemStatus,
@@ -13,11 +14,13 @@ export class WorkItem {
     public readonly claimedBy: string | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
+    public readonly requiresApproval: boolean,
   ) {}
 
   public static fromDb(row: Record<string, unknown>): WorkItem {
     return new WorkItem(
       row.id as string,
+      row.job_id as string,
       row.document_id as string,
       row.job_type as JobType,
       row.status as WorkItemStatus,
@@ -27,6 +30,7 @@ export class WorkItem {
       row.claimed_by as string | null,
       new Date(row.created_at as string),
       new Date(row.updated_at as string),
+      (row.requires_approval as boolean) ?? false,
     );
   }
 }

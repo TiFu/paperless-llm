@@ -7,10 +7,7 @@ import { initializeLogger } from './utils/logger';
 import { createApiServer } from './api/server';
 import { PaperlessService } from './services/PaperlessService';
 import { OllamaService } from './services/OllamaService';
-import { JobService } from './services/JobService';
-import { ActionService } from './services/ActionService';
-import { LLMWorkerService } from './services/LLMWorkerService';
-import { DocumentUpdateWorkerService } from './services/DocumentUpdateWorkerService';
+import { StepExecutorService } from './services/StepExecutorService';
 
 async function main(): Promise<void> {
   // Load configuration
@@ -59,18 +56,11 @@ async function main(): Promise<void> {
     logger.info('Ollama connection established');
   }
 
-  // Initialize job processing services
-  const jobService = new JobService(
+  // Initialize step executor service for workflow system
+  const stepExecutorService = new StepExecutorService(
     txManager,
     paperlessService,
     ollamaService,
-    config.worker.maxRetries,
-  );
-
-  const actionService = new ActionService(
-    txManager,
-    paperlessService,
-    config.worker.maxRetries,
   );
 
   // Create Express app
@@ -89,47 +79,39 @@ async function main(): Promise<void> {
     logger.info({ port: config.api.port }, 'API server started');
   });
 
-  // Create and start workers
+  // Start workflow step processing worker
   logger.info(
     {
       workerId: config.worker.instanceId,
       batchSize: config.worker.batchSize,
       pollIntervalMs: config.worker.pollIntervalMs,
     },
-    'Starting background workers',
+    'Starting workflow step processor',
   );
 
-  const llmWorker = new LLMWorkerService(
-    config.worker.batchSize,
-    config.worker.pollIntervalMs,
-    config.worker.claimTimeoutMs,
-    config.worker.instanceId,
-    txManager,
-    jobService,
-  );
+  // Poll for pending steps and execute them
+  const stepProcessorInterval = setInterval(async () => {
+    try {
+      const processed = await stepExecutorService.processPendingSteps(
+        config.worker.batchSize,
+      );
+      if (processed > 0) {
+        logger.debug({ processed }, 'Processed steps');
+      }
+    } catch (error) {
+      logger.error({ error }, 'Error processing steps');
+    }
+  }, config.worker.pollIntervalMs);
 
-  const documentUpdateWorker = new DocumentUpdateWorkerService(
-    config.worker.batchSize,
-    config.worker.pollIntervalMs,
-    config.worker.claimTimeoutMs,
-    config.worker.instanceId,
-    txManager,
-    actionService,
-  );
-
-  // Start workers
-  llmWorker.start();
-  documentUpdateWorker.start();
-  logger.info('Background workers started');
+  logger.info('Workflow step processor started');
 
   // Graceful shutdown
   const shutdown = async () => {
     logger.info('Shutting down...');
     
-    // Stop workers first
-    logger.info('Stopping workers...');
-    llmWorker.stop();
-    documentUpdateWorker.stop();
+    // Stop step processor
+    logger.info('Stopping step processor...');
+    clearInterval(stepProcessorInterval);
     
     // Close API server
     server.close(() => {

@@ -61,11 +61,12 @@ export class PostgreSQLDocumentUpdateWorkQueueRepository
     documentSystem: string,
     actionType: ActionType,
     actionPayload: Record<string, unknown>,
+    jobId?: string,
   ): Promise<void> {
     const query = `
       INSERT INTO document_update_work_queue 
-        (document_id, document_system, action_type, action_payload, status, retry_count)
-      VALUES ($1, $2, $3, $4, $5, 0)
+        (document_id, document_system, action_type, action_payload, status, retry_count, job_id)
+      VALUES ($1, $2, $3, $4, $5, 0, $6)
     `;
 
     await this.getClient().query(query, [
@@ -74,6 +75,7 @@ export class PostgreSQLDocumentUpdateWorkQueueRepository
       actionType,
       JSON.stringify(actionPayload),
       WorkItemStatus.PENDING,
+      jobId || null,
     ]);
   }
 
@@ -116,6 +118,17 @@ export class PostgreSQLDocumentUpdateWorkQueueRepository
     }
 
     return ActionItem.fromDb(result.rows[0]);
+  }
+
+  async getByJobId(jobId: string): Promise<ActionItem[]> {
+    const query = `
+      SELECT * 
+      FROM document_update_work_queue 
+      WHERE job_id = $1
+      ORDER BY created_at ASC
+    `;
+    const result = await this.getClient().query(query, [jobId]);
+    return result.rows.map((row) => ActionItem.fromDb(row));
   }
 
   async list(

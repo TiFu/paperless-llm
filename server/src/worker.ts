@@ -17,10 +17,7 @@ import { Database } from './infrastructure/Database';
 import { TransactionManager } from './infrastructure/TransactionManager';
 import { PaperlessService } from './services/PaperlessService';
 import { OllamaService } from './services/OllamaService';
-import { JobService } from './services/JobService';
-import { ActionService } from './services/ActionService';
-import { LLMWorkerService } from './services/LLMWorkerService';
-import { DocumentUpdateWorkerService } from './services/DocumentUpdateWorkerService';
+import { StepExecutorService } from './services/StepExecutorService';
 import { initializeLogger } from './utils/logger';
 
 async function main(): Promise<void> {
@@ -74,50 +71,44 @@ async function main(): Promise<void> {
     logger.info('Ollama connection established');
   }
 
-  // Initialize JobService for LLM Worker
-  const jobService = new JobService(
+  // Initialize step executor service for workflow system
+  const stepExecutorService = new StepExecutorService(
     txManager,
     paperlessService,
     ollamaService,
-    config.worker.maxRetries,
   );
 
-  // Initialize ActionService for Document Update Worker
-  const actionService = new ActionService(
-    txManager,
-    paperlessService,
-    config.worker.maxRetries,
-  );
+  // Start workflow step processing worker
+  logger.info('Starting workflow step processor');
+  const stepProcessorInterval = setInterval(async () => {
+    try {
+      const processed = await stepExecutorService.processPendingSteps(
+        config.worker.batchSize,
+      );
+      if (processed > 0) {
+        logger.debug({ processed }, 'Processed steps');
+      }
+    } catch (error) {
+      logger.error({ error }, 'Error processing steps');
+    }
+  }, config.worker.pollIntervalMs);
 
-  // Create both workers
-  const llmWorker = new LLMWorkerService(
-    config.worker.batchSize,
-    config.worker.pollIntervalMs,
-    config.worker.claimTimeoutMs,
-    config.worker.instanceId,
-    txManager,
-    jobService,
-  );
-
-  const documentUpdateWorker = new DocumentUpdateWorkerService(
-    config.worker.batchSize,
-    config.worker.pollIntervalMs,
-    config.worker.claimTimeoutMs,
-    config.worker.instanceId,
-    txManager,
-    actionService,
-  );
-
-  // Start both workers concurrently
-  logger.info('Starting workers');
-  llmWorker.start(),
-  documentUpdateWorker.start(),
-
-  // Cleanup on exit
-  process.on('exit', async () => {
+  // Graceful shutdown
+  const shutdown = async () => {
     logger.info('Shutting down...');
+    
+    // Stop step processor
+    logger.info('Stopping step processor...');
+    clearInterval(stepProcessorInterval);
+    
+    // Close database connection
     await database.close();
-  });
+    logger.info('Shutdown complete');
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 // Run the application

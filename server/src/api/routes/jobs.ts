@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { body } from 'express-validator';
+import { body, param } from 'express-validator';
 import pino from 'pino';
 import { TransactionManager } from '../../infrastructure/TransactionManager';
 import { validateRequest } from '../middleware/validation';
@@ -9,6 +9,7 @@ import { JobType } from '../../domain/enums/JobType';
 interface JobSubmission {
   documentId: string;
   jobTypes: JobType[];
+  requiresApproval?: boolean;
 }
 
 interface BatchJobRequest {
@@ -48,6 +49,10 @@ export function createJobsRouter(txManager: TransactionManager, logger: pino.Log
       body('documents.*.jobTypes.*')
         .isIn(Object.values(JobType))
         .withMessage(`jobType must be one of: ${Object.values(JobType).join(', ')}`),
+      body('documents.*.requiresApproval')
+        .optional()
+        .isBoolean()
+        .withMessage('requiresApproval must be a boolean'),
     ],
     validateRequest,
     async (req: Request, res: Response, next: NextFunction) => {
@@ -55,18 +60,35 @@ export function createJobsRouter(txManager: TransactionManager, logger: pino.Log
         const { documents } = req.body as BatchJobRequest;
         
         const result = await txManager.execute(async (repos) => {
-          const llmQueue = repos.getLLMWorkQueue();
-          const createdJobs: { documentId: string; jobType: JobType; workItemId: string }[] = [];
+          const jobRepo = repos.getJobs();
+          const stepRepo = repos.getSteps();
+          const createdJobs: { documentId: string; jobType: JobType; jobId: string; firstStepId: string }[] = [];
 
-          // TODO: this can be done more efficiently in one insert operation...
+          // Create jobs and initial steps
           for (const doc of documents) {
             logger.debug({ msg: "Processing doc ", 'doc': doc })
             for (const jobType of doc.jobTypes) {
-              const workItem = await llmQueue.insert(doc.documentId, jobType);
+              // Create job with initial state and data
+              const job = await jobRepo.create(
+                doc.documentId,
+                jobType,
+                {
+                  requiresApproval: doc.requiresApproval ?? false,
+                },
+              );
+              
+              // Create first step (LLM_GENERATE_TITLE)
+              const firstStep = await stepRepo.create(
+                job.id,
+                'LLM_GENERATE_TITLE' as any, // StepType enum
+                {},
+              );
+              
               createdJobs.push({
                 documentId: doc.documentId,
                 jobType,
-                workItemId: workItem.id,
+                jobId: job.id,
+                firstStepId: firstStep.id,
               });
             }
           }
@@ -88,6 +110,86 @@ export function createJobsRouter(txManager: TransactionManager, logger: pino.Log
         });
       } catch (error) {
         logger.error({ error }, 'Failed to submit jobs');
+        next(error);
+      }
+    },
+  );
+
+  /**
+   * GET /api/jobs/:id
+   * Get job status and workflow progress
+   */
+  router.get(
+    '/:id',
+    [param('id').isString().notEmpty().withMessage('id must be a non-empty string')],
+    validateRequest,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const jobId = req.params.id;
+
+        const status = await txManager.execute(async (repos) => {
+          // Get the main job from jobs table (source of truth)
+          const job = await repos.getJobs().getById(jobId);
+          
+          if (!job) {
+            throw new ApiError(404, 'Job not found');
+          }
+
+          // Optionally get detailed info from queue tables for context
+          const llmWorkItem = await repos.getLLMWorkQueue().getByJobId(jobId);
+          
+          let approvalStatus = null;
+          if (job.requiresApproval() && job.state === 'pending_approval') {
+            const approval = await repos.getApprovalQueue().getByJobId(jobId);
+            
+            if (approval) {
+              approvalStatus = {
+                id: approval.id,
+                status: approval.status,
+                createdAt: approval.createdAt,
+                reviewedAt: approval.reviewedAt,
+                reviewedBy: approval.reviewedBy,
+                rejectionReason: approval.rejectionReason,
+              };
+            }
+          }
+
+          // Get document update queue entries for this job
+          const updateItems = await repos.getDocumentUpdateQueue().getByJobId(jobId);
+          
+          return {
+            job: {
+              id: job.id,
+              documentId: job.documentId,
+              jobType: job.jobType,
+              status: job.state, // Overall status from jobs table
+              requiresApproval: job.requiresApproval,
+              errorMessage: job.errorMessage,
+              createdAt: job.createdAt,
+              updatedAt: job.updatedAt,
+            },
+            llmProcessing: llmWorkItem ? {
+              id: llmWorkItem.id,
+              status: llmWorkItem.status,
+              retryCount: llmWorkItem.retryCount,
+              claimedBy: llmWorkItem.claimedBy,
+              claimedAt: llmWorkItem.claimedAt,
+            } : null,
+            approval: approvalStatus,
+            documentUpdate: updateItems.length > 0 ? {
+              id: updateItems[0].id,
+              status: updateItems[0].status,
+              actionType: updateItems[0].actionType,
+              retryCount: updateItems[0].retryCount,
+              createdAt: updateItems[0].createdAt,
+              updatedAt: updateItems[0].updatedAt,
+            } : null,
+          };
+        });
+
+        res.json(status);
+      } catch (error) {
+        logger.error({ error, id: req.params.id }, 'Failed to get job status');
         next(error);
       }
     },

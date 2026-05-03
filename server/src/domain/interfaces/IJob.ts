@@ -1,7 +1,7 @@
 import { IDocument } from './IDocument';
 import { ILLMService } from './ILLMService';
 import { Prompt } from '../entities/Prompt';
-import { Action } from '../actions/Action';
+import { DocumentAction } from '../actions/DocumentAction';
 
 export interface IJob {
   /**
@@ -15,5 +15,5 @@ export interface IJob {
     document: IDocument,
     llmService: ILLMService,
     prompt: Prompt,
-  ): Promise<Action>;
+  ): Promise<DocumentAction>;
 }

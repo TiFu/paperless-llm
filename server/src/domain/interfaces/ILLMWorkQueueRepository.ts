@@ -22,11 +22,13 @@ export interface ILLMWorkQueueRepository {
 
   /**
    * Insert a new work item into the queue
+   * @param jobId Job ID for tracking
    * @param documentId Document ID to process
    * @param jobType Type of job to perform
+   * @param requiresApproval Whether the job requires manual approval
    * @returns Created work item
    */
-  insert(documentId: string, jobType: JobType): Promise<WorkItem>;
+  insert(jobId: string, documentId: string, jobType: JobType, requiresApproval?: boolean): Promise<WorkItem>;
 
   /**
    * Mark a work item as completed
@@ -47,6 +49,13 @@ export interface ILLMWorkQueueRepository {
    * @returns Work item or null if not found
    */
   getById(id: string): Promise<WorkItem | null>;
+
+  /**
+   * Get a work item by job ID
+   * @param jobId Job ID
+   * @returns Work item or null if not found
+   */
+  getByJobId(jobId: string): Promise<WorkItem | null>;
 
   /**
    * List work items with cursor-based pagination
