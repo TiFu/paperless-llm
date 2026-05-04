@@ -1,8 +1,8 @@
 import { Pool, PoolClient } from 'pg';
-import { IStepRepository } from '../../domain/interfaces/IStepRepository';
+import { IStepRepository } from '../../domain/steps/IStepRepository';
 import { Step } from '../../domain/entities/Step';
-import { StepType } from '../../domain/enums/StepType';
-import { StepStatus } from '../../domain/enums/StepStatus';
+import { StepType } from '../../domain/steps/StepType';
+import { StepStatus } from '../../domain/steps/StepStatus';
 
 export class PostgreSQLStepRepository implements IStepRepository {
   constructor(private readonly client: Pool | PoolClient) {}

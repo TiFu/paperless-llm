@@ -1,6 +1,6 @@
 import { Pool, PoolClient } from 'pg';
-import { IApprovalQueueRepository, ApprovalQueueItem } from '../../domain/interfaces/IApprovalQueueRepository';
-import { ActionType } from '../../domain/enums/ActionType';
+import { IApprovalQueueRepository, ApprovalQueueItem } from '../../domain/steps/queues/IApprovalQueueRepository';
+import { ActionType } from '../../domain/actions/ActionType';
 
 export class PostgreSQLApprovalQueueRepository implements IApprovalQueueRepository {
   constructor(

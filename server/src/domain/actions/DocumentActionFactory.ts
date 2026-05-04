@@ -1,6 +1,6 @@
 import { DocumentAction } from './DocumentAction';
 import { TitleUpdateAction } from './TitleUpdateAction';
-import { DocumentActionType } from '../enums/ActionType';
+import { DocumentActionType } from './ActionType';
 import { WorkItemStatus } from '../enums/WorkItemStatus';
 
 /**

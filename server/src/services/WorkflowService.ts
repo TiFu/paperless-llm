@@ -1,6 +1,6 @@
 import { Job } from '../domain/entities/Job';
-import { JobState } from '../domain/enums/JobState';
-import { Transition } from '../domain/enums/Transition';
+import { JobState } from '../domain/entities/JobState';
+import { Transition } from '../domain/workflows/Transition';
 import { WorkflowFactory } from '../domain/workflows/WorkflowFactory';
 import { TransactionManager } from '../infrastructure/TransactionManager';
 import { RepositoryRegistry } from '../infrastructure/RepositoryRegistry';

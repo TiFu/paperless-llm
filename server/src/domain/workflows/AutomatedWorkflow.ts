@@ -1,16 +1,16 @@
 import { Job } from '../entities/Job';
-import { JobState } from '../enums/JobState';
-import { Transition } from '../enums/Transition';
-import { TransitionMap, createTransitionMap } from '../types/TransitionMap';
-import { BaseWorkflow, StepWithPayload } from './BaseWorkflow';
-import { IStep } from '../interfaces/IStep';
+import { Transition } from './Transition';
+import { TransitionMap, createTransitionMap } from './TransitionMap';
+import { BaseWorkflow } from './BaseWorkflow';
 import { StepFactory, LLMGenerateTitleStepDependencies, UpdateDocumentStepDependencies } from '../steps/StepFactory';
+import { JobState } from '../job/JobState';
+import { IStep, StepStatus, StepType } from '../steps/IStep';
 
 /**
  * AutomatedWorkflow - workflow without approval steps
  * Direct path: PENDING → LLM_PROCESSING → UPDATING_DOCUMENT → COMPLETED
  */
-export abstract class AutomatedWorkflow extends BaseWorkflow {
+export class AutomatedWorkflow extends BaseWorkflow {
   constructor(
     protected readonly llmDeps: LLMGenerateTitleStepDependencies,
     protected readonly updateDeps: UpdateDocumentStepDependencies,
@@ -43,17 +43,16 @@ export abstract class AutomatedWorkflow extends BaseWorkflow {
    * Maps states to their corresponding step instances
    * Subclasses can override this for custom step logic
    */
-  protected getStepForState(state: JobState, job: Job): StepWithPayload | null {
+  protected getStepForState(state: JobState, job: Job): IStep | null {
     switch (state) {
       case JobState.PENDING:
-        return this.getInitialStep(job);
+        return null; //this.getInitialStep(job);
 
       case JobState.LLM_PROCESSING:
-        return this.getUpdateDocumentStep(job);
+        return StepFactory.newLLMGenerateTitleStep(job.id)
 
       case JobState.UPDATING_DOCUMENT:
-        // Transitioning to COMPLETED - no step needed
-        return null;
+        return StepFactory.newUpdateDocumentStep(job.id)
 
       case JobState.COMPLETED:
       case JobState.FAILED:
@@ -64,27 +63,5 @@ export abstract class AutomatedWorkflow extends BaseWorkflow {
         console.warn(`Unknown job state: ${state}`);
         return null;
     }
-  }
-
-  /**
-   * Get the initial step for the workflow
-   * Default: LLM_GENERATE_TITLE, but subclasses can override
-   */
-  protected getInitialStep(job: Job): StepWithPayload {
-    return {
-      step: StepFactory.createLLMGenerateTitleStep(this.llmDeps),
-      payload: {},
-    };
-  }
-
-  /**
-   * Get the document update step
-   * Subclasses can override for custom logic and payload
-   */
-  protected getUpdateDocumentStep(job: Job): StepWithPayload {
-    return {
-      step: StepFactory.createUpdateDocumentStep(this.updateDeps),
-      payload: {},
-    };
   }
 }

@@ -1,7 +1,7 @@
 import { Pool, PoolClient } from 'pg';
-import { IPromptsRepository } from '../../domain/interfaces/IPromptsRepository';
+import { IPromptsRepository } from '../../domain/prompt/IPromptsRepository';
 import { Prompt } from '../../domain/entities/Prompt';
-import { JobType } from '../../domain/enums/JobType';
+import { WorkflowType } from '../../domain/workflows/WorkflowType';
 
 export class PostgreSQLPromptsRepository implements IPromptsRepository {
   constructor(
@@ -13,7 +13,7 @@ export class PostgreSQLPromptsRepository implements IPromptsRepository {
     return this.client || this.pool;
   }
 
-  async getByJobType(jobType: JobType): Promise<Prompt | null> {
+  async getByJobType(jobType: WorkflowType): Promise<Prompt | null> {
     const query = `SELECT * FROM prompts WHERE job_type = $1`;
     const result = await this.getClient().query(query, [jobType]);
 
@@ -31,7 +31,7 @@ export class PostgreSQLPromptsRepository implements IPromptsRepository {
     return result.rows.map((row) => Prompt.fromDb(row));
   }
 
-  async upsert(jobType: JobType, template: string): Promise<Prompt> {
+  async upsert(jobType: WorkflowType, template: string): Promise<Prompt> {
     const query = `
       INSERT INTO prompts (job_type, template, version)
       VALUES ($1, $2, 1)

@@ -1,8 +1,8 @@
 import { Pool, PoolClient } from 'pg';
-import { IJobRepository } from '../../domain/interfaces/IJobRepository';
+import { IJobRepository } from '../../domain/job/IJobRepository';
 import { Job } from '../../domain/entities/Job';
-import { JobType } from '../../domain/enums/JobType';
-import { JobState } from '../../domain/enums/JobState';
+import { WorkflowType } from '../../domain/workflows/WorkflowType';
+import { JobState } from '../../domain/entities/JobState';
 
 export class PostgreSQLJobRepository implements IJobRepository {
   constructor(
@@ -16,7 +16,7 @@ export class PostgreSQLJobRepository implements IJobRepository {
 
   async create(
     documentId: string,
-    jobType: JobType,
+    jobType: WorkflowType,
     data: Record<string, unknown>,
   ): Promise<Job> {
     const query = `

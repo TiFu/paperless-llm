@@ -1,8 +1,8 @@
 import { TransactionManager } from '../infrastructure/TransactionManager';
 import { StepFactory } from '../domain/steps/StepFactory';
-import { UserInteractionStep } from '../domain/steps/UserInteractionStep';
+import { UserInteractionStep } from '../domain/steps/userinteraction/UserInteractionStep';
 import { WorkflowService } from './WorkflowService';
-import { Transition } from '../domain/enums/Transition';
+import { Transition } from '../domain/workflows/Transition';
 import { getLogger } from '../utils/logger';
 
 const logger = getLogger();

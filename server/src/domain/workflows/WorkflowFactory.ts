@@ -1,7 +1,9 @@
-import { IWorkflow } from '../interfaces/IWorkflow';
-import { JobType } from '../enums/JobType';
+import { IWorkflow } from './IWorkflow';
+import { WorkflowType } from './WorkflowType';
 import { TitleWorkflow } from './TitleWorkflow';
 import { LLMGenerateTitleStepDependencies, UpdateDocumentStepDependencies } from '../steps/StepFactory';
+import { ApprovalWorkflow } from './ApprovalWorkflow';
+import { AutomatedWorkflow } from './AutomatedWorkflow';
 
 /**
  * Factory for creating workflow instances with dependencies
@@ -12,11 +14,12 @@ export class WorkflowFactory {
     private readonly updateDeps: UpdateDocumentStepDependencies,
   ) {}
 
-  create(jobType: JobType): IWorkflow {
+  create(jobType: WorkflowType): IWorkflow {
     switch (jobType) {
-      case JobType.TITLE:
-        return new TitleWorkflow(this.llmDeps, this.updateDeps);
-
+      case WorkflowType.APPROVAL:
+        return new ApprovalWorkflow(this.llmDeps, this.updateDeps);
+      case WorkflowType.AUTOMATED:
+        return new AutomatedWorkflow(this.llmDeps, this.updateDeps)
       default:
         throw new Error(`No workflow defined for job type: ${jobType}`);
     }

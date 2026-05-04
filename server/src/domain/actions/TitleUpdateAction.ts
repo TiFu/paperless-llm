@@ -1,9 +1,6 @@
 import { DocumentAction } from './DocumentAction';
-import { DocumentActionType } from '../enums/ActionType';
-import { JobType } from '../enums/JobType';
-import { WorkItemStatus } from '../enums/WorkItemStatus';
-import { IDocumentManagementSystem } from '../interfaces/IDocumentManagementSystem';
-import { IDocument } from '../interfaces';
+import { DocumentActionType } from './ActionType';
+import { IDocument } from '../document/IDocument';
 
 /**
  * Action to update a document's title
@@ -40,7 +37,9 @@ export class TitleUpdateAction extends DocumentAction {
     );
   }
 
-  apply(dms: IDocument): void {
-    dms.title = this.newValue
+  apply(dms: IDocument): Partial<IDocument> {
+    return {
+      title: this.newValue
+    }
   }
 }

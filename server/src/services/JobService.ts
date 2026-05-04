@@ -1,5 +1,5 @@
 import { Job } from '../domain/entities/Job';
-import { JobType } from '../domain/enums/JobType';
+import { WorkflowType } from '../domain/workflows/WorkflowType';
 import { RepositoryRegistry } from '../infrastructure/RepositoryRegistry';
 import { getLogger } from '../utils/logger';
 
@@ -20,7 +20,7 @@ export class JobService {
    */
   async create(
     documentId: string,
-    jobType: JobType,
+    jobType: WorkflowType,
     data: Record<string, unknown> = {},
   ): Promise<Job> {
     logger.info({ documentId, jobType, data }, 'Creating new job');

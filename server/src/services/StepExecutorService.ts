@@ -1,11 +1,11 @@
 import pino from 'pino';
 import { TransactionManager } from '../infrastructure/TransactionManager';
-import { IDocumentManagementSystem } from '../domain/interfaces/IDocumentManagementSystem';
+import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem';
 import { OllamaService } from './OllamaService';
 import { StepFactory } from '../domain/steps/StepFactory';
 import { WorkflowFactory } from '../domain/workflows/WorkflowFactory';
-import { IStep, StepExecutionContext } from '../domain/interfaces/IStep';
-import { WorkflowActionType } from '../domain/enums/WorkflowActionType';
+import { IStep, StepExecutionContext } from '../domain/steps/IStep';
+import { WorkflowActionType } from '../domain/workflows/WorkflowActionType';
 import { createChildLogger } from '../utils/logger';
 
 /**

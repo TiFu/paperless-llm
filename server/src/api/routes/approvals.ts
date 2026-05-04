@@ -4,7 +4,7 @@ import pino from 'pino';
 import { TransactionManager } from '../../infrastructure/TransactionManager';
 import { validateRequest } from '../middleware/validation';
 import { ApiError } from '../middleware/errorHandler';
-import { JobStatus } from '../../domain/enums/JobStatus';
+import { JobStatus } from '../../domain/entities/JobStatus';
 
 export function createApprovalsRouter(
   txManager: TransactionManager,

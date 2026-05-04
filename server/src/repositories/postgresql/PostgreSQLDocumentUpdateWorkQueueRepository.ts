@@ -1,6 +1,6 @@
 import { Pool, PoolClient } from 'pg';
-import { IDocumentUpdateWorkQueueRepository } from '../../domain/interfaces/IDocumentUpdateWorkQueueRepository';
-import { ActionType } from '../../domain/enums/ActionType';
+import { IDocumentUpdateWorkQueueRepository } from '../../domain/steps/queues/IDocumentUpdateWorkQueueRepository';
+import { ActionType } from '../../domain/actions/ActionType';
 import { WorkItemStatus } from '../../domain/enums/WorkItemStatus';
 import { ActionItem } from '../../domain/entities/ActionItem';
 

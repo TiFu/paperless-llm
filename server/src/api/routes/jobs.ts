@@ -4,11 +4,11 @@ import pino from 'pino';
 import { TransactionManager } from '../../infrastructure/TransactionManager';
 import { validateRequest } from '../middleware/validation';
 import { ApiError } from '../middleware/errorHandler';
-import { JobType } from '../../domain/enums/JobType';
+import { WorkflowType } from '../../domain/workflows/WorkflowType';
 
 interface JobSubmission {
   documentId: string;
-  jobTypes: JobType[];
+  jobTypes: WorkflowType[];
   requiresApproval?: boolean;
 }
 
@@ -25,7 +25,7 @@ export function createJobsRouter(txManager: TransactionManager, logger: pino.Log
    */
   router.get('/types', (_req: Request, res: Response) => {
     res.json({
-      jobTypes: Object.values(JobType),
+      jobTypes: Object.values(WorkflowType),
     });
   });
 
@@ -47,8 +47,8 @@ export function createJobsRouter(txManager: TransactionManager, logger: pino.Log
         .isArray({ min: 1 })
         .withMessage('jobTypes must be a non-empty array'),
       body('documents.*.jobTypes.*')
-        .isIn(Object.values(JobType))
-        .withMessage(`jobType must be one of: ${Object.values(JobType).join(', ')}`),
+        .isIn(Object.values(WorkflowType))
+        .withMessage(`jobType must be one of: ${Object.values(WorkflowType).join(', ')}`),
       body('documents.*.requiresApproval')
         .optional()
         .isBoolean()
@@ -62,7 +62,7 @@ export function createJobsRouter(txManager: TransactionManager, logger: pino.Log
         const result = await txManager.execute(async (repos) => {
           const jobRepo = repos.getJobs();
           const stepRepo = repos.getSteps();
-          const createdJobs: { documentId: string; jobType: JobType; jobId: string; firstStepId: string }[] = [];
+          const createdJobs: { documentId: string; jobType: WorkflowType; jobId: string; firstStepId: string }[] = [];
 
           // Create jobs and initial steps
           for (const doc of documents) {

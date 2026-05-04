@@ -1,17 +1,9 @@
 import { Job } from '../entities/Job';
-import { JobState } from '../enums/JobState';
-import { Transition } from '../enums/Transition';
-import { TransitionMap } from '../types/TransitionMap';
-import { IWorkflow } from '../interfaces/IWorkflow';
-import { IStep } from '../interfaces/IStep';
-
-/**
- * Step instance with associated payload data
- */
-export interface StepWithPayload {
-  step: IStep;
-  payload: Record<string, unknown>;
-}
+import { Transition } from './Transition';
+import { TransitionMap } from './TransitionMap';
+import { IWorkflow } from './IWorkflow';
+import { IStep } from '../steps/IStep';
+import { JobState } from '../job/JobState';
 
 /**
  * Result of getNextStep including the step instance, next state, and payload
@@ -19,7 +11,6 @@ export interface StepWithPayload {
 export interface NextStepResult {
   step: IStep;
   nextState: JobState;
-  stepPayload: Record<string, unknown>; // Data to pass to step via context
 }
 
 /**
@@ -49,7 +40,7 @@ export abstract class BaseWorkflow implements IWorkflow {
   protected abstract getStepForState(
     state: JobState,
     job: Job,
-  ): StepWithPayload | null;
+  ): IStep | null;
 
   /**
    * Get the next step and state based on current job and transition
@@ -88,16 +79,15 @@ export abstract class BaseWorkflow implements IWorkflow {
     }
 
     // Get step and payload for next state
-    const stepWithPayload = this.getStepForState(nextState, job);
-    if (!stepWithPayload) {
+    const step = this.getStepForState(nextState, job);
+    if (!step) {
       // State has no associated step - workflow is complete
       return null;
     }
 
     return {
-      step: stepWithPayload.step,
-      nextState,
-      stepPayload: stepWithPayload.payload,
+      step: step,
+      nextState
     };
   }
 

@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { ILLMService } from '../domain/interfaces/ILLMService';
+import { ILLMService } from '../domain/llm/ILLMService';
 import { LLMConfig } from '../config/AppConfig';
 
 export interface OllamaChatRequest {

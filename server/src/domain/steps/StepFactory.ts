@@ -1,10 +1,10 @@
-import { IStep } from '../interfaces/IStep';
-import { StepType } from '../enums/StepType';
-import { LLMGenerateTitleStep } from './LLMGenerateTitleStep';
-import { UpdateDocumentStep } from './UpdateDocumentStep';
-import { IDocumentManagementSystem } from '../interfaces/IDocumentManagementSystem';
+import { IStep, StepStatus, StepType } from './IStep';
+import { LLMGenerateTitleStep } from './automated/LLMGenerateTitleStep';
+import { UpdateDocumentStep } from './automated/UpdateDocumentStep';
+import { IDocumentManagementSystem } from '../document/IDocumentManagementSystem';
 import { OllamaService } from '../../services/OllamaService';
-import { IPromptsRepository } from '../interfaces/IPromptsRepository';
+import { IPromptsRepository } from '../prompt/IPromptsRepository';
+import { ApprovalInteractionStep } from './userinteraction/UserInteractionStep';
 
 /**
  * Type-safe dependency interfaces for each step type
@@ -24,43 +24,46 @@ export interface UpdateDocumentStepDependencies {
  */
 export class StepFactory {
   /**
-   * Create LLM Generate Title step
-   */
-  static createLLMGenerateTitleStep(deps: LLMGenerateTitleStepDependencies): LLMGenerateTitleStep {
-    return new LLMGenerateTitleStep(deps.dmsService, deps.ollamaService, deps.promptsRepo);
-  }
-
-  /**
-   * Create Update Document step
-   */
-  static createUpdateDocumentStep(deps: UpdateDocumentStepDependencies): UpdateDocumentStep {
-    return new UpdateDocumentStep(deps.dmsService);
-  }
-
-  /**
    * Generic create method that routes to specific factory methods
    * Used by StepExecutorService
    */
   static create(
-    type: StepType,
-    dependencies: LLMGenerateTitleStepDependencies | UpdateDocumentStepDependencies,
-  ): IStep {
+    stepId: string | null,
+    jobId: string,
+    type: StepType, stepState: StepStatus): IStep {
     switch (type) {
       case StepType.LLM_GENERATE_TITLE:
-        return this.createLLMGenerateTitleStep(
-          dependencies as LLMGenerateTitleStepDependencies,
-        );
+        return new LLMGenerateTitleStep(stepId, jobId, stepState);
 
       case StepType.REQUIRE_APPROVAL:
-        return this.createRequireApprovalStep();
+        return new ApprovalInteractionStep(stepId, jobId, stepState);
 
       case StepType.UPDATE_DOCUMENT:
-        return this.createUpdateDocumentStep(
-          dependencies as UpdateDocumentStepDependencies,
-        );
+        return new UpdateDocumentStep(stepId, jobId, stepState);
 
       default:
         throw new Error(`Unknown step type: ${type}`);
     }
+  }
+
+  /**
+   * Shorthand: Create a new LLM Generate Title step (not yet persisted)
+   */
+  static newLLMGenerateTitleStep(jobId: string): IStep {
+    return new LLMGenerateTitleStep(null, jobId, StepStatus.WAITING);
+  }
+
+  /**
+   * Shorthand: Create a new Require Approval step (not yet persisted)
+   */
+  static newRequireApprovalStep(jobId: string): IStep {
+    return new ApprovalInteractionStep(null, jobId, StepStatus.WAITING);
+  }
+
+  /**
+   * Shorthand: Create a new Update Document step (not yet persisted)
+   */
+  static newUpdateDocumentStep(jobId: string): IStep {
+    return new UpdateDocumentStep(null, jobId, StepStatus.WAITING);
   }
 }

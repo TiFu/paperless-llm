@@ -7,13 +7,13 @@ import { PostgreSQLApprovalQueueRepository } from '../repositories/postgresql/Po
 import { PostgreSQLJobRepository } from '../repositories/postgresql/PostgreSQLJobRepository';
 import { PostgreSQLStepRepository } from '../repositories/postgresql/PostgreSQLStepRepository';
 import { PostgreSQLActionLogRepository } from '../repositories/postgresql/PostgreSQLActionLogRepository';
-import { ILLMWorkQueueRepository } from '../domain/interfaces/ILLMWorkQueueRepository';
-import { IDocumentUpdateWorkQueueRepository } from '../domain/interfaces/IDocumentUpdateWorkQueueRepository';
-import { IPromptsRepository } from '../domain/interfaces/IPromptsRepository';
-import { IAuditLogRepository } from '../domain/interfaces/IAuditLogRepository';
-import { IApprovalQueueRepository } from '../domain/interfaces/IApprovalQueueRepository';
-import { IJobRepository } from '../domain/interfaces/IJobRepository';
-import { IStepRepository } from '../domain/interfaces/IStepRepository';
+import { ILLMWorkQueueRepository } from '../domain/llm/ILLMWorkQueueRepository';
+import { IDocumentUpdateWorkQueueRepository } from '../domain/steps/queues/IDocumentUpdateWorkQueueRepository';
+import { IPromptsRepository } from '../domain/prompt/IPromptsRepository';
+import { IAuditLogRepository } from '../domain/audit/IAuditLogRepository';
+import { IApprovalQueueRepository } from '../domain/steps/queues/IApprovalQueueRepository';
+import { IJobRepository } from '../domain/job/IJobRepository';
+import { IStepRepository } from '../domain/steps/IStepRepository';
 import { IActionLogRepository } from '../domain/interfaces/IActionLogRepository';
 
 /**

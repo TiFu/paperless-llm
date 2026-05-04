@@ -1,9 +1,9 @@
 import { TransactionManager } from '../infrastructure/TransactionManager';
-import { IDocumentManagementSystem } from '../domain/interfaces/IDocumentManagementSystem';
+import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem';
 import { DocumentAction } from '../domain/actions/DocumentAction';
 import { DocumentActionFactory } from '../domain/actions/DocumentActionFactory';
 import { AuditStatus } from '../domain/entities/AuditEntry';
-import { JobStatus } from '../domain/enums/JobStatus';
+import { JobStatus } from '../domain/entities/JobStatus';
 import { createChildLogger } from '../utils/logger';
 import pino from 'pino';
 

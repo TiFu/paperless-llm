@@ -1,8 +1,8 @@
 import { Pool, PoolClient } from 'pg';
-import { IAuditLogRepository } from '../../domain/interfaces/IAuditLogRepository';
+import { IAuditLogRepository } from '../../domain/audit/IAuditLogRepository';
 import { AuditEntry, AuditStatus } from '../../domain/entities/AuditEntry';
-import { JobType } from '../../domain/enums/JobType';
-import { ActionType } from '../../domain/enums/ActionType';
+import { WorkflowType } from '../../domain/workflows/WorkflowType';
+import { ActionType } from '../../domain/actions/ActionType';
 
 export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
   constructor(
@@ -17,7 +17,7 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
   async insert(
     documentId: string,
     documentSystem: string,
-    jobType: JobType,
+    jobType: WorkflowType,
     actionType: ActionType,
     beforeValue: string | null,
     afterValue: string,

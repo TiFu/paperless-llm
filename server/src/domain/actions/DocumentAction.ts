@@ -1,8 +1,5 @@
-import { DocumentActionType } from '../enums/ActionType';
-import { WorkItemStatus } from '../enums/WorkItemStatus';
-import { JobType } from '../enums/JobType';
-import { IDocumentManagementSystem } from '../interfaces/IDocumentManagementSystem';
-import { IDocument } from '../interfaces';
+import { DocumentActionType } from './ActionType';
+import { IDocument } from '../document/IDocument';
 
 /**
  * Abstract base class for all actions
@@ -21,5 +18,5 @@ export abstract class DocumentAction {
    * Execute the action against the document management system
    * @param dms The document management system to update
    */
-  abstract apply(dms: IDocument): void;
+  abstract apply(dms: IDocument): Partial<IDocument>;
 }

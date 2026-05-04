@@ -1,7 +1,7 @@
 import { Pool, PoolClient } from 'pg';
-import { ILLMWorkQueueRepository } from '../../domain/interfaces/ILLMWorkQueueRepository';
+import { ILLMWorkQueueRepository } from '../../domain/llm/ILLMWorkQueueRepository';
 import { WorkItem } from '../../domain/entities/WorkItem';
-import { JobType } from '../../domain/enums/JobType';
+import { WorkflowType } from '../../domain/workflows/WorkflowType';
 import { WorkItemStatus } from '../../domain/enums/WorkItemStatus';
 
 export class PostgreSQLLLMWorkQueueRepository implements ILLMWorkQueueRepository {
@@ -54,7 +54,7 @@ export class PostgreSQLLLMWorkQueueRepository implements ILLMWorkQueueRepository
     return result.rows.map((row) => WorkItem.fromDb(row));
   }
 
-  async insert(jobId: string, documentId: string, jobType: JobType, requiresApproval: boolean = false): Promise<WorkItem> {
+  async insert(jobId: string, documentId: string, jobType: WorkflowType, requiresApproval: boolean = false): Promise<WorkItem> {
     const query = `
       INSERT INTO llm_work_queue (job_id, document_id, job_type, status, retry_count, requires_approval)
       VALUES ($1, $2, $3, $4, 0, $5)
