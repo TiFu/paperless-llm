@@ -79,11 +79,6 @@ export interface IStepRepository {
   countPendingUserInteractionSteps(): Promise<number>;
 
   /**
-   * Get overall step statistics (all step types including REQUIRE_APPROVAL)
-   */
-  getOverallStepStatistics(): Promise<AutomatedStepStatistics>;
-
-  /**
    * List automated steps with job information for queue display
    * @param limit Maximum number of items to return
    * @param cursor Optional cursor for pagination (step ID)
@@ -105,6 +100,14 @@ export interface IStepRepository {
   getStuckInProgressSteps(olderThanMs: number, limit?: number): Promise<IStep[]>;
 
   /**
+   * Get steps in RETRYING status that are ready for retry (retry_after <= now)
+   * @param now Current time - steps with retry_after <= this are ready for retry
+   * @param limit Maximum number of steps to return
+   * @returns Array of automated steps ready for retry
+   */
+  getPendingRetries(now: Date, limit: number): Promise<AutomatedStep[]>;
+
+  /**
    * Reset a step back to WAITING status for retry
    * Increments retry_count and clears started_at timestamp
    * @param stepId ID of the step to reset
@@ -121,7 +124,7 @@ export interface IStepRepository {
   /**
    * Get steps by job ID with timestamp information for API display
    * @param jobId Job ID
-   * @returns Array of step data with timestamps
+   * @returns Array of step data with timestamps and retry information
    */
   getStepsByJobIdWithTimestamps(jobId: string): Promise<Array<{
     stepId: string;
@@ -130,5 +133,7 @@ export interface IStepRepository {
     createdAt: Date;
     startedAt: Date | null;
     completedAt: Date | null;
+    retryCount: number;
+    retryAfter: Date | null;
   }>>;
 }

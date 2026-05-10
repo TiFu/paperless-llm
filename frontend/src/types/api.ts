@@ -61,6 +61,8 @@ export enum WorkItemStatus {
   PROCESSING = 'processing',
   COMPLETED = 'completed',
   FAILED = 'failed',
+  RETRYING = 'retrying',
+  IN_FALLOUT = 'in_fallout',
 }
 
 export interface PaginationCursor {
@@ -112,6 +114,8 @@ export enum StepStatus {
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   FAILED = 'failed',
+  RETRYING = 'retrying',
+  IN_FALLOUT = 'in_fallout',
 }
 
 export interface DocumentAction {
@@ -141,6 +145,8 @@ export interface JobStep {
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
+  retryCount: number;
+  retryAfter: string | null;
 }
 
 export interface JobListResponse {
@@ -152,12 +158,14 @@ export interface JobStepsResponse {
   steps: JobStep[];
 }
 
-export interface JobStepStats {
-  totalSteps: number;
-  waitingSteps: number;
-  inProgressSteps: number;
-  completedSteps: number;
-  failedSteps: number;
+export interface JobStats {
+  pending: number;
+  llmProcessing: number;
+  pendingApproval: number;
+  updatingDocument: number;
+  completed: number;
+  failed: number;
+  rejected: number;
 }
 
 // Approval Types

@@ -13,9 +13,13 @@ import { WorkflowType } from '../../workflows/WorkflowType.js';
  */
 export class LLMGenerateTitleStep extends AutomatedStep {
   constructor(
-    stepId: string | null, jobId: string, stepState: StepStatus, retryCount: number = 0
+    stepId: string | null, 
+    jobId: string, 
+    stepState: StepStatus, 
+    retryCount: number = 0,
+    retryAfter: Date | null = null
   ) {
-    super(stepId, StepType.LLM_GENERATE_TITLE, jobId, stepState, retryCount);
+    super(stepId, StepType.LLM_GENERATE_TITLE, jobId, stepState, retryCount, retryAfter);
   }
 
   public needsPrompt(): boolean {

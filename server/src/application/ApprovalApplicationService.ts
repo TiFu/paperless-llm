@@ -36,7 +36,14 @@ export interface ApprovalStats {
  * Application service that orchestrates approval processing with transaction management.
  */
 export class ApprovalApplicationService {
-  conGet statistics for pending approvals.
+  constructor(
+    private readonly txManager: TransactionManager,
+    private readonly workflowOrchestratorService: WorkflowOrchestratorService,
+    private readonly paperlessBaseUrl: string,
+  ) {}
+
+  /**
+   * Get statistics for pending approvals.
    * @returns Object with count of pending approvals
    */
   async getApprovalStats(): Promise<ApprovalStats> {
@@ -60,13 +67,6 @@ export class ApprovalApplicationService {
       await context.dispose();
     }
   }
-
-  /**
-   * structor(
-    private readonly txManager: TransactionManager,
-    private readonly workflowOrchestratorService: WorkflowOrchestratorService,
-    private readonly paperlessBaseUrl: string,
-  ) {}
 
   /**
    * List all pending approval items with full context.

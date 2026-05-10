@@ -76,6 +76,15 @@ export interface ApiConfig {
 }
 
 /**
+ * Retry configuration for step execution
+ */
+export interface RetryConfig {
+  readonly maxRetries: number;
+  readonly retryDelayInMs: number;
+  readonly retryExponent: number;
+}
+
+/**
  * Raw config structure from YAML file
  */
 interface RawConfig {
@@ -98,6 +107,11 @@ interface RawConfig {
     port: number;
     corsOrigins: string[];
   };
+  retry?: {
+    maxRetries?: number;
+    retryDelayInMs?: number;
+    retryExponent?: number;
+  };
 }
 
 /**
@@ -111,6 +125,7 @@ export class AppConfig {
   public readonly logging: LoggingConfig;
   public readonly llm: LLMConfig;
   public readonly api: ApiConfig;
+  public readonly retry: RetryConfig;
 
   constructor(configPath?: string) {
     const rawConfig = this.loadConfig(configPath);
@@ -136,6 +151,13 @@ export class AppConfig {
     this.logging = rawConfig.logging;
     this.llm = rawConfig.llm;
     this.api = rawConfig.api;
+
+    // Retry Configuration
+    this.retry = {
+      maxRetries: rawConfig.retry?.maxRetries ?? 3, // Default: 3 retries
+      retryDelayInMs: rawConfig.retry?.retryDelayInMs ?? 30000, // Default: 30 seconds
+      retryExponent: rawConfig.retry?.retryExponent ?? 2, // Default: exponential backoff base 2
+    };
 
     this.validate();
     this.validateLLMConfig();

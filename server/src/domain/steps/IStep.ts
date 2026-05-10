@@ -23,6 +23,8 @@ export enum StepStatus {
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   FAILED = 'failed',
+  RETRYING = 'retrying',
+  IN_FALLOUT = 'in_fallout',
 }
 
 /**
@@ -50,6 +52,12 @@ export interface StepExecutionContext {
   }
 }
 
+export interface RetryConfig {
+  maxRetries: number
+  retryDelayInMs: number
+  retryExponent: number
+}
+
 export abstract class IStep {
 
   constructor(
@@ -57,7 +65,8 @@ export abstract class IStep {
     protected stepType: StepType, 
     protected jobId: string, 
     protected stepState: StepStatus,
-    protected retryCount: number = 0
+    protected retryCount: number = 0,
+    protected retryAfter: Date | null = null
   ) {
   }
 
@@ -67,6 +76,61 @@ export abstract class IStep {
 
   public getRetryCount(): number {
     return this.retryCount;
+  }
+
+  public getRetryAfter(): Date | null {
+    return this.retryAfter;
+  }
+
+  private setRetryAfter(date: Date | null): void {
+    this.retryAfter = date;
+  }
+
+  private incrementRetryCount(): void {
+    this.retryCount += 1;
+  }
+
+  /**
+   * Check if step is eligible for manual retry
+   * @returns true if step is in RETRYING or IN_FALLOUT status
+   */
+  public isEligibleForRetry(): boolean {
+    return this.stepState === StepStatus.RETRYING || this.stepState === StepStatus.IN_FALLOUT;
+  }
+
+  /**
+   * Mark step for automatic retry with exponential backoff
+   * Business logic: increments retry count, sets RETRYING status, schedules next retry
+   * @param retryAfter When the step should be retried
+   */
+  public markExecutionFailed(config: RetryConfig): void {
+    this.incrementRetryCount();
+    if (this.retryCount < config.maxRetries) {
+      this.stepState = StepStatus.RETRYING;
+      const dateInMs = Date.now() + config.retryDelayInMs * Math.pow(config.retryExponent, this.retryCount);
+      this.retryAfter = new Date(dateInMs)
+    } else {
+      this.markInFallout();
+    }
+  }
+
+  /**
+   * Mark step as in fallout (max retries exceeded)
+   * Business logic: sets IN_FALLOUT status, clears retry timer, requires manual intervention
+   */
+  private markInFallout(): void {
+    this.stepState = StepStatus.IN_FALLOUT;
+    this.retryAfter = null;
+  }
+
+  /**
+   * Reset step for manual retry
+   * Business logic: resets retry count to 0, sets WAITING status, clears retry timer
+   */
+  public resetForManualRetry(): void {
+    this.retryCount = 0;
+    this.stepState = StepStatus.WAITING;
+    this.retryAfter = null;
   }
 
   public moveToInProgress() {

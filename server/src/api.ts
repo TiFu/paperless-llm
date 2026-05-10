@@ -59,7 +59,7 @@ async function main(): Promise<void> {
 
   // Initialize Ollama service
   const ollamaService = new OllamaService(config.llm);
-  const ollamaHealthy = await ollamaService.healthCheck();
+  const ollamaHealthy = await ollamaService.checkHealth();
   if (!ollamaHealthy) {
     logger.warn('Ollama health check failed, but continuing...');
   } else {
@@ -72,6 +72,7 @@ async function main(): Promise<void> {
     paperlessService,
     ollamaService,
     config.paperless.url,
+    config.retry,
   );
 
   // Create application services
@@ -102,12 +103,17 @@ async function main(): Promise<void> {
   // Create workflow step processing worker
   const stepProcessorWorker = new WorkerExecutor(
     async () => {
+      // Process new pending steps
       const processed = await stepExecutorService.processPendingSteps(
         config.worker.batchSize,
       );
-      if (processed > 0) {
-        logger.debug({ processed }, 'Processed steps');
-      }
+      logger.debug({ processed }, 'Processed steps');
+
+      // Process retry queue for steps ready to retry
+      const retried = await stepExecutorService.processRetryQueue(
+        config.worker.batchSize,
+      );
+      logger.debug({ retried }, 'Processed retry queue');
     },
     config.worker.pollIntervalMs,
     logger.child({ component: 'StepProcessorWorker' }),
@@ -117,8 +123,8 @@ async function main(): Promise<void> {
   const stuckStepResetWorker = new WorkerExecutor(
     async () => {
       const result = await stuckStepResetService.resetStuckSteps();
-      if (result.reset > 0 || result.failed > 0) {
-        logger.info({ reset: result.reset, failed: result.failed }, 'Reset stuck steps');
+      if (result.reset > 0 || result.fallout > 0) {
+        logger.info({ reset: result.reset, fallout: result.fallout }, 'Reset stuck steps');
       }
     },
     config.worker.stuckStepCheckIntervalMs,

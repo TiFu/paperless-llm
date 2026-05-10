@@ -37,6 +37,14 @@ export class OllamaService implements ILLMService {
     });
   }
 
+  async checkHealth(): Promise<boolean> {
+    try {
+      const response = await this.client.get<any>("/", {});
+      return true;
+    } catch (error) {
+      return false
+    }
+  }
   /**
    * Send a chat request to Ollama
    * @param prompt The prompt to send to the LLM
@@ -69,16 +77,4 @@ export class OllamaService implements ILLMService {
     }
   }
 
-  /**
-   * Check if Ollama service is available
-   * @returns true if the service is reachable
-   */
-  async healthCheck(): Promise<boolean> {
-    try {
-      await this.client.get('/api/tags');
-      return true;
-    } catch {
-      return false;
-    }
-  }
 }

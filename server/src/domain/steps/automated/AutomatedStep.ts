@@ -1,4 +1,4 @@
-import { IStep, StepExecutionContext, StepResult, StepStatus, StepType } from '../IStep.js';
+import { IStep, RetryConfig, StepExecutionContext, StepResult, StepStatus, StepType } from '../IStep.js';
 import { Transition } from '../../workflows/Transition.js';
 
 /**
@@ -7,8 +7,15 @@ import { Transition } from '../../workflows/Transition.js';
  */
 export abstract class AutomatedStep extends IStep {
   
-  public constructor(stepId: string | null, stepType: StepType, jobId: string, stepState: StepStatus, retryCount: number = 0) {
-    super(stepId, stepType, jobId, stepState, retryCount)
+  public constructor(
+    stepId: string | null, 
+    stepType: StepType, 
+    jobId: string, 
+    stepState: StepStatus, 
+    retryCount: number = 0,
+    retryAfter: Date | null = null
+  ) {
+    super(stepId, stepType, jobId, stepState, retryCount, retryAfter)
   }
 
   /**
@@ -24,7 +31,12 @@ export abstract class AutomatedStep extends IStep {
    * Execute the step (implements IStep interface)
    * Wraps doExecute to provide consistent interface
    */
-  async execute(context: StepExecutionContext): Promise<StepResult> {
+  async execute(context: StepExecutionContext, retryConfig: RetryConfig): Promise<StepResult> {
+    // Safety check: prevent execution of steps in RETRYING state
+    if (this.getStepStatus() === StepStatus.RETRYING) {
+      throw new Error(`Cannot execute step ${this.getStepId()} in RETRYING state. Wait for retry timer.`);
+    }
+
     try {
       this.moveToInProgress();
       const result = await this.doExecute(context);
@@ -35,12 +47,12 @@ export abstract class AutomatedStep extends IStep {
       }
       return result;
     } catch (error) {
-      this.moveToFailed();
+      this.markExecutionFailed(retryConfig)
       // On error, return failure transition with no actions
       console.error(`Automated step execution failed:`, error);
       return {
         actions: [],
-        transition: Transition.FAILURE,
+        transition: Transition.NONE,
       };
     }
   }

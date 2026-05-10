@@ -182,4 +182,23 @@ export class PostgreSQLJobRepository implements IJobRepository {
       }),
     );
   }
+
+  async getJobCountsByState(): Promise<{ [state: string]: number }> {
+    const query = `
+      SELECT 
+        state,
+        COUNT(*) as count
+      FROM jobs
+      GROUP BY state
+    `;
+
+    const result = await this.getClient().query(query);
+    const counts: { [state: string]: number } = {};
+    
+    result.rows.forEach((row) => {
+      counts[row.state] = parseInt(row.count, 10);
+    });
+
+    return counts;
+  }
 }

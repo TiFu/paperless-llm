@@ -28,6 +28,14 @@ export class Job {
   }
 
   public advance(transition: Transition): NextStepResult {
+    if (transition == Transition.NONE) {
+      return {
+          step: null,
+          nextState: this.state,
+          isTerminalState: this.isCompleted(),
+      }
+    }
+    
     const result = this.getWorkflow().getNextStep(transition);
     this.state = result.nextState
     this.errorMessage = result.errorMessage

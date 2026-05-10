@@ -5,11 +5,14 @@ import { ApplicationServiceFactory } from '../../application/ApplicationServiceF
 import { validateRequest } from '../middleware/validation.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { decodeCursor } from '../../domain/common/Cursor.js';
+import { createChildLogger } from '../../utils/logger.js';
+
+
 
 export function createApprovalsRouter(
   appFactory: ApplicationServiceFactory,
-  logger: pino.Logger,
 ): Router {
+  const logger = createChildLogger({ name: "approvals-router"})
   const router = Router();
 
   /**

@@ -11,4 +11,6 @@ export interface ILLMService {
    * @returns The LLM response text
    */
   sendChatRequest(prompt: string, temperature?: number): Promise<string>;
+
+  checkHealth(): Promise<boolean>;
 }

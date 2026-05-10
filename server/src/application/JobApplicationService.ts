@@ -7,14 +7,16 @@ import { getLogger } from "../utils/logger.js";
 import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService.js";
 
 /**
- * Statistics for job steps
+ * Statistics for jobs grouped by state
  */
-export interface JobStepStats {
-  totalSteps: number;
-  waitingSteps: number;
-  inProgressSteps: number;
-  completedSteps: number;
-  failedSteps: number;
+export interface JobStats {
+  pending: number;
+  llmProcessing: number;
+  pendingApproval: number;
+  updatingDocument: number;
+  completed: number;
+  failed: number;
+  rejected: number;
 }
 
 /**
@@ -23,6 +25,40 @@ export interface JobStepStats {
  */
 export class JobApplicationService {
   constructor(private readonly txManager: TransactionManager) {}
+
+  /**
+   * Get statistics for jobs grouped by state.
+   * @returns Object with counts for each job state
+   */
+  async getJobStats(): Promise<JobStats> {
+    const logger = getLogger();
+    const context = await this.txManager.createContext();
+    
+    try {
+      await context.start();
+      const repos = context.getRepositoryRegistry();
+
+      const countsByState = await repos.getJobs().getJobCountsByState();
+
+      await context.commit();
+      
+      return {
+        pending: countsByState[JobState.PENDING] || 0,
+        llmProcessing: countsByState[JobState.LLM_PROCESSING] || 0,
+        pendingApproval: countsByState[JobState.PENDING_APPROVAL] || 0,
+        updatingDocument: countsByState[JobState.UPDATING_DOCUMENT] || 0,
+        completed: countsByState[JobState.COMPLETED] || 0,
+        failed: countsByState[JobState.FAILED] || 0,
+        rejected: countsByState[JobState.REJECTED] || 0,
+      };
+    } catch (error) {
+      logger.error({ error }, 'Failed to get job stats');
+      await context.rollback();
+      throw error;
+    } finally {
+      await context.dispose();
+    }
+  }
 
   /**
    * Create a new job with initial step.
@@ -137,39 +173,7 @@ export class JobApplicationService {
       const result = await repos.getJobs().list(limit, cursor, state);
 
       await context.commit();
-      returatistics for all job steps (overall step statistics).
-   * @returns Object with counts of steps by status
-   */
-  async getJobStepStats(): Promise<JobStepStats> {
-    const logger = getLogger();
-    const context = await this.txManager.createContext();
-    
-    try {
-      await context.start();
-      const repos = context.getRepositoryRegistry();
-
-      const stats = await repos.getSteps().getOverallStepStatistics();
-
-      await context.commit();
-      
-      return {
-        totalSteps: stats.total,
-        waitingSteps: stats.waiting,
-        inProgressSteps: stats.inProgress,
-        completedSteps: stats.completed,
-        failedSteps: stats.failed,
-      };
-    } catch (error) {
-      logger.error({ error }, 'Failed to get job step stats');
-      await context.rollback();
-      throw error;
-    } finally {
-      await context.dispose();
-    }
-  }
-
-  /**
-   * Get stn result;
+      return result;
     } catch (error) {
       logger.error({ error, limit, cursor, state }, 'Failed to list jobs');
       await context.rollback();
@@ -182,7 +186,7 @@ export class JobApplicationService {
   /**
    * Get steps for a job with timestamp information for API display.
    * @param jobId Job ID
-   * @returns Array of step data with timestamps
+   * @returns Array of step data with timestamps and retry information
    */
   async getStepsByJobId(jobId: string): Promise<Array<{
     stepId: string;
@@ -191,6 +195,8 @@ export class JobApplicationService {
     createdAt: Date;
     startedAt: Date | null;
     completedAt: Date | null;
+    retryCount: number;
+    retryAfter: Date | null;
   }>> {
     const logger = getLogger();
     const context = await this.txManager.createContext();

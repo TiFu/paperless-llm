@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Paper,
   Typography,
@@ -8,14 +8,20 @@ import {
   StepLabel,
   StepContent,
   Chip,
+  Button,
+  Alert,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
   HourglassEmpty as HourglassIcon,
   PlayArrow as PlayArrowIcon,
+  Refresh as RefreshIcon,
+  Warning as WarningIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { JobStep, StepStatus, StepType } from '../types/api';
+import { apiClient } from '../services/api';
 
 interface JobStepsTimelineProps {
   steps: JobStep[];
@@ -31,6 +37,10 @@ const getStepStatusIcon = (status: StepStatus) => {
       return <PlayArrowIcon color="info" />;
     case StepStatus.WAITING:
       return <HourglassIcon color="disabled" />;
+    case StepStatus.RETRYING:
+      return <RefreshIcon color="warning" />;
+    case StepStatus.IN_FALLOUT:
+      return <WarningIcon color="error" />;
     default:
       return null;
   }
@@ -38,7 +48,7 @@ const getStepStatusIcon = (status: StepStatus) => {
 
 const getStepStatusColor = (
   status: StepStatus
-): 'default' | 'info' | 'success' | 'error' => {
+): 'default' | 'info' | 'success' | 'error' | 'warning' => {
   switch (status) {
     case StepStatus.COMPLETED:
       return 'success';
@@ -46,6 +56,10 @@ const getStepStatusColor = (
       return 'error';
     case StepStatus.IN_PROGRESS:
       return 'info';
+    case StepStatus.RETRYING:
+      return 'warning';
+    case StepStatus.IN_FALLOUT:
+      return 'error';
     case StepStatus.WAITING:
     default:
       return 'default';
@@ -58,7 +72,7 @@ const formatStepType = (stepType: StepType): string => {
 
 const getActiveStep = (steps: JobStep[]): number => {
   const inProgressIndex = steps.findIndex(
-    (step) => step.stepStatus === StepStatus.IN_PROGRESS
+    (step) => step.stepStatus === StepStatus.IN_PROGRESS || step.stepStatus === StepStatus.RETRYING
   );
   if (inProgressIndex !== -1) return inProgressIndex;
 
@@ -71,8 +85,70 @@ const getActiveStep = (steps: JobStep[]): number => {
   return steps.length;
 };
 
+const formatRetryTimer = (retryAfter: string | null): string => {
+  if (!retryAfter) return '';
+  
+  const retryTime = new Date(retryAfter);
+  const now = new Date();
+  const diffMs = retryTime.getTime() - now.getTime();
+  
+  if (diffMs <= 0) return 'Ready now';
+  
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  
+  if (diffHours > 0) {
+    const remainingMinutes = diffMinutes % 60;
+    return `${diffHours}h ${remainingMinutes}m`;
+  } else if (diffMinutes > 0) {
+    const remainingSeconds = diffSeconds % 60;
+    return `${diffMinutes}m ${remainingSeconds}s`;
+  } else {
+    return `${diffSeconds}s`;
+  }
+};
+
 export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => {
   const activeStep = getActiveStep(steps);
+  const [retryingStepId, setRetryingStepId] = useState<string | null>(null);
+  const [cancelingStepId, setCancelingStepId] = useState<string | null>(null);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const [retrySuccess, setRetrySuccess] = useState<string | null>(null);
+
+  const handleRetry = async (stepId: string) => {
+    setRetryingStepId(stepId);
+    setRetryError(null);
+    setRetrySuccess(null);
+    
+    try {
+      const result = await apiClient.retryStep(stepId);
+      setRetrySuccess(result.message);
+      // Clear success message after 3 seconds
+      setTimeout(() => setRetrySuccess(null), 3000);
+    } catch (error) {
+      setRetryError(error instanceof Error ? error.message : 'Failed to retry step');
+    } finally {
+      setRetryingStepId(null);
+    }
+  };
+
+  const handleCancel = async (stepId: string) => {
+    setCancelingStepId(stepId);
+    setRetryError(null);
+    setRetrySuccess(null);
+    
+    try {
+      const result = await apiClient.cancelStep(stepId);
+      setRetrySuccess(result.message);
+      // Clear success message after 3 seconds
+      setTimeout(() => setRetrySuccess(null), 3000);
+    } catch (error) {
+      setRetryError(error instanceof Error ? error.message : 'Failed to cancel step');
+    } finally {
+      setCancelingStepId(null);
+    }
+  };
 
   if (steps.length === 0) {
     return (
@@ -89,20 +165,41 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
       <Typography variant="h6" gutterBottom>
         Workflow Steps
       </Typography>
+      
+      {retryError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setRetryError(null)}>
+          {retryError}
+        </Alert>
+      )}
+      
+      {retrySuccess && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setRetrySuccess(null)}>
+          {retrySuccess}
+        </Alert>
+      )}
+      
       <Stepper activeStep={activeStep} orientation="vertical">
-        {steps.map((step, index) => (
+        {steps.map((step) => (
           <Step key={step.stepId} completed={step.stepStatus === StepStatus.COMPLETED}>
             <StepLabel
               icon={getStepStatusIcon(step.stepStatus)}
-              error={step.stepStatus === StepStatus.FAILED}
+              error={step.stepStatus === StepStatus.FAILED || step.stepStatus === StepStatus.IN_FALLOUT}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <Typography variant="body1">{formatStepType(step.stepType)}</Typography>
                 <Chip
                   label={step.stepStatus.replace(/_/g, ' ')}
                   color={getStepStatusColor(step.stepStatus)}
                   size="small"
                 />
+                {step.retryCount > 0 && (
+                  <Chip
+                    label={`Retry #${step.retryCount}`}
+                    color="warning"
+                    size="small"
+                    variant="outlined"
+                  />
+                )}
               </Box>
             </StepLabel>
             <StepContent>
@@ -133,6 +230,41 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
                     ).toFixed(2)}
                     s
                   </Typography>
+                )}
+                {step.stepStatus === StepStatus.RETRYING && step.retryAfter && (
+                  <Typography variant="body2" color="warning.main">
+                    <strong>Retry scheduled:</strong>{' '}
+                    {formatRetryTimer(step.retryAfter)} ({new Date(step.retryAfter).toLocaleString()})
+                  </Typography>
+                )}
+                {(step.stepStatus === StepStatus.RETRYING || step.stepStatus === StepStatus.IN_FALLOUT) && (
+                  <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      color={step.stepStatus === StepStatus.IN_FALLOUT ? 'error' : 'warning'}
+                      startIcon={<RefreshIcon />}
+                      onClick={() => handleRetry(step.stepId)}
+                      disabled={retryingStepId === step.stepId || cancelingStepId === step.stepId}
+                    >
+                      {retryingStepId === step.stepId ? 'Retrying...' : 'Manual Retry'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      color="error"
+                      startIcon={<CancelIcon />}
+                      onClick={() => handleCancel(step.stepId)}
+                      disabled={retryingStepId === step.stepId || cancelingStepId === step.stepId}
+                    >
+                      {cancelingStepId === step.stepId ? 'Cancelling...' : 'Cancel'}
+                    </Button>
+                    {step.stepStatus === StepStatus.IN_FALLOUT && (
+                      <Typography variant="caption" color="error" display="block" sx={{ mt: 0.5, width: '100%' }}>
+                        Maximum automatic retries exceeded. Manual intervention required.
+                      </Typography>
+                    )}
+                  </Box>
                 )}
               </Box>
             </StepContent>

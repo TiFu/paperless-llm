@@ -141,9 +141,9 @@ export class PostgreSQLStepRepository implements IStepRepository {
     const status = step.getStepStatus();
     
     // Build dynamic query based on status
-    let query = `UPDATE steps SET status = $1`;
-    const params: any[] = [status];
-    let paramIndex = 2;
+    let query = `UPDATE steps SET status = $1, retry_count = $2, retry_after = $3`;
+    const params: any[] = [status, step.getRetryCount(), step.getRetryAfter()];
+    let paramIndex = 4;
 
     // Set timestamps based on status transitions
     if (status === StepStatus.IN_PROGRESS) {
@@ -213,34 +213,6 @@ export class PostgreSQLStepRepository implements IStepRepository {
     ]);
 
     return parseInt(result.rows[0].count, 10);
-  }
-
-  async getOverallStepStatistics(): Promise<AutomatedStepStatistics> {
-    const query = `
-      SELECT 
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = $1) as waiting,
-        COUNT(*) FILTER (WHERE status = $2) as in_progress,
-        COUNT(*) FILTER (WHERE status = $3) as completed,
-        COUNT(*) FILTER (WHERE status = $4) as failed
-      FROM steps
-    `;
-
-    const result = await this.getClient().query(query, [
-      StepStatus.WAITING,
-      StepStatus.IN_PROGRESS,
-      StepStatus.COMPLETED,
-      StepStatus.FAILED,
-    ]);
-
-    const row = result.rows[0];
-    return {
-      total: parseInt(row.total, 10),
-      waiting: parseInt(row.waiting, 10),
-      inProgress: parseInt(row.in_progress, 10),
-      completed: parseInt(row.completed, 10),
-      failed: parseInt(row.failed, 10),
-    };
   }
 
   async listAutomatedStepsWithJob(
@@ -358,6 +330,33 @@ export class PostgreSQLStepRepository implements IStepRepository {
     await this.getClient().query(query, [StepStatus.FAILED, stepId]);
   }
 
+  /**
+   * Get steps in RETRYING status that are ready for retry (retry_after <= now)
+   * @param now Current time - steps with retry_after <= this are ready for retry
+   * @param limit Maximum number of steps to return
+   * @returns Array of automated steps ready for retry
+   */
+  async getPendingRetries(now: Date, limit: number): Promise<AutomatedStep[]> {
+    const query = `
+      SELECT * FROM steps
+      WHERE status = $1 
+        AND retry_after IS NOT NULL
+        AND retry_after <= $2
+        AND type != $3
+      ORDER BY retry_after ASC, created_at ASC
+      LIMIT $4
+    `;
+
+    const result = await this.getClient().query(query, [
+      StepStatus.RETRYING,
+      now,
+      StepType.REQUIRE_APPROVAL,
+      limit
+    ]);
+
+    return result.rows.map((row) => StepFactory.fromDb(row)) as AutomatedStep[];
+  }
+
   async getStepsByJobIdWithTimestamps(jobId: string): Promise<Array<{
     stepId: string;
     stepType: StepType;
@@ -365,9 +364,11 @@ export class PostgreSQLStepRepository implements IStepRepository {
     createdAt: Date;
     startedAt: Date | null;
     completedAt: Date | null;
+    retryCount: number;
+    retryAfter: Date | null;
   }>> {
     const query = `
-      SELECT id, type, status, created_at, started_at, completed_at
+      SELECT id, type, status, created_at, started_at, completed_at, retry_count, retry_after
       FROM steps
       WHERE job_id = $1
       ORDER BY created_at ASC
@@ -382,6 +383,8 @@ export class PostgreSQLStepRepository implements IStepRepository {
       createdAt: row.created_at,
       startedAt: row.started_at,
       completedAt: row.completed_at,
+      retryCount: row.retry_count || 0,
+      retryAfter: row.retry_after ? new Date(row.retry_after) : null,
     }));
   }
 }

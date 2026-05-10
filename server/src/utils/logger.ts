@@ -1,5 +1,7 @@
 import pino from 'pino';
 import { AppConfig } from '../config/AppConfig.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 let logger: pino.Logger;
 
@@ -53,26 +55,48 @@ function errorSerializer(err: any): any {
 }
 
 export function initializeLogger(config: AppConfig): pino.Logger {
-  logger = pino({
-    level: config.logging.level,
-    transport: config.logging.pretty
-      ? {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-            translateTime: 'SYS:standard',
-            ignore: 'pid,hostname',
-          },
-        }
-      : undefined,
-    base: {
-      workerId: config.worker.instanceId,
+  // Create log file in server directory
+  const logFilePath = path.join(process.cwd(), 'dev-server.log');
+  console.log("Log file pat " + logFilePath)
+  //process.exit(1)
+  const logFileStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+
+  // Create streams for both console and file
+  const streams: pino.StreamEntry[] = [
+    // Console stream with pretty printing
+    {
+      level: config.logging.level as pino.Level,
+      stream: config.logging.pretty
+        ? pino.transport({
+            target: 'pino-pretty',
+            options: {
+              colorize: true,
+              translateTime: 'SYS:standard',
+              ignore: 'pid,hostname',
+            },
+          })
+        : process.stdout,
     },
-    serializers: {
-      error: errorSerializer,
-      err: errorSerializer, // pino uses 'err' as the default error key
+    // File stream with JSON output
+    {
+      level: config.logging.level as pino.Level,
+      stream: logFileStream,
     },
-  });
+  ];
+
+  logger = pino(
+    {
+      level: config.logging.level,
+      base: {
+        workerId: config.worker.instanceId,
+      },
+      serializers: {
+        error: errorSerializer,
+        err: errorSerializer, // pino uses 'err' as the default error key
+      },
+    },
+    pino.multistream(streams)
+  );
 
   return logger;
 }

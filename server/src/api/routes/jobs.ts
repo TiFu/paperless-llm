@@ -6,6 +6,7 @@ import { validateRequest } from '../middleware/validation.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { WorkflowType } from '../../domain/workflows/WorkflowType.js';
 import { JobState } from '../../domain/job/JobState.js';
+import { createChildLogger } from '../../utils/logger.js';
 
 interface JobSubmission {
   documentId: string;
@@ -17,21 +18,24 @@ interface BatchJobRequest {
   documents: JobSubmission[];
 }
 
-export function createJobsRouter(appFactory: ApplicationServiceFactory, logger: pino.Logger): Router {
+
+
+export function createJobsRouter(appFactory: ApplicationServiceFactory): Router {
+  const logger = createChildLogger({ name: "jobs-router"})
   const router = Router();
 
   /**
    * GET /api/jobs/stats
-   * Get statistics for job steps (overall step statistics)
+   * Get statistics for jobs grouped by state
    */
   router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const jobAppService = appFactory.createJobApplicationService();
-      const stats = await jobAppService.getJobStepStats();
+      const stats = await jobAppService.getJobStats();
 
       res.json(stats);
     } catch (error) {
-      logger.error({ error }, 'Failed to get job step stats');
+      logger.error({ error }, 'Failed to get job stats');
       next(error);
     }
   });
@@ -244,6 +248,8 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory, logger: 
             createdAt: step.createdAt,
             startedAt: step.startedAt,
             completedAt: step.completedAt,
+            retryCount: step.retryCount,
+            retryAfter: step.retryAfter,
           })),
         });
       } catch (error) {

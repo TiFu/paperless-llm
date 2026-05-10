@@ -1,52 +1,43 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Box,
-  IconButton,
-  Popover,
-  Typography,
-  Stack,
-  Chip,
-  CircularProgress,
-} from '@mui/material';
-import {
-  Circle as CircleIcon,
-  HealthAndSafety as HealthIcon,
-} from '@mui/icons-material';
+import { Box, Typography } from '@mui/material';
+import { Circle as CircleIcon } from '@mui/icons-material';
 import { apiClient } from '../services/api';
 import { SystemHealthResponse, ServiceStatus } from '../types/api';
 
 const POLL_INTERVAL = 30000; // 30 seconds
 
-const StatusIndicator: React.FC<{ status: ServiceStatus; label: string }> = ({ status, label }) => {
-  const color = status === 'healthy' ? 'success' : 'error';
-  const icon = <CircleIcon sx={{ fontSize: 12 }} />;
+const StatusDot: React.FC<{ status: ServiceStatus | 'unknown'; label: string }> = ({ status, label }) => {
+  const getColor = () => {
+    if (status === 'healthy') return '#4caf50'; // green
+    if (status === 'unhealthy') return '#f44336'; // red
+    return '#9e9e9e'; // gray for unknown
+  };
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Chip
-        icon={icon}
-        label={label}
-        color={color}
-        size="small"
-        variant="outlined"
-      />
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <CircleIcon sx={{ fontSize: 10, color: getColor() }} />
+      <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+        {label}
+      </Typography>
     </Box>
   );
 };
 
-export const HealthStatusIndicator: React.FC = () => {
+interface HealthStatusIndicatorProps {
+  vertical?: boolean;
+}
+
+export const HealthStatusIndicator: React.FC<HealthStatusIndicatorProps> = ({ vertical = false }) => {
   const [health, setHealth] = useState<SystemHealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
 
   const fetchHealth = async () => {
     try {
       const response = await apiClient.fetchSystemStatus();
       setHealth(response);
-      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch health status');
+      // On error, keep previous health state or set to null
+      setHealth(null);
     } finally {
       setLoading(false);
     }
@@ -58,101 +49,20 @@ export const HealthStatusIndicator: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-
-  const open = Boolean(anchorEl);
-
-  // Calculate overall status color
-  const getStatusColor = (): 'success' | 'error' | 'warning' => {
-    if (error || !health) return 'error';
-    if (health.status === 'healthy') return 'success';
-    return 'warning';
-  };
-
-  const statusColor = getStatusColor();
-
   return (
-    <>
-      <IconButton
-        color="inherit"
-        onClick={handleClick}
-        sx={{
-          position: 'relative',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            backgroundColor: statusColor === 'success' ? '#4caf50' : statusColor === 'warning' ? '#ff9800' : '#f44336',
-            border: '2px solid white',
-            zIndex: 1,
-          },
-        }}
-      >
-        <HealthIcon />
-      </IconButton>
-
-      <Popover
-        open={open}
-        anchorEl={anchorEl}
-        onClose={handleClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'right',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-      >
-        <Box sx={{ p: 2, minWidth: 240 }}>
-          <Typography variant="h6" gutterBottom>
-            System Health
-          </Typography>
-
-          {loading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-              <CircularProgress size={24} />
-            </Box>
-          )}
-
-          {error && (
-            <Typography color="error" variant="body2">
-              {error}
-            </Typography>
-          )}
-
-          {health && !loading && (
-            <Stack spacing={1.5}>
-              <StatusIndicator
-                status={health.components.database.status}
-                label="Database"
-              />
-              <StatusIndicator
-                status={health.components.paperless.status}
-                label="Paperless"
-              />
-              <StatusIndicator
-                status={health.components.llm.status}
-                label="LLM Service"
-              />
-
-              <Typography variant="caption" color="text.secondary" sx={{ pt: 1 }}>
-                Last checked: {new Date(health.timestamp).toLocaleTimeString()}
-              </Typography>
-            </Stack>
-          )}
-        </Box>
-      </Popover>
-    </>
+    <Box sx={{ display: 'flex', flexDirection: vertical ? 'column' : 'row', alignItems: vertical ? 'flex-start' : 'center', gap: vertical ? 1 : 2 }}>
+      <StatusDot
+        status={health?.components.database.status || 'unknown'}
+        label="Database"
+      />
+      <StatusDot
+        status={health?.components.paperless.status || 'unknown'}
+        label="Paperless"
+      />
+      <StatusDot
+        status={health?.components.llm.status || 'unknown'}
+        label="LLM"
+      />
+    </Box>
   );
 };

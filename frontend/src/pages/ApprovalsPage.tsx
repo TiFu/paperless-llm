@@ -9,11 +9,12 @@ import {
   Paper,
 } from '@mui/material';
 import { apiClient } from '../services/api';
-import { ApprovalItem } from '../types/api';
+import { ApprovalItem, ApprovalStats } from '../types/api';
 import { ApprovalCard } from '../components/ApprovalCard';
 
 export const ApprovalsPage: React.FC = () => {
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [stats, setStats] = useState<ApprovalStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -29,14 +30,21 @@ export const ApprovalsPage: React.FC = () => {
       }
       setError(null);
 
-      const response = await apiClient.fetchPendingApprovals(50, cursor);
+      const [approvalsResponse, statsResponse] = await Promise.all([
+        apiClient.fetchPendingApprovals(50, cursor),
+        cursor ? Promise.resolve(stats) : apiClient.fetchApprovalStats(),
+      ]);
 
       if (append) {
-        setApprovals((prev) => [...prev, ...response.items]);
+        setApprovals((prev) => [...prev, ...approvalsResponse.items]);
       } else {
-        setApprovals(response.items);
+        setApprovals(approvalsResponse.items);
       }
-      setNextCursor(response.nextCursor);
+      setNextCursor(approvalsResponse.nextCursor);
+      
+      if (!cursor && statsResponse) {
+        setStats(statsResponse);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch approvals');
     } finally {
@@ -93,6 +101,7 @@ export const ApprovalsPage: React.FC = () => {
       <Typography variant="h4" component="h1" gutterBottom>
         Pending Approvals
       </Typography>
+      
       <Typography variant="body2" color="text.secondary" paragraph>
         Review and approve or reject proposed document changes.
       </Typography>

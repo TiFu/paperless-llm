@@ -4,11 +4,14 @@ import { ApprovalApplicationService } from './ApprovalApplicationService.js';
 import { PromptApplicationService } from './PromptApplicationService.js';
 import { QueueApplicationService } from './QueueApplicationService.js';
 import { StuckStepResetApplicationService } from './StuckStepResetApplicationService.js';
+import { StepRetryApplicationService } from './StepRetryApplicationService.js';
+import { StepCancelApplicationService } from './StepCancelApplicationService.js';
 import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { DomainServices } from '../domain/services/DomainServices.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { WorkflowOrchestratorService } from './WorkflowOrchestratorService.js';
+import { RetryConfig } from '../domain/steps/IStep.js';
 
 /**
  * ApplicationServiceFactory - creates application service instances per request.
@@ -21,6 +24,7 @@ export class ApplicationServiceFactory {
     private readonly dmsService: IDocumentManagementSystem,
     private readonly llmService: ILLMService,
     private readonly paperlessBaseUrl: string,
+    private readonly retryConfig: RetryConfig
   ) {}
 
   /**
@@ -48,6 +52,7 @@ export class ApplicationServiceFactory {
       workflowAppService,
       this.dmsService,
       this.llmService,
+      this.retryConfig
     );
   }
 
@@ -87,6 +92,24 @@ export class ApplicationServiceFactory {
     timeoutMs: number,
     maxRetries: number,
   ): StuckStepResetApplicationService {
-    return new StuckStepResetApplicationService(this.txManager, timeoutMs, maxRetries);
+    return new StuckStepResetApplicationService(this.txManager, timeoutMs, this.retryConfig);
+
   }
+  /**
+   * Create a new StepRetryApplicationService instance.
+   * Used for manual retry of steps in fallout or retry state.
+   */
+  createStepRetryApplicationService(): StepRetryApplicationService {
+    return new StepRetryApplicationService(this.txManager);
+  }
+
+  /**
+   * Create a new StepCancelApplicationService instance.
+   * Used for manual cancellation of steps in fallout or retry state.
+   */
+  createStepCancelApplicationService(): StepCancelApplicationService {
+    const workflowAppService = this.createWorkflowApplicationService();
+    return new StepCancelApplicationService(this.txManager, workflowAppService);
+  }
+
 }

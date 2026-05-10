@@ -50,6 +50,10 @@ export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
         return 'success';
       case WorkItemStatus.FAILED:
         return 'error';
+      case WorkItemStatus.RETRYING:
+        return 'warning';
+      case WorkItemStatus.IN_FALLOUT:
+        return 'error';
       default:
         return 'default';
     }
@@ -77,10 +81,11 @@ export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
           <InputLabel>Status Filter</InputLabel>
           <Select value={filterStatus} label="Status Filter" onChange={handleStatusChange}>
             <MenuItem value="">All</MenuItem>
-            <MenuItem value={WorkItemStatus.PENDING}>Pending</MenuItem>
-            <MenuItem value={WorkItemStatus.PROCESSING}>Processing</MenuItem>
-            <MenuItem value={WorkItemStatus.COMPLETED}>Completed</MenuItem>
-            <MenuItem value={WorkItemStatus.FAILED}>Failed</MenuItem>
+            {Object.values(WorkItemStatus).map((status) => (
+              <MenuItem key={status} value={status}>
+                {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
       </Box>

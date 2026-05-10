@@ -9,8 +9,14 @@ import { StepType } from '../IStep.js';
  * Returns: SUCCESS transition if update succeeds, FAILURE on error
  */
 export class UpdateDocumentStep extends AutomatedStep {
-  constructor(stepId: string | null, jobId: string, stepState: StepStatus, retryCount: number = 0) {
-    super(stepId, StepType.UPDATE_DOCUMENT, jobId, stepState, retryCount);
+  constructor(
+    stepId: string | null, 
+    jobId: string, 
+    stepState: StepStatus, 
+    retryCount: number = 0,
+    retryAfter: Date | null = null
+  ) {
+    super(stepId, StepType.UPDATE_DOCUMENT, jobId, stepState, retryCount, retryAfter);
   }
 
   protected async doExecute(context: StepExecutionContext): Promise<StepResult> {

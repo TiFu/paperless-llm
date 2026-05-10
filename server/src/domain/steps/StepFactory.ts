@@ -26,16 +26,20 @@ export class StepFactory {
   static create(
     stepId: string | null,
     jobId: string,
-    type: StepType, stepState: StepStatus, retryCount: number = 0): IStep {
+    type: StepType, 
+    stepState: StepStatus, 
+    retryCount: number = 0,
+    retryAfter: Date | null = null
+  ): IStep {
     switch (type) {
       case StepType.LLM_GENERATE_TITLE:
-        return new LLMGenerateTitleStep(stepId, jobId, stepState, retryCount);
+        return new LLMGenerateTitleStep(stepId, jobId, stepState, retryCount, retryAfter);
 
       case StepType.REQUIRE_APPROVAL:
-        return new ApprovalInteractionStep(stepId, jobId, stepState, retryCount);
+        return new ApprovalInteractionStep(stepId, jobId, stepState, retryCount, retryAfter);
 
       case StepType.UPDATE_DOCUMENT:
-        return new UpdateDocumentStep(stepId, jobId, stepState, retryCount);
+        return new UpdateDocumentStep(stepId, jobId, stepState, retryCount, retryAfter);
 
       default:
         throw new Error(`Unknown step type: ${type}`);
@@ -71,9 +75,11 @@ export class StepFactory {
     const stepId = row.id;
     const jobId = row.job_id;
     const type = row.type as StepType;
-    const status = row.status as StepStatus;
+    const status = row.status as StepStatus
     const retryCount = row.retry_count || 0;
+    const retryAfter = row.retry_after ? new Date(row.retry_after) : null;
 
-    return StepFactory.create(stepId, jobId, type, status, retryCount);
+    return StepFactory.create(stepId, jobId, type, status, retryCount, retryAfter);
+
   }
 }

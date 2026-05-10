@@ -1,29 +1,20 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link as RouterLink } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Button,
-  Container,
   Box,
+  Button,
+  Typography,
   CssBaseline,
   ThemeProvider,
   createTheme,
 } from '@mui/material';
-import {
-  Description as DescriptionIcon,
-  Queue as QueueIcon,
-  History as HistoryIcon,
-  Work as WorkIcon,
-  CheckCircle as CheckCircleIcon,
-} from '@mui/icons-material';
 import { DocumentsPage } from './pages/DocumentsPage';
 import { QueuesPage } from './pages/QueuesPage';
 import { JobsPage } from './pages/JobsPage';
 import { JobDetailsPage } from './pages/JobDetailsPage';
 import { ApprovalsPage } from './pages/ApprovalsPage';
-import { HealthStatusIndicator } from './components/HealthStatusIndicator';
+import { Sidebar } from './components/Sidebar';
+import { StatsProvider } from './contexts/StatsContext';
 
 const theme = createTheme({
   palette: {
@@ -57,7 +48,7 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <Container maxWidth="md" sx={{ py: 8 }}>
+        <Box sx={{ p: 8, maxWidth: 600, mx: 'auto' }}>
           <Typography variant="h4" color="error" gutterBottom>
             Something went wrong
           </Typography>
@@ -71,7 +62,7 @@ class ErrorBoundary extends React.Component<
           >
             Reload Page
           </Button>
-        </Container>
+        </Box>
       );
     }
 
@@ -79,78 +70,35 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-const Navigation: React.FC = () => {
-  return (
-    <AppBar position="static">
-      <Toolbar>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 0, mr: 4 }}>
-          Paperless LLM
-        </Typography>
-        <Box sx={{ flexGrow: 1, display: 'flex', gap: 1 }}>
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/documents"
-            startIcon={<DescriptionIcon />}
-          >
-            Documents
-          </Button>
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/jobs"
-            startIcon={<WorkIcon />}
-          >
-            Jobs
-          </Button>
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/queues"
-            startIcon={<QueueIcon />}
-          >
-            Queues
-          </Button>
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/approvals"
-            startIcon={<CheckCircleIcon />}
-          >
-            Approvals
-          </Button>
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/audit"
-            startIcon={<HistoryIcon />}
-          >
-            Audit Log
-          </Button>
-        <HealthStatusIndicator />
-        </Box>
-      </Toolbar>
-    </AppBar>
-  );
-};
-
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ErrorBoundary>
-        <BrowserRouter>
-          <Navigation />
-          <Routes>
-            <Route path="/" element={<Navigate to="/documents" replace />} />
-            <Route path="/documents" element={<DocumentsPage />} />
-            <Route path="/jobs" element={<JobsPage />} />
-            <Route path="/jobs/:id" element={<JobDetailsPage />} />
-            <Route path="/queues" element={<QueuesPage />} />
-            <Route path="/approvals" element={<ApprovalsPage />} />
-            <Route path="*" element={<Navigate to="/documents" replace />} />
-          </Routes>
-        </BrowserRouter>
+        <StatsProvider>
+          <BrowserRouter>
+            <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+              <Sidebar />
+              <Box
+                component="main"
+                sx={{
+                  flexGrow: 1,
+                  p: 3,
+                }}
+              >
+                <Routes>
+                  <Route path="/" element={<Navigate to="/documents" replace />} />
+                  <Route path="/documents" element={<DocumentsPage />} />
+                  <Route path="/jobs" element={<JobsPage />} />
+                  <Route path="/jobs/:id" element={<JobDetailsPage />} />
+                  <Route path="/queues" element={<QueuesPage />} />
+                  <Route path="/approvals" element={<ApprovalsPage />} />
+                  <Route path="*" element={<Navigate to="/documents" replace />} />
+                </Routes>
+              </Box>
+            </Box>
+          </BrowserRouter>
+        </StatsProvider>
       </ErrorBoundary>
     </ThemeProvider>
   );

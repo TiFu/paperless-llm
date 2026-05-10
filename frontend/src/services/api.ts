@@ -17,7 +17,7 @@ import {
   PromptResponse,
   SystemHealthResponse,
   ApprovalStats,
-  JobStepStats,
+  JobStats,
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
@@ -91,11 +91,11 @@ class ApiClient {
   async fetchJobSteps(jobId: string): Promise<JobStepsResponse> {
     const response = await this.client.get<JobStepsResponse>(`/api/jobs/${jobId}/steps`);
     return response.data;
-  async fetchJobStepStats(): Promise<JobStepStats> {
-    const response = await this.client.get<JobStepStats>('/api/jobs/stats');
-    return response.data;
   }
 
+  async fetchJobStats(): Promise<JobStats> {
+    const response = await this.client.get<JobStats>('/api/jobs/stats');
+    return response.data;
   }
 
   // Queue - Unified API for all automated steps
@@ -134,15 +134,15 @@ class ApiClient {
   async fetchPendingApprovals(
     limit: number = 50,
     cursor?: string
-  ): ProfetchApprovalStats(): Promise<ApprovalStats> {
-    const response = await this.client.get<ApprovalStats>('/api/approvals/stats');
-    return response.data;
-  }
-
-  async mise<ApprovalsResponse> {
+  ): Promise<ApprovalsResponse> {
     const response = await this.client.get<ApprovalsResponse>('/api/approvals', {
       params: { limit, cursor },
     });
+    return response.data;
+  }
+
+  async fetchApprovalStats(): Promise<ApprovalStats> {
+    const response = await this.client.get<ApprovalStats>('/api/approvals/stats');
     return response.data;
   }
 
@@ -182,6 +182,21 @@ class ApiClient {
 
   async fetchSystemStatus(): Promise<SystemHealthResponse> {
     const response = await this.client.get<SystemHealthResponse>('/api/system/status');
+    return response.data;
+  }
+
+  // Steps
+  async retryStep(stepId: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.post<{ success: boolean; message: string }>(
+      `/api/steps/${stepId}/retry`
+    );
+    return response.data;
+  }
+
+  async cancelStep(stepId: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.post<{ success: boolean; message: string }>(
+      `/api/steps/${stepId}/cancel`
+    );
     return response.data;
   }
 }

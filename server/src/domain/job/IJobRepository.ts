@@ -52,4 +52,9 @@ export interface IJobRepository {
    * Get jobs by document ID
    */
   getByDocumentId(documentId: string): Promise<Job[]>;
+
+  /**
+   * Get job counts grouped by state
+   */
+  getJobCountsByState(): Promise<{ [state: string]: number }>;
 }

@@ -14,9 +14,17 @@ export abstract class UserInteractionStep extends IStep  {
   protected readonly possibleDecisions: string[];
   protected readonly decisionToTransitionMap: Record<string, Transition>;
 
-  constructor(stepId: string | null, stepType: StepType, jobId: string, stepState: StepStatus,
-      possibleDecisions: string[], decisionToTransitionMap: Record<string, Transition>, retryCount: number = 0) {
-    super(stepId, stepType, jobId, stepState, retryCount);
+  constructor(
+    stepId: string | null, 
+    stepType: StepType, 
+    jobId: string, 
+    stepState: StepStatus,
+    possibleDecisions: string[], 
+    decisionToTransitionMap: Record<string, Transition>, 
+    retryCount: number = 0,
+    retryAfter: Date | null = null
+  ) {
+    super(stepId, stepType, jobId, stepState, retryCount, retryAfter);
     this.possibleDecisions = possibleDecisions
     this.decisionToTransitionMap = decisionToTransitionMap
     for (let decision of this.possibleDecisions) {
@@ -46,14 +54,20 @@ export abstract class UserInteractionStep extends IStep  {
 
 export class ApprovalInteractionStep extends UserInteractionStep {
 
-  constructor(stepId: string | null, jobId: string, stepState: StepStatus, retryCount: number = 0) {
+  constructor(
+    stepId: string | null, 
+    jobId: string, 
+    stepState: StepStatus, 
+    retryCount: number = 0,
+    retryAfter: Date | null = null
+  ) {
     let possibleDecisions: string[]=  [ "APPROVED", "REJECTED" ]
     let decisionToTransitionMap: Record<string, Transition> = {
       "APPROVED": Transition.SUCCESS,
       "REJECTED": Transition.FAILURE
     }
 
-    super(stepId, StepType.REQUIRE_APPROVAL, jobId, stepState, possibleDecisions, decisionToTransitionMap, retryCount)
+    super(stepId, StepType.REQUIRE_APPROVAL, jobId, stepState, possibleDecisions, decisionToTransitionMap, retryCount, retryAfter)
   }
 
   public processUserDecision(decision: string): Promise<StepResult> {

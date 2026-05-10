@@ -54,7 +54,7 @@ export function createHealthRouter(
         },
       };
 
-      const statusCode = allHealthy ? 200 : 503;
+      const statusCode = 200;
       res.status(statusCode).json(status);
     } catch (error) {
       logger.error({ error }, 'Health check failed');
@@ -76,7 +76,6 @@ async function checkDatabaseHealth(
     await context.rollback();
     return true;
   } catch (error) {
-    logger.debug({ error }, 'Database health check failed');
     await context.rollback();
     return false;
   }
@@ -87,22 +86,13 @@ async function checkPaperlessHealth(
   logger: pino.Logger,
 ): Promise<boolean> {
   try {
-    // Try to fetch documents with a non-existent tag (should return empty array, not error)
     await paperlessService.getDocumentsByTag('__health_check__');
     return true;
   } catch (error) {
-    logger.debug({ error }, 'Paperless health check failed');
     return false;
   }
 }
 
 async function checkLLMHealth(llmService: ILLMService, logger: pino.Logger): Promise<boolean> {
-  try {
-    // Simple health check prompt
-    await llmService.sendChatRequest('ping', 0.0);
-    return true;
-  } catch (error) {
-    logger.debug({ error }, 'LLM health check failed');
-    return false;
-  }
+  return llmService.checkHealth();
 }

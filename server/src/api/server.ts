@@ -13,6 +13,7 @@ import { createQueueRouter } from './routes/queue.js';
 import { createHealthRouter } from './routes/health.js';
 import { createDocumentsRouter } from './routes/documents.js';
 import { createApprovalsRouter } from './routes/approvals.js';
+import { createStepsRouter } from './routes/steps.js';
 
 export interface ApiServerConfig {
   port: number;
@@ -63,11 +64,12 @@ export function createApiServer(
   app.use('/', createHealthRouter(txManager, paperlessService, llmService, logger));
 
   // API routes
-  app.use('/api/documents', createDocumentsRouter(paperlessService, logger));
-  app.use('/api/prompts', createPromptsRouter(appFactory, logger));
-  app.use('/api/jobs', createJobsRouter(appFactory, logger));
-  app.use('/api/approvals', createApprovalsRouter(appFactory, logger));
-  app.use('/api/queue', createQueueRouter(appFactory, logger));
+  app.use('/api/documents', createDocumentsRouter(paperlessService));
+  app.use('/api/prompts', createPromptsRouter(appFactory));
+  app.use('/api/jobs', createJobsRouter(appFactory));
+  app.use('/api/approvals', createApprovalsRouter(appFactory));
+  app.use('/api/steps', createStepsRouter(appFactory));
+  app.use('/api/queue', createQueueRouter(appFactory));
 
   // 404 handler
   app.use((_req: Request, res: Response) => {

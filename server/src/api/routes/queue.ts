@@ -1,8 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import pino from 'pino';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
+import { createChildLogger } from '../../utils/logger.js';
 
-export function createQueueRouter(appFactory: ApplicationServiceFactory, logger: pino.Logger): Router {
+
+
+
+export function createQueueRouter(appFactory: ApplicationServiceFactory): Router {
+  const logger = createChildLogger({ name: "queue-router"})
   const router = Router();
 
   /**
@@ -25,7 +30,7 @@ export function createQueueRouter(appFactory: ApplicationServiceFactory, logger:
    * GET /api/queue/items
    * List all automated queue items with cursor-based pagination
    * Query params: limit (default 50, max 100), cursor (optional), status (optional)
-   * Status values: pending, processing, completed, failed
+   * Status values: pending, processing, completed, failed, retrying, in_fallout
    */
   router.get('/items', async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -34,7 +39,8 @@ export function createQueueRouter(appFactory: ApplicationServiceFactory, logger:
       const status = req.query.status as string | undefined;
 
       // Validate status if provided
-      const validStatuses = ['pending', 'processing', 'completed', 'failed'];
+      // TODO: this should be made generic/better interface to avoid mapping & hardcoding here
+      const validStatuses = ['pending', 'processing', 'completed', 'failed', 'retrying', 'in_fallout'];
       if (status && !validStatuses.includes(status)) {
         res.status(400).json({
           type: 'about:blank',

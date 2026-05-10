@@ -5,8 +5,11 @@ import { ApplicationServiceFactory } from '../../application/ApplicationServiceF
 import { validateRequest } from '../middleware/validation.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { StepType } from '../../domain/steps/IStep.js';
+import { createChildLogger } from '../../utils/logger.js';
 
-export function createPromptsRouter(appFactory: ApplicationServiceFactory, logger: pino.Logger): Router {
+
+export function createPromptsRouter(appFactory: ApplicationServiceFactory): Router {
+  const logger = createChildLogger({ name: "prompt-router"})
   const router = Router();
 
   /**

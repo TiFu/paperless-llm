@@ -38,7 +38,8 @@ fi
 
 echo "✅ Starting backend on http://localhost:3000"
 echo "   (nodemon will watch for changes and auto-restart)"
+echo "📝 Logging to server/dev-server.log"
 echo ""
 
-# Start backend with nodemon
-exec npx nodemon --watch ./ --ext ts --exec "node --loader ts-node/esm src/api.ts"
+# Start backend with nodemon (pino handles logging to both console and file)
+npx nodemon --watch ./ --ext ts --exec "node --loader ts-node/esm src/api.ts"

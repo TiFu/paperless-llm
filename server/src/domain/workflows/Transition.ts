@@ -5,4 +5,5 @@
 export enum Transition {
   SUCCESS = 'SUCCESS',
   FAILURE = 'FAILURE',
+  NONE = 'NONE' // Do not progress
 }

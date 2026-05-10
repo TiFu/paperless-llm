@@ -2,11 +2,13 @@ import { Router, Request, Response, NextFunction } from 'express';
 import pino from 'pino';
 import { PaperlessService } from '../../services/PaperlessService.js';
 import { ApiError } from '../middleware/errorHandler.js';
+import { createChildLogger } from '../../utils/logger.js';
 
 export function createDocumentsRouter(
   paperlessService: PaperlessService,
-  logger: pino.Logger,
 ): Router {
+  const logger = createChildLogger({ name: "document-router"})
+
   const router = Router();
 
   /**

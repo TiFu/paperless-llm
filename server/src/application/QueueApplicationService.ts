@@ -139,6 +139,10 @@ export class QueueApplicationService {
         return StepStatus.COMPLETED;
       case 'failed':
         return StepStatus.FAILED;
+      case 'retrying':
+        return StepStatus.RETRYING;
+      case 'in_fallout':
+        return StepStatus.IN_FALLOUT;
       default:
         return undefined;
     }
@@ -182,8 +186,10 @@ export class QueueApplicationService {
         return 'completed';
       case StepStatus.FAILED:
         return 'failed';
-      default:
-        return 'pending';
+      case StepStatus.RETRYING:
+        return 'retrying';
+      case StepStatus.IN_FALLOUT:
+        return 'in_fallout';
     }
   }
 }
