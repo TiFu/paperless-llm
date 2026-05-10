@@ -1,7 +1,6 @@
 import { DocumentAction } from './DocumentAction';
 import { TitleUpdateAction } from './TitleUpdateAction';
 import { DocumentActionType } from './ActionType';
-import { WorkItemStatus } from '../enums/WorkItemStatus';
 
 /**
  * Factory for creating Action instances from database rows
@@ -12,12 +11,12 @@ export class DocumentActionFactory {
    */
   static fromDb(row: Record<string, unknown>): DocumentAction {
     const actionType = row.action_type as DocumentActionType;
-    const oldValue = row.oldValue as string
-    const newValue = row.newValue as string
+    const oldValue = row.old_value as string;
+    const newValue = row.new_value as string;
 
     const baseArgs = {
       id: row.id as string,
-      jobId: row.job_id as string | null,
+      jobId: row.job_id as string,
     };
 
     switch (actionType) {

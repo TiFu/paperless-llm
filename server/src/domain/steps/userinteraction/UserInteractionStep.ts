@@ -26,10 +26,16 @@ export abstract class UserInteractionStep extends IStep  {
     }
   }
 
+  /**
+   * Get the list of possible decisions for this step
+   */
+  public getPossibleDecisions(): string[] {
+    return this.possibleDecisions;
+  }
 
   /**
    * Process user decision and return resulting actions and transition
-   * Called by StepApprovalService when user provides input
+   * Called by ApprovalApplicationService when user provides input
    * @param decision User's decision data
    * @returns Document actions and transition based on decision
    */

@@ -25,7 +25,7 @@ export interface IJobRepository {
 
   /**
    * Update job (state, data, and documentActions)
-   * @param job The job to update with its current state
+   * @param job The job to update with its current state, includign document actions
    */
   update(job: Job): Promise<void>;
 
@@ -37,10 +37,7 @@ export interface IJobRepository {
    * @param completedAt Optional completion timestamp for terminal states
    */
   updateState(
-    id: string,
-    state: JobState,
-    errorMessage?: string,
-    completedAt?: Date,
+    job: Job,
   ): Promise<void>;
 
   /**

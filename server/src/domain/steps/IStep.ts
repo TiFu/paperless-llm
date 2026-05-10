@@ -2,7 +2,8 @@ import { DocumentAction } from '../actions/DocumentAction';
 import { IDocumentManagementSystem } from '../document/IDocumentManagementSystem';
 import { Job } from '../job/Job';
 import { ILLMService } from '../llm/ILLMService';
-import { IPromptService } from '../prompt/IPromptService';
+import { IPromptDomainService } from '../prompt/IPromptDomainService';
+import { Prompt } from '../prompt/Prompt';
 import { Transition } from '../workflows/Transition';
 import { AutomatedStep } from './automated/AutomatedStep';
 import { UserInteractionStep } from './userinteraction/UserInteractionStep';
@@ -43,10 +44,11 @@ export interface StepResult {
 export interface StepExecutionContext {
   job: Job;
   stepId: string;
+  prompt: Prompt;
   services: {
     dms: IDocumentManagementSystem,
     llm: ILLMService,
-    prompts: IPromptService
+    promptDomainService: IPromptDomainService
   }
 }
 
@@ -55,6 +57,41 @@ export abstract class IStep {
   constructor(protected stepId: string | null, protected stepType: StepType, protected jobId: string, protected stepState: StepStatus) {
   }
 
+  public updateId(stepId: string) {
+    this.stepId = stepId
+  }
+
+  public moveToInProgress() {
+    this.stepState = StepStatus.IN_PROGRESS
+  }
+
+  public moveToFailed() {
+    this.stepState = StepStatus.FAILED
+  }
+
+  public moveToWaiting() {
+    this.stepState = StepStatus.WAITING
+  }
+
+  public moveToCompleted() {
+    this.stepState = StepStatus.COMPLETED
+  }
+  public isCompleted() {
+    return this.stepState == StepStatus.FAILED || this.stepState == StepStatus.COMPLETED
+  }
+  
+  public isFailed() {
+    return this.stepState == StepStatus.FAILED
+  }
+ 
+  public isInProgress() {
+    return this.stepState == StepStatus.IN_PROGRESS
+  }
+
+  public getStepStatus(): StepStatus {
+    return this.stepState
+
+  }
   public getStepType(): StepType {
     return this.stepType
   }

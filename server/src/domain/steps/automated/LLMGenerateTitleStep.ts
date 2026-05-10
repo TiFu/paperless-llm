@@ -22,13 +22,12 @@ export class LLMGenerateTitleStep extends AutomatedStep {
     // Fetch document from DMS
     const document = await context.services.dms.getDocument(context.job.documentId);
 
-
-    // TODO: Extract this to PromptService to renderPrompt...
-    const renderedPrompt = await context.services.prompts.renderPrompt(document, context.job)
-  
-    if (!renderedPrompt) {
-      throw new Error(`No prompt found for job type: ${context.job.jobType}`);
-    }
+    // Render prompt using domain service
+    const renderedPrompt = context.services.promptDomainService.renderPrompt(
+      context.prompt,
+      document,
+      context.job
+    );
 
     // Call LLM to generate title
     const generatedTitle = await context.services.llm.sendChatRequest(renderedPrompt);

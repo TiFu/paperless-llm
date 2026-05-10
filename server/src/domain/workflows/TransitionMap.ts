@@ -1,4 +1,4 @@
-import { JobState } from '../entities/JobState';
+import { JobState } from '../job/JobState';
 import { Transition } from './Transition';
 
 /**

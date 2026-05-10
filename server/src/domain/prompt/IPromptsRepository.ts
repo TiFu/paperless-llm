@@ -1,5 +1,5 @@
-import { Prompt } from '../../domain/entities/Prompt';
 import { WorkflowType } from '../workflows/WorkflowType';
+import { Prompt } from './Prompt';
 
 export interface IPromptsRepository {
   /**

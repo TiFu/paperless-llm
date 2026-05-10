@@ -9,8 +9,8 @@ export abstract class DocumentAction {
   constructor(
     public readonly id: string,
     public readonly actionType: DocumentActionType,
-    public readonly jobId: string | null,
-    public readonly oldValue: string | null,
+    public readonly jobId: string,
+    public readonly oldValue: string,
     public readonly newValue: string,
   ) {}
 

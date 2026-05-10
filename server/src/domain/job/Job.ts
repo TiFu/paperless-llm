@@ -1,24 +1,57 @@
 import { WorkflowType as WorkflowType } from '../workflows/WorkflowType';
 import { JobState } from './JobState';
 import { DocumentAction } from '../actions/DocumentAction';
+import { BaseWorkflow, NextStepResult } from '../workflows/BaseWorkflow';
+import { IWorkflow } from '../workflows/IWorkflow';
+import { AutomatedWorkflow } from '../workflows/AutomatedWorkflow';
+import { ApprovalWorkflow } from '../workflows/ApprovalWorkflow';
+import { error } from 'console';
+import { Transition } from '../workflows/Transition';
 
 /**
  * Job entity - stateful entity representing a workflow instance
  * Contains job-specific data and tracks overall workflow state
  */
 export class Job {
+
   constructor(
     public readonly id: string,
     public readonly documentId: string,
     public readonly jobType: WorkflowType,
     public state: JobState,
     public documentActions: DocumentAction[],
-    public readonly errorMessage: string | null,
+    public errorMessage: string | undefined,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
     public readonly completedAt: Date | null,
-  ) {}
+  ) {
+  }
 
+  public advance(transition: Transition): NextStepResult {
+    const result = this.getWorkflow().getNextStep(transition);
+    this.state = result.nextState
+    this.errorMessage = result.errorMessage
+
+    return result
+  }
+
+  public addDocumentActions(actions: DocumentAction[]): void {
+    this.documentActions.push(...actions)
+  }
+
+  public updateJobState(newState: JobState, errorMessage?: string): void {
+    this.state = newState
+    this.errorMessage = errorMessage
+  }
+
+  private getWorkflow(): IWorkflow {
+    switch (this.jobType) {
+      case WorkflowType.APPROVAL:
+        return new ApprovalWorkflow(this);
+      case WorkflowType.AUTOMATED:
+        return new AutomatedWorkflow(this)
+    }
+  }
   public static fromDb(row: Record<string, unknown>, actions: DocumentAction[] = []): Job {
     return new Job(
       row.id as string,
@@ -26,7 +59,7 @@ export class Job {
       row.job_type as WorkflowType,
       row.state as JobState,
       actions,
-      row.error_message as string | null,
+      row.error_message as string | undefined,
       new Date(row.created_at as string),
       new Date(row.updated_at as string),
       row.completed_at ? new Date(row.completed_at as string) : null,

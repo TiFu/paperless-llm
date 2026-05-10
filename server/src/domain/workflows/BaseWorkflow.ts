@@ -1,16 +1,19 @@
-import { Job } from '../entities/Job';
+
 import { Transition } from './Transition';
 import { TransitionMap } from './TransitionMap';
 import { IWorkflow } from './IWorkflow';
 import { IStep } from '../steps/IStep';
 import { JobState } from '../job/JobState';
+import { Job } from '../job/Job';
 
 /**
  * Result of getNextStep including the step instance, next state, and payload
  */
 export interface NextStepResult {
-  step: IStep;
+  step: IStep | null;
   nextState: JobState;
+  errorMessage?: string;
+  isTerminalState: boolean;
 }
 
 /**
@@ -20,7 +23,7 @@ export interface NextStepResult {
 export abstract class BaseWorkflow implements IWorkflow {
   protected transitionMap: TransitionMap;
 
-  constructor() {
+  constructor(protected readonly job: Job) {
     this.transitionMap = this.defineTransitions();
   }
 
@@ -48,46 +51,41 @@ export abstract class BaseWorkflow implements IWorkflow {
    * @param transition The transition result from the previous step (optional for initial step)
    * @returns Next step and state, or null if workflow is complete
    */
-  public getNextStep(job: Job, transition?: Transition): NextStepResult | null {
+  public getNextStep(transition: Transition): NextStepResult {
     let nextState: JobState;
 
-    if (transition === undefined) {
-      // First step - use current job state
-      nextState = job.state;
-    } else {
-      // Look up next state based on current state and transition
-      const transitionsForState = this.transitionMap.get(job.state);
-      if (!transitionsForState) {
-        // No transitions defined for this state - workflow is complete
-        return null;
-      }
-
-      const nextStateFromMap = transitionsForState.get(transition);
-      if (!nextStateFromMap) {
-        // No transition defined for this result - workflow is stuck
-        throw new Error(
-          `No transition defined for state ${job.state} with transition ${transition}`,
-        );
-      }
-
-      nextState = nextStateFromMap;
+    // Look up next state based on current state and transition
+    const transitionsForState = this.transitionMap.get(this.job.state);
+    if (!transitionsForState) {
+      // No transitions defined for this state - workflow is complete
+      return {step: null, nextState: JobState.FAILED, errorMessage: "No transitions for state " + this.job.state, isTerminalState: true};
     }
+
+    const nextStateFromMap = transitionsForState.get(transition);
+    if (!nextStateFromMap) {
+      // No transition defined for this result - workflow is stuck
+      return {step: null, nextState: JobState.FAILED, errorMessage: "No transitions for state " + this.job.state + " with transition " + transition, isTerminalState: true};
+    }
+
+    nextState = nextStateFromMap;
+    
 
     // Check if next state is terminal
     if (this.isTerminalState(nextState)) {
-      return null;
+      return {step: null, nextState, isTerminalState: true};
     }
 
     // Get step and payload for next state
-    const step = this.getStepForState(nextState, job);
+    const step = this.getStepForState(nextState, this.job);
     if (!step) {
       // State has no associated step - workflow is complete
-      return null;
+      return { step: null, nextState, errorMessage: "No step for state " + nextState, isTerminalState: true};
     }
 
     return {
       step: step,
-      nextState
+      nextState,
+      isTerminalState: false
     };
   }
 

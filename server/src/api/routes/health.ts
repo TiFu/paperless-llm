@@ -46,13 +46,14 @@ export function createHealthRouter(txManager: TransactionManager, logger: pino.L
 }
 
 async function checkDatabaseHealth(txManager: TransactionManager): Promise<boolean> {
+  await using context = await txManager.createContext();
   try {
-    await txManager.execute(async (repos) => {
-      // Simple query to check database connectivity
-      await repos.getLLMWorkQueue().getQueueStats();
-    });
+    await context.start();
+    await context.getRepositoryRegistry().getJobs().list(1);
+    await context.rollback();
     return true;
   } catch (error) {
+    await context.rollback();
     return false;
   }
 }

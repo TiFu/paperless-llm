@@ -23,7 +23,7 @@ export class UpdateDocumentStep extends AutomatedStep {
     const document = await context.services.dms.getDocument(documentId);
 
     const partials= context.job.documentActions.map((a) => {
-      a.apply(document)
+      return a.apply(document)
     })
 
     const updates = Object.assign({}, ...partials)

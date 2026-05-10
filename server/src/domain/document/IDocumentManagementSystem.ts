@@ -1,4 +1,4 @@
-import { IDocument } from '../entities/IDocument';
+import { IDocument } from "./IDocument";
 
 export interface IDocumentManagementSystem {
   /**

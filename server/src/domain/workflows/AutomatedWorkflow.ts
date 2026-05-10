@@ -1,21 +1,19 @@
-import { Job } from '../entities/Job';
 import { Transition } from './Transition';
 import { TransitionMap, createTransitionMap } from './TransitionMap';
 import { BaseWorkflow } from './BaseWorkflow';
-import { StepFactory, LLMGenerateTitleStepDependencies, UpdateDocumentStepDependencies } from '../steps/StepFactory';
+import { StepFactory } from '../steps/StepFactory';
 import { JobState } from '../job/JobState';
 import { IStep, StepStatus, StepType } from '../steps/IStep';
+import { Job } from '../job/Job';
 
 /**
  * AutomatedWorkflow - workflow without approval steps
  * Direct path: PENDING → LLM_PROCESSING → UPDATING_DOCUMENT → COMPLETED
  */
 export class AutomatedWorkflow extends BaseWorkflow {
-  constructor(
-    protected readonly llmDeps: LLMGenerateTitleStepDependencies,
-    protected readonly updateDeps: UpdateDocumentStepDependencies,
+  constructor(job: Job
   ) {
-    super();
+    super(job);
   }
   /**
    * Define standard automated workflow transitions

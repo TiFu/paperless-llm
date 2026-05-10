@@ -1,12 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { body } from 'express-validator';
 import pino from 'pino';
-import { TransactionManager } from '../../infrastructure/TransactionManager';
+import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory';
 import { validateRequest } from '../middleware/validation';
 import { ApiError } from '../middleware/errorHandler';
 import { WorkflowType } from '../../domain/workflows/WorkflowType';
 
-export function createPromptsRouter(txManager: TransactionManager, logger: pino.Logger): Router {
+export function createPromptsRouter(appFactory: ApplicationServiceFactory, logger: pino.Logger): Router {
   const router = Router();
 
   /**
@@ -15,17 +15,8 @@ export function createPromptsRouter(txManager: TransactionManager, logger: pino.
    */
   router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const prompts = await txManager.execute(async (repos) => {
-        const promptRepo = repos.getPrompts();
-        
-        // Fetch prompts for all job types
-        const promptPromises = Object.values(WorkflowType).map((jobType) =>
-          promptRepo.getByJobType(jobType),
-        );
-        
-        const results = await Promise.all(promptPromises);
-        return results.filter(Boolean);
-      });
+      const promptAppService = appFactory.createPromptApplicationService();
+      const prompts = await promptAppService.getAllPrompts();
 
       res.json({
         prompts: prompts.filter((p) => p != null).map((p) => ({
@@ -68,10 +59,8 @@ export function createPromptsRouter(txManager: TransactionManager, logger: pino.
           );
         }
 
-        const prompt = await txManager.execute(async (repos) => {
-          const promptRepo = repos.getPrompts();
-          return await promptRepo.upsert(jobType as WorkflowType, template);
-        });
+        const promptAppService = appFactory.createPromptApplicationService();
+        const prompt = await promptAppService.upsertPrompt(jobType as WorkflowType, template);
 
         logger.info({ jobType, version: prompt.version }, 'Prompt updated');
 

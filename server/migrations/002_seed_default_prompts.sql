@@ -1,5 +1,5 @@
--- Migration: Seed default prompts
--- Description: Insert default prompt templates for all job types
+-- Migration 002: Seed default prompts
+-- Insert default prompt templates for common job types
 
 -- Title generation prompt
 INSERT INTO prompts (job_type, template, version)

@@ -7,7 +7,8 @@ import { initializeLogger } from './utils/logger';
 import { createApiServer } from './api/server';
 import { PaperlessService } from './services/PaperlessService';
 import { OllamaService } from './services/OllamaService';
-import { StepExecutorService } from './services/StepExecutorService';
+import { ApplicationServiceFactory } from './application/ApplicationServiceFactory';
+import { DomainServices } from './domain/services/DomainServices';
 
 async function main(): Promise<void> {
   // Load configuration
@@ -56,12 +57,15 @@ async function main(): Promise<void> {
     logger.info('Ollama connection established');
   }
 
-  // Initialize step executor service for workflow system
-  const stepExecutorService = new StepExecutorService(
+  // Initialize service factories
+  const applicationServiceFactory = new ApplicationServiceFactory(
     txManager,
     paperlessService,
     ollamaService,
   );
+
+  // Create step executor application service
+  const stepExecutorService = applicationServiceFactory.createStepExecutorApplicationService();
 
   // Create Express app
   const app = createApiServer(
@@ -69,6 +73,7 @@ async function main(): Promise<void> {
       port: config.api.port,
       corsOrigins: config.api.corsOrigins,
     },
+    applicationServiceFactory,
     txManager,
     paperlessService,
     logger,

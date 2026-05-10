@@ -1,17 +1,57 @@
 import { Pool, PoolClient } from 'pg';
 import { IJobRepository } from '../../domain/job/IJobRepository';
-import { Job } from '../../domain/entities/Job';
 import { WorkflowType } from '../../domain/workflows/WorkflowType';
-import { JobState } from '../../domain/entities/JobState';
+import { JobState } from '../../domain/job/JobState';
+import { Job } from '../../domain/job/Job';
+import { DocumentAction } from '../../domain/actions/DocumentAction';
+import { DocumentActionFactory } from '../../domain/actions/DocumentActionFactory';
 
 export class PostgreSQLJobRepository implements IJobRepository {
   constructor(
-    private readonly pool: Pool,
-    private readonly client?: PoolClient,
+    private readonly pool: PoolClient
   ) {}
 
   private getClient(): Pool | PoolClient {
-    return this.client || this.pool;
+    return this.pool;
+  }
+
+  private async loadActions(jobId: string): Promise<DocumentAction[]> {
+    const query = `
+      SELECT * FROM document_actions
+      WHERE job_id = $1
+      ORDER BY created_at ASC
+    `;
+
+    const result = await this.getClient().query(query, [jobId]);
+    return result.rows.map((row) => DocumentActionFactory.fromDb(row));
+  }
+
+  private async saveActions(jobId: string, actions: DocumentAction[]): Promise<void> {
+    // Delete existing actions for this job
+    await this.getClient().query('DELETE FROM document_actions WHERE job_id = $1', [jobId]);
+
+    // Insert new actions
+    if (actions.length > 0) {
+      const values = actions.map((action, idx) => {
+        const base = idx * 5;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`;
+      }).join(', ');
+
+      const params = actions.flatMap((action) => [
+        action.id,
+        jobId,
+        action.actionType,
+        action.oldValue,
+        action.newValue,
+      ]);
+
+      const query = `
+        INSERT INTO document_actions (id, job_id, action_type, old_value, new_value)
+        VALUES ${values}
+      `;
+
+      await this.getClient().query(query, params);
+    }
   }
 
   async create(
@@ -20,8 +60,8 @@ export class PostgreSQLJobRepository implements IJobRepository {
     data: Record<string, unknown>,
   ): Promise<Job> {
     const query = `
-      INSERT INTO jobs (document_id, job_type, state, data, document_actions)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO jobs (document_id, job_type, state, data)
+      VALUES ($1, $2, $3, $4)
       RETURNING *
     `;
 
@@ -30,7 +70,6 @@ export class PostgreSQLJobRepository implements IJobRepository {
       jobType,
       JobState.PENDING,
       JSON.stringify(data),
-      JSON.stringify([]), // Empty actions array initially
     ]);
 
     return Job.fromDb(result.rows[0], []);
@@ -44,9 +83,8 @@ export class PostgreSQLJobRepository implements IJobRepository {
       return null;
     }
 
-    // TODO: Deserialize document_actions when ActionFactory is updated
-    // For now, pass empty array
-    return Job.fromDb(result.rows[0], []);
+    const actions = await this.loadActions(id);
+    return Job.fromDb(result.rows[0], actions);
   }
 
   async update(job: Job): Promise<void> {
@@ -54,24 +92,22 @@ export class PostgreSQLJobRepository implements IJobRepository {
       UPDATE jobs
       SET 
         state = $1,
-        data = $2,
-        document_actions = $3,
-        completed_at = $4,
+        completed_at = $3,
         updated_at = NOW()
-      WHERE id = $5
+      WHERE id = $4
     `;
 
-    // Serialize document actions
-    const serializedActions = JSON.stringify(
-      job.documentActions.map((action) => ({
-        type: action.actionType,
-        ...action.serializePayload(),
-      })),
-    );
-
     await this.getClient().query(query, [
-    completedAt?: Date,
-  ): Promise<void> {
+      job.state,
+      job.completedAt || null,
+      job.id,
+    ]);
+
+    // Save actions to document_actions table
+    await this.saveActions(job.id, job.documentActions);
+  }
+
+  async updateState(job: Job): Promise<void> {
     const query = `
       UPDATE jobs
       SET 
@@ -83,23 +119,11 @@ export class PostgreSQLJobRepository implements IJobRepository {
     `;
 
     await this.getClient().query(query, [
-      state,
-      errorMessage || null,
-      completedAt || null,
-      id,
-    
-    errorMessage?: string,
-  ): Promise<void> {
-    const query = `
-      UPDATE jobs
-      SET 
-        state = $1,
-        error_message = $2,
-        updated_at = NOW()
-      WHERE id = $3
-    `;
-
-    await this.getClient().query(query, [state, errorMessage || null, id]);
+      job.state,
+      job.errorMessage || null,
+      job.completedAt || null,
+      job.id,
+    ]);
   }
 
   async list(
@@ -125,7 +149,19 @@ export class PostgreSQLJobRepository implements IJobRepository {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const query = `
-      SELECT * FROM jobs, []));
+      SELECT * FROM jobs
+      ${whereClause}
+      ORDER BY id ASC
+      LIMIT $1
+    `;
+
+    const result = await this.getClient().query(query, params);
+    const items = await Promise.all(
+      result.rows.map(async (row) => {
+        const actions = await this.loadActions(row.id as string);
+        return Job.fromDb(row, actions);
+      }),
+    );
     const nextCursor = items.length === limit ? items[items.length - 1].id : null;
 
     return { items, nextCursor };
@@ -139,13 +175,11 @@ export class PostgreSQLJobRepository implements IJobRepository {
     `;
 
     const result = await this.getClient().query(query, [documentId]);
-    return result.rows.map((row) => Job.fromDb(row, []se<Job[]> {
-    const query = `
-      SELECT * FROM jobs 
-      WHERE document_id = $1 
-      ORDER BY created_at DESC
-    `;
-    const result = await this.getClient().query(query, [documentId]);
-    return result.rows.map((row) => Job.fromDb(row));
+    return Promise.all(
+      result.rows.map(async (row) => {
+        const actions = await this.loadActions(row.id as string);
+        return Job.fromDb(row, actions);
+      }),
+    );
   }
 }

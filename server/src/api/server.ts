@@ -1,13 +1,14 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import pino from 'pino';
+import pinoHttp from 'pino-http';
+import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory';
 import { TransactionManager } from '../infrastructure/TransactionManager';
 import { PaperlessService } from '../services/PaperlessService';
 import { errorHandler } from './middleware/errorHandler';
 import { createPromptsRouter } from './routes/prompts';
 import { createJobsRouter } from './routes/jobs';
 import { createQueueRouter } from './routes/queue';
-import { createAuditRouter } from './routes/audit';
 import { createHealthRouter } from './routes/health';
 import { createDocumentsRouter } from './routes/documents';
 import { createApprovalsRouter } from './routes/approvals';
@@ -19,6 +20,7 @@ export interface ApiServerConfig {
 
 export function createApiServer(
   config: ApiServerConfig,
+  appFactory: ApplicationServiceFactory,
   txManager: TransactionManager,
   paperlessService: PaperlessService,
   logger: pino.Logger,
@@ -36,29 +38,34 @@ export function createApiServer(
   }
   app.use(cors({ origin: corsOrigin }));
 
-  // Request logging
-  app.use((req, _res, next) => {
-    logger.info(
-      {
-        method: req.method,
-        path: req.path,
-        query: req.query,
+  // HTTP request logging with pino-http
+  app.use(
+    pinoHttp({
+      logger: logger as any,
+      autoLogging: {
+        ignore: (req) => req.url === '/health' || req.url === '/api/health',
       },
-      'API request',
-    );
-    next();
-  });
+      customLogLevel: (_req, res, err?: Error) => {
+        if (res.statusCode >= 500 || err) {
+          return 'error';
+        }
+        if (res.statusCode >= 400) {
+          return 'warn';
+        }
+        return 'info';
+      },
+    }),
+  );
 
   // Health check (outside /api prefix)
   app.use('/', createHealthRouter(txManager, logger));
 
   // API routes
   app.use('/api/documents', createDocumentsRouter(paperlessService, logger));
-  app.use('/api/prompts', createPromptsRouter(txManager, logger));
-  app.use('/api/jobs', createJobsRouter(txManager, logger));
-  app.use('/api/approvals', createApprovalsRouter(txManager, logger));
-  app.use('/api/queue', createQueueRouter(txManager, logger));
-  app.use('/api/audit', createAuditRouter(txManager, logger));
+  app.use('/api/prompts', createPromptsRouter(appFactory, logger));
+  app.use('/api/jobs', createJobsRouter(appFactory, logger));
+  app.use('/api/approvals', createApprovalsRouter(appFactory, logger));
+  app.use('/api/queue', createQueueRouter(appFactory, logger));
 
   // 404 handler
   app.use((_req: Request, res: Response) => {

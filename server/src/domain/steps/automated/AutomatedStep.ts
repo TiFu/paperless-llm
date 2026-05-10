@@ -26,9 +26,16 @@ export abstract class AutomatedStep extends IStep {
    */
   async execute(context: StepExecutionContext): Promise<StepResult> {
     try {
+      this.moveToInProgress();
       const result = await this.doExecute(context);
+      if (result.transition == Transition.SUCCESS)  {
+        this.moveToCompleted()
+      } else {
+        this.moveToFailed()
+      }
       return result;
     } catch (error) {
+      this.moveToFailed();
       // On error, return failure transition with no actions
       console.error(`Automated step execution failed:`, error);
       return {

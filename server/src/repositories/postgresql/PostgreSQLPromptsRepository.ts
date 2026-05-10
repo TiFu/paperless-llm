@@ -1,16 +1,15 @@
 import { Pool, PoolClient } from 'pg';
 import { IPromptsRepository } from '../../domain/prompt/IPromptsRepository';
-import { Prompt } from '../../domain/entities/Prompt';
 import { WorkflowType } from '../../domain/workflows/WorkflowType';
+import { Prompt } from '../../domain/prompt/Prompt';
 
 export class PostgreSQLPromptsRepository implements IPromptsRepository {
   constructor(
-    private readonly pool: Pool,
-    private readonly client?: PoolClient,
+    private readonly pool: PoolClient
   ) {}
 
   private getClient(): Pool | PoolClient {
-    return this.client || this.pool;
+    return this.pool;
   }
 
   async getByJobType(jobType: WorkflowType): Promise<Prompt | null> {

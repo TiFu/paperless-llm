@@ -1,10 +1,10 @@
-import { Job } from '../entities/Job';
 import { Transition } from './Transition';
 import { TransitionMap, createTransitionMap } from './TransitionMap';
 import { BaseWorkflow } from './BaseWorkflow';
-import { StepFactory, LLMGenerateTitleStepDependencies, UpdateDocumentStepDependencies } from '../steps/StepFactory';
+import { StepFactory, WorkflowContext } from '../steps/StepFactory';
 import { JobState } from '../job/JobState';
-import { IStep, StepStatus, StepType } from '../steps/IStep';
+import { IStep } from '../steps/IStep';
+import { Job } from '../job/Job';
 
 /**
  * ApprovalWorkflow - workflow with approval step
@@ -14,11 +14,9 @@ import { IStep, StepStatus, StepType } from '../steps/IStep';
 export class ApprovalWorkflow extends BaseWorkflow {
     // TODO: Improvement potential IF and only IF we change the
     // transaction management and stard passing a context back and forth in services
-  constructor(
-    protected readonly llmDeps: LLMGenerateTitleStepDependencies,
-    protected readonly updateDeps: UpdateDocumentStepDependencies,
+  constructor(job: Job
   ) {
-    super();
+    super(job);
   }
   /**
    * Define approval-enabled workflow transitions

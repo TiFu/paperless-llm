@@ -1,28 +1,42 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { body, param } from 'express-validator';
 import pino from 'pino';
-import { TransactionManager } from '../../infrastructure/TransactionManager';
+import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory';
 import { validateRequest } from '../middleware/validation';
 import { ApiError } from '../middleware/errorHandler';
-import { JobStatus } from '../../domain/entities/JobStatus';
+import { decodeCursor } from '../../domain/common/Cursor';
 
 export function createApprovalsRouter(
-  txManager: TransactionManager,
+  appFactory: ApplicationServiceFactory,
   logger: pino.Logger,
 ): Router {
   const router = Router();
 
   /**
    * GET /api/approvals
-   * List pending approval items
+   * List all pending approval items with full context
+   * Query params:
+   *   - limit: Maximum number of items to return (default: 50)
+   *   - cursor: Base64-encoded cursor for pagination (optional)
    */
-  router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
+  router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const items = await txManager.execute(async (repos) => {
-        return repos.getApprovalQueue().getPending();
-      });
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const cursorParam = req.query.cursor as string | undefined;
+      
+      // Decode cursor if provided
+      let cursor = undefined;
+      if (cursorParam) {
+        cursor = decodeCursor(cursorParam);
+        if (!cursor) {
+          throw new ApiError(400, 'Invalid cursor parameter');
+        }
+      }
+      
+      const approvalAppService = appFactory.createApprovalApplicationService();
+      const result = await approvalAppService.listPendingApprovals(limit, cursor);
 
-      res.json({ items });
+      res.json(result);
     } catch (error) {
       logger.error({ error }, 'Failed to list pending approvals');
       next(error);
@@ -30,146 +44,29 @@ export function createApprovalsRouter(
   });
 
   /**
-   * GET /api/approvals/:id
-   * Get a specific approval item
-   */
-  router.get(
-    '/:id',
-    [param('id').isInt({ min: 1 }).withMessage('id must be a positive integer')],
-    validateRequest,
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const item = await txManager.execute(async (repos) => {
-          return repos.getApprovalQueue().getById(req.params.id);
-        });
-
-        if (!item) {
-          throw new ApiError(404, 'Approval item not found');
-        }
-
-        res.json(item);
-      } catch (error) {
-        logger.error({ error, id: req.params.id }, 'Failed to get approval item');
-        next(error);
-      }
-    },
-  );
-
-  /**
-   * POST /api/approvals/:id/approve
-   * Approve an item and move it to document update queue
+   * POST /api/approvals/:stepId
+   * Make a decision on an approval item
+   * Body: { decision: string } - must be one of the possibleDecisions for the step
    */
   router.post(
-    '/:id/approve',
+    '/:stepId',
     [
-      param('id').isInt({ min: 1 }).withMessage('id must be a positive integer'),
-      body('reviewedBy').isString().notEmpty().withMessage('reviewedBy is required'),
+      param('stepId').isUUID().withMessage('stepId must be a valid UUID'),
+      body('decision').isString().notEmpty().withMessage('decision is required'),
     ],
     validateRequest,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const { reviewedBy } = req.body;
-        const approvalId = req.params.id;
+        const { stepId } = req.params;
+        const { decision } = req.body;
 
-        await txManager.execute(async (repos) => {
-          // Get the approval item
-          const approvalItem = await repos.getApprovalQueue().getById(approvalId);
-          
-          if (!approvalItem) {
-            throw new ApiError(404, 'Approval item not found');
-          }
+        const approvalAppService = appFactory.createApprovalApplicationService();
+        await approvalAppService.processApprovalDecision(stepId, decision);
 
-          if (approvalItem.status !== 'pending') {
-            throw new ApiError(400, `Cannot approve item with status: ${approvalItem.status}`);
-          }
-
-          // Mark as approved
-          await repos.getApprovalQueue().markApproved(approvalId, reviewedBy);
-
-          // Move to document update queue with job_id for tracking
-          await repos.getDocumentUpdateQueue().insert(
-            approvalItem.documentId,
-            approvalItem.documentSystem,
-            approvalItem.actionType,
-            approvalItem.actionPayload,
-            approvalItem.jobId, // Pass job ID for end-to-end tracking
-          );
-          
-          // Update job status to updating_document
-          await repos.getJobs().updateStatus(approvalItem.jobId, JobStatus.UPDATING_DOCUMENT);
-
-          // Log success in audit log
-          await repos.getAuditLog().insert(
-            approvalItem.documentId,
-            approvalItem.jobId,
-            approvalItem.actionType,
-            null, // No before value for approvals
-            approvalItem.actionPayload,
-            'success',
-            null,
-          );
-        });
-
-        logger.info({ approvalId, reviewedBy }, 'Approval item approved');
-        res.json({ success: true, message: 'Item approved and queued for update' });
+        logger.info({ stepId, decision }, 'Approval decision processed');
+        res.json({ success: true, message: 'Decision processed' });
       } catch (error) {
-        logger.error({ error, id: req.params.id }, 'Failed to approve item');
-        next(error);
-      }
-    },
-  );
-
-  /**
-   * POST /api/approvals/:id/reject
-   * Reject an item
-   */
-  router.post(
-    '/:id/reject',
-    [
-      param('id').isInt({ min: 1 }).withMessage('id must be a positive integer'),
-      body('reviewedBy').isString().notEmpty().withMessage('reviewedBy is required'),
-      body('reason').isString().notEmpty().withMessage('reason is required'),
-    ],
-    validateRequest,
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const { reviewedBy, reason } = req.body;
-        const approvalId = req.params.id;
-
-        await txManager.execute(async (repos) => {
-          // Get the approval item
-          const approvalItem = await repos.getApprovalQueue().getById(approvalId);
-          
-          if (!approvalItem) {
-            throw new ApiError(404, 'Approval item not found');
-          }
-
-          if (approvalItem.status !== 'pending') {
-            throw new ApiError(400, `Cannot reject item with status: ${approvalItem.status}`);
-          }
-          
-          // Update job status to rejected
-          await repos.getJobs().updateStatus(approvalItem.jobId, JobStatus.REJECTED, reason);
-
-          // Mark as rejected
-          await repos.getApprovalQueue().markRejected(approvalId, reviewedBy, reason);
-
-          // Log failure in audit log
-          await repos.getAuditLog().insert(
-            approvalItem.documentId,
-            approvalItem.jobId,
-            approvalItem.actionType,
-            null,
-            approvalItem.actionPayload,
-            'failed',
-            `Rejected by ${reviewedBy}: ${reason}`,
-          );
-        });
-
-        logger.info({ approvalId, reviewedBy, reason }, 'Approval item rejected');
-        res.json({ success: true, message: 'Item rejected' });
-      } catch (error) {
-        logger.error({ error, id: req.params.id }, 'Failed to reject item');
+        logger.error({ error, stepId: req.params.stepId }, 'Failed to process approval decision');
         next(error);
       }
     },

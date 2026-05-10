@@ -8,8 +8,8 @@ import { IDocument } from '../document/IDocument';
 export class TitleUpdateAction extends DocumentAction {
   constructor(
     id: string,
-    jobId: string | null,
-    oldValue: string | null,
+    jobId: string,
+    oldValue: string,
     newValue: string,
   ) {
     super(
@@ -32,7 +32,7 @@ export class TitleUpdateAction extends DocumentAction {
     return new TitleUpdateAction(
       '', // id - will be assigned by database
       jobId,
-      oldTitle,
+      oldTitle || "",
       newTitle,
     );
   }

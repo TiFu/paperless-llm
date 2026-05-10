@@ -9,14 +9,10 @@ import { ApprovalInteractionStep } from './userinteraction/UserInteractionStep';
 /**
  * Type-safe dependency interfaces for each step type
  */
-export interface LLMGenerateTitleStepDependencies {
+export interface WorkflowContext {
   dmsService: IDocumentManagementSystem;
   ollamaService: OllamaService;
   promptsRepo: IPromptsRepository;
-}
-
-export interface UpdateDocumentStepDependencies {
-  dmsService: IDocumentManagementSystem;
 }
 
 /**
@@ -25,7 +21,7 @@ export interface UpdateDocumentStepDependencies {
 export class StepFactory {
   /**
    * Generic create method that routes to specific factory methods
-   * Used by StepExecutorService
+   * Used by StepExecutorApplicationService
    */
   static create(
     stepId: string | null,
@@ -65,5 +61,18 @@ export class StepFactory {
    */
   static newUpdateDocumentStep(jobId: string): IStep {
     return new UpdateDocumentStep(null, jobId, StepStatus.WAITING);
+  }
+
+  /**
+   * Create a step instance from a database row
+   * Maps snake_case column names to the appropriate IStep subclass
+   */
+  static fromDb(row: any): IStep {
+    const stepId = row.id;
+    const jobId = row.job_id;
+    const type = row.type as StepType;
+    const status = row.status as StepStatus;
+
+    return StepFactory.create(stepId, jobId, type, status);
   }
 }

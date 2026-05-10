@@ -1,12 +1,11 @@
 import { Pool, PoolClient } from 'pg';
-import { IActionLogRepository } from '../../domain/interfaces/IActionLogRepository';
-import { WorkflowAction } from '../../domain/entities/WorkflowAction';
-import crypto from 'crypto';
+import { IActionLogRepository } from '../../domain/actions/IActionLogRepository';
+import { WorkflowAction } from '../../domain/actions/WorkflowAction';
 
 export class PostgreSQLActionLogRepository implements IActionLogRepository {
-  constructor(private readonly client: Pool | PoolClient) {}
+  constructor(private readonly client: PoolClient) {}
 
-  private getClient(): Pool | PoolClient {
+  private getClient(): PoolClient {
     return this.client;
   }
 

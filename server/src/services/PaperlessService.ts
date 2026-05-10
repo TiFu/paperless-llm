@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem';
-import { IDocument } from '../domain/entities/IDocument';
 import { PaperlessConfig } from '../config/AppConfig';
+import { IDocument } from '../domain/document/IDocument';
 
 interface PaperlessDocument {
   id: number;

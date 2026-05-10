@@ -1,6 +1,6 @@
-import { Job } from '../entities/Job';
 import { Transition } from './Transition';
 import { NextStepResult } from './BaseWorkflow';
+import { Job } from '../job/Job';
 
 /**
  * Workflow interface - defines state machine for job progression
@@ -13,5 +13,5 @@ export interface IWorkflow {
    * @param transition The transition result from the previous step (optional for initial step)
    * @returns Next step and state, or null if workflow is complete
    */
-  getNextStep(job: Job, transition?: Transition): NextStepResult | null;
+  getNextStep(transition?: Transition): NextStepResult;
 }
