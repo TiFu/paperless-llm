@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -15,8 +15,16 @@ import {
   Select,
   MenuItem,
   Typography,
+  IconButton,
+  Tooltip,
+  Alert,
 } from '@mui/material';
+import {
+  Refresh as RefreshIcon,
+  Cancel as CancelIcon,
+} from '@mui/icons-material';
 import { QueueItem, WorkItemStatus } from '../types/api';
+import { apiClient } from '../services/api';
 
 interface QueueItemsTableProps {
   items: QueueItem[];
@@ -32,12 +40,57 @@ export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
   onLoadMore,
   onStatusFilter,
 }) => {
-  const [filterStatus, setFilterStatus] = React.useState<WorkItemStatus | ''>('');
+  const [filterStatus, setFilterStatus] = useState<WorkItemStatus | ''>('');
+  const [processingStepId, setProcessingStepId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const handleStatusChange = (event: { target: { value: string } }) => {
     const value = event.target.value as WorkItemStatus | '';
     setFilterStatus(value);
     onStatusFilter(value);
+  };
+
+  const handleRetry = async (stepId: string) => {
+    setProcessingStepId(stepId);
+    setActionError(null);
+    setActionSuccess(null);
+    
+    try {
+      const result = await apiClient.retryStep(stepId);
+      setActionSuccess(result.message);
+      setTimeout(() => {
+        setActionSuccess(null);
+        onStatusFilter(filterStatus); // Refresh the list
+      }, 2000);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to retry step');
+    } finally {
+      setProcessingStepId(null);
+    }
+  };
+
+  const handleCancel = async (stepId: string) => {
+    setProcessingStepId(stepId);
+    setActionError(null);
+    setActionSuccess(null);
+    
+    try {
+      const result = await apiClient.cancelStep(stepId);
+      setActionSuccess(result.message);
+      setTimeout(() => {
+        setActionSuccess(null);
+        onStatusFilter(filterStatus); // Refresh the list
+      }, 2000);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to cancel step');
+    } finally {
+      setProcessingStepId(null);
+    }
+  };
+
+  const canRetryOrCancel = (status: WorkItemStatus) => {
+    return status === WorkItemStatus.RETRYING || status === WorkItemStatus.IN_FALLOUT;
   };
 
   const getStatusColor = (status: WorkItemStatus) => {
@@ -76,6 +129,18 @@ export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
 
   return (
     <Box>
+      {actionError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
+          {actionError}
+        </Alert>
+      )}
+      
+      {actionSuccess && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setActionSuccess(null)}>
+          {actionSuccess}
+        </Alert>
+      )}
+
       <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Status Filter</InputLabel>
@@ -102,6 +167,7 @@ export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
               <TableCell>Status</TableCell>
               <TableCell>Job State</TableCell>
               <TableCell>Created At</TableCell>
+              <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -125,6 +191,32 @@ export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
                   <Chip label={item.jobState} size="small" variant="outlined" />
                 </TableCell>
                 <TableCell>{formatDate(item.createdAt)}</TableCell>
+                <TableCell>
+                  {canRetryOrCancel(item.status) && (
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Tooltip title="Retry step">
+                        <IconButton
+                          size="small"
+                          color={item.status === WorkItemStatus.IN_FALLOUT ? 'error' : 'warning'}
+                          onClick={() => handleRetry(item.id)}
+                          disabled={processingStepId === item.id}
+                        >
+                          <RefreshIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Cancel step">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleCancel(item.id)}
+                          disabled={processingStepId === item.id}
+                        >
+                          <CancelIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
