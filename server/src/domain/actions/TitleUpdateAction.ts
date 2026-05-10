@@ -7,7 +7,7 @@ import { IDocument } from '../document/IDocument';
  */
 export class TitleUpdateAction extends DocumentAction {
   constructor(
-    id: string,
+    id: string | null,
     jobId: string,
     oldValue: string,
     newValue: string,
@@ -30,7 +30,7 @@ export class TitleUpdateAction extends DocumentAction {
     oldTitle: string | null,
   ): TitleUpdateAction {
     return new TitleUpdateAction(
-      '', // id - will be assigned by database
+      null, // id - will be assigned by database
       jobId,
       oldTitle || "",
       newTitle,

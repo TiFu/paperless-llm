@@ -6,8 +6,6 @@ import { Cursor, encodeCursor } from "../domain/common/Cursor";
 import { getLogger } from "../utils/logger";
 import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService";
 
-const logger = getLogger();
-
 /**
  * Enriched approval item with full context for UI display
  */
@@ -48,8 +46,7 @@ export class ApprovalApplicationService {
   async listPendingApprovals(
     limit: number = 50, 
     cursor?: Cursor
-  ): Promise<{ items: ApprovalItem[]; nextCursor: string | null }> {
-    await using context = await this.txManager.createContext();
+  ): Promise<{ items: ApprovalItem[]; nextCursor: string | null }> {    const logger = getLogger();    await using context = await this.txManager.createContext();
     
     try {
       await context.start();
@@ -121,6 +118,7 @@ export class ApprovalApplicationService {
    * @param decision User's decision data (e.g., "APPROVED" or "REJECTED")
    */
   async processApprovalDecision(stepId: string, decision: string): Promise<void> {
+    const logger = getLogger();
     const context = await this.txManager.createContext();
     
     try {

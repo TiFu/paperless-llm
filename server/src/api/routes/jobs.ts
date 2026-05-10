@@ -69,9 +69,7 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory, logger: 
           logger.debug({ msg: 'Processing doc', doc });
           for (const jobType of doc.jobTypes) {
             // Create job with initial state and data
-            const job = await jobAppService.create(doc.documentId, jobType, {
-              requiresApproval: doc.requiresApproval ?? false,
-            });
+            const job = await jobAppService.create(doc.documentId, jobType);
 
             createdJobs.push({
               documentId: doc.documentId,

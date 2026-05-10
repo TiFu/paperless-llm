@@ -18,7 +18,15 @@ export class LLMGenerateTitleStep extends AutomatedStep {
     super(stepId, StepType.LLM_GENERATE_TITLE, jobId, stepState);
   }
 
+  public needsPrompt(): boolean {
+    return true;
+  }
+
   protected async doExecute(context: StepExecutionContext): Promise<StepResult> {
+    if (!context.prompt) {
+      throw new Error('LLMGenerateTitleStep requires a prompt');
+    }
+
     // Fetch document from DMS
     const document = await context.services.dms.getDocument(context.job.documentId);
 

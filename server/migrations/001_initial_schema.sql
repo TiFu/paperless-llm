@@ -25,8 +25,7 @@ CREATE INDEX idx_jobs_completed_at ON jobs(completed_at) WHERE completed_at IS N
 -- Comments
 COMMENT ON TABLE jobs IS 'Central workflow job tracking';
 COMMENT ON COLUMN jobs.state IS 'Current state of the job workflow (e.g., pending, processing, completed, failed, rejected)';
-COMMENT ON COLUMN jobs.data IS 'Job-specific data as JSON';
-COMMENT ON COLUMN jobs.
+
 -- ============================================================================
 -- DOCUMENT ACTIONS TABLE
 -- ============================================================================
@@ -76,10 +75,10 @@ COMMENT ON COLUMN steps.type IS 'Step type (e.g., LLM_GENERATE_TITLE, REQUIRE_AP
 -- ============================================================================
 -- PROMPTS TABLE
 -- ============================================================================
--- LLM prompt templates for different job types
+-- LLM prompt templates for different step types
 CREATE TABLE prompts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_type TEXT NOT NULL UNIQUE,
+  step_type TEXT NOT NULL UNIQUE,
   template TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -87,10 +86,11 @@ CREATE TABLE prompts (
 );
 
 -- Indexes
-CREATE UNIQUE INDEX idx_prompts_job_type ON prompts(job_type);
+CREATE UNIQUE INDEX idx_prompts_step_type ON prompts(step_type);
 CREATE INDEX idx_prompts_version ON prompts(version);
 
 -- Comments
-COMMENT ON TABLE prompts IS 'LLM prompt templates for different job types';
+COMMENT ON TABLE prompts IS 'LLM prompt templates for different step types';
+COMMENT ON COLUMN prompts.step_type IS 'Step type this prompt is for (e.g., LLM_GENERATE_TITLE)';
 COMMENT ON COLUMN prompts.template IS 'Prompt template with {{variable}} placeholders';
 COMMENT ON COLUMN prompts.version IS 'Version number for tracking prompt evolution';

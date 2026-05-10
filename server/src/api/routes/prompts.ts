@@ -4,7 +4,7 @@ import pino from 'pino';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory';
 import { validateRequest } from '../middleware/validation';
 import { ApiError } from '../middleware/errorHandler';
-import { WorkflowType } from '../../domain/workflows/WorkflowType';
+import { StepType } from '../../domain/steps/IStep';
 
 export function createPromptsRouter(appFactory: ApplicationServiceFactory, logger: pino.Logger): Router {
   const router = Router();
@@ -19,8 +19,8 @@ export function createPromptsRouter(appFactory: ApplicationServiceFactory, logge
       const prompts = await promptAppService.getAllPrompts();
 
       res.json({
-        prompts: prompts.filter((p) => p != null).map((p) => ({
-          jobType: p.jobType,
+        prompts: prompts.map((p) => ({
+          stepType: p.stepType,
           template: p.template,
           version: p.version,
           updatedAt: p.updatedAt,
@@ -33,11 +33,11 @@ export function createPromptsRouter(appFactory: ApplicationServiceFactory, logge
   });
 
   /**
-   * PUT /api/prompts/:jobType
-   * Update or create a prompt for a specific job type
+   * PUT /api/prompts/:stepType
+   * Update or create a prompt for a specific step type
    */
   router.put(
-    '/:jobType',
+    '/:stepType',
     [
       body('template')
         .isString()
@@ -47,31 +47,31 @@ export function createPromptsRouter(appFactory: ApplicationServiceFactory, logge
     validateRequest,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const { jobType } = req.params;
+        const { stepType } = req.params;
         const { template } = req.body;
 
-        // Validate job type
-        if (!Object.values(WorkflowType).includes(jobType as WorkflowType)) {
+        // Validate step type
+        if (!Object.values(StepType).includes(stepType as StepType)) {
           throw new ApiError(
             400,
-            'Invalid Job Type',
-            `Job type must be one of: ${Object.values(WorkflowType).join(', ')}`,
+            'Invalid Step Type',
+            `Step type must be one of: ${Object.values(StepType).join(', ')}`,
           );
         }
 
         const promptAppService = appFactory.createPromptApplicationService();
-        const prompt = await promptAppService.upsertPrompt(jobType as WorkflowType, template);
+        const prompt = await promptAppService.upsertPrompt(stepType as StepType, template);
 
-        logger.info({ jobType, version: prompt.version }, 'Prompt updated');
+        logger.info({ stepType, version: prompt.version }, 'Prompt updated');
 
         res.json({
-          jobType: prompt.jobType,
+          stepType: prompt.stepType,
           template: prompt.template,
           version: prompt.version,
           updatedAt: prompt.updatedAt,
         });
       } catch (error) {
-        logger.error({ error, jobType: req.params.jobType }, 'Failed to update prompt');
+        logger.error({ error, stepType: req.params.stepType }, 'Failed to update prompt');
         next(error);
       }
     },

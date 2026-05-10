@@ -4,8 +4,6 @@ import { TransactionManager } from "../infrastructure/TransactionManager";
 import { getLogger } from "../utils/logger";
 import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService";
 
-const logger = getLogger();
-
 /**
  * JobApplicationService - handles job creation and retrieval with transaction management.
  * Application service that orchestrates persistence for job operations.
@@ -23,17 +21,17 @@ export class JobApplicationService {
   async create(
     documentId: string,
     jobType: WorkflowType,
-    data: Record<string, unknown> = {},
   ): Promise<Job> {
+    const logger = getLogger();
     const context = await this.txManager.createContext();
     
     try {
       await context.start();
       const repos = context.getRepositoryRegistry();
 
-      logger.info({ documentId, jobType, data }, 'Creating new job');
+      logger.info({ documentId, jobType }, 'Creating new job');
 
-      const job = await repos.getJobs().create(documentId, jobType, data);
+      const job = await repos.getJobs().create(documentId, jobType);
       
       // Start job with first transition
       const orchestrator = new WorkflowOrchestratorService()
@@ -58,6 +56,7 @@ export class JobApplicationService {
    * @returns Job or null if not found
    */
   async getById(id: string): Promise<Job | null> {
+    const logger = getLogger();
     const context = await this.txManager.createContext();
     
     try {
@@ -83,6 +82,7 @@ export class JobApplicationService {
    * @returns Array of jobs for the document
    */
   async getByDocumentId(documentId: string): Promise<Job[]> {
+    const logger = getLogger();
     const context = await this.txManager.createContext();
     
     try {

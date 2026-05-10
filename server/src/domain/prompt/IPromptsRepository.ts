@@ -1,13 +1,13 @@
-import { WorkflowType } from '../workflows/WorkflowType';
+import { StepType } from '../steps/IStep';
 import { Prompt } from './Prompt';
 
 export interface IPromptsRepository {
   /**
-   * Get a prompt by job type
-   * @param jobType Type of job
-   * @returns Prompt for the specified job type or null if not found
+   * Get a prompt by step type
+   * @param stepType Type of step
+   * @returns Prompt for the specified step type or null if not found
    */
-  getByJobType(jobType: WorkflowType): Promise<Prompt | null>;
+  getByStepType(stepType: StepType): Promise<Prompt | null>;
 
   /**
    * Get all prompts
@@ -17,9 +17,9 @@ export interface IPromptsRepository {
 
   /**
    * Insert or update a prompt
-   * @param jobType Type of job
+   * @param stepType Type of step
    * @param template Prompt template
    * @returns Created or updated prompt
    */
-  upsert(jobType: WorkflowType, template: string): Promise<Prompt>;
+  upsert(stepType: StepType, template: string): Promise<Prompt>;
 }

@@ -1,6 +1,8 @@
 import { Pool, PoolClient } from 'pg';
 import { RepositoryRegistry } from './RepositoryRegistry';
+import { createChildLogger } from '../utils/logger';
 
+let ctxNo = 0;
 /**
  * Represents a database transaction context.
  * Manages transaction lifecycle and provides access to repositories.
@@ -10,16 +12,22 @@ export class TransactionContext {
   private readonly repositoryRegistry: RepositoryRegistry;
   private isActive: boolean = false;
   private isDisposed: boolean = false;
+  private readonly logger;
+  private readonly name: string;
 
   constructor(client: PoolClient) {
     this.client = client;
     this.repositoryRegistry = new RepositoryRegistry(client);
+    ctxNo++;
+    this.name = "TransactionContext " + ctxNo;
+    this.logger = createChildLogger({ name: this.name });
   }
 
   /**
    * Begin a new transaction.
    */
   public async start(): Promise<void> {
+    this.logger.debug({ name: this.name }, "Started")
     if (this.isDisposed) {
       throw new Error('Cannot start transaction: context has been disposed');
     }
@@ -35,6 +43,7 @@ export class TransactionContext {
    * Commit the current transaction.
    */
   public async commit(): Promise<void> {
+    this.logger.debug({ name: this.name }, "Commit")
     if (this.isDisposed) {
       throw new Error('Cannot commit transaction: context has been disposed');
     }
@@ -49,6 +58,7 @@ export class TransactionContext {
    * Rollback the current transaction.
    */
   public async rollback(): Promise<void> {
+    this.logger.debug({ name: this.name }, "Rollback")
     if (this.isDisposed) {
       throw new Error('Cannot rollback transaction: context has been disposed');
     }
@@ -74,6 +84,7 @@ export class TransactionContext {
    * If a transaction is active, it will be rolled back.
    */
   public async dispose(): Promise<void> {
+    this.logger.debug({ name: this.name }, "Disposed")
     if (this.isDisposed) {
       return;
     }
@@ -95,6 +106,7 @@ export class TransactionContext {
    * Support for future async using statements (TC39 proposal)
    */
   async [Symbol.asyncDispose](): Promise<void> {
+    this.logger.debug({ name: this.name }, "Automatic dispose called")
     await this.dispose();
   }
 }

@@ -27,18 +27,16 @@ export class PostgreSQLJobRepository implements IJobRepository {
   }
 
   private async saveActions(jobId: string, actions: DocumentAction[]): Promise<void> {
-    // Delete existing actions for this job
-    await this.getClient().query('DELETE FROM document_actions WHERE job_id = $1', [jobId]);
 
     // Insert new actions
     if (actions.length > 0) {
       const values = actions.map((action, idx) => {
         const base = idx * 5;
-        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`;
+        return `(COALESCE($${base + 1}, gen_random_uuid()), $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`;
       }).join(', ');
 
       const params = actions.flatMap((action) => [
-        action.id,
+        action.id || null,  // Pass null for new actions
         jobId,
         action.actionType,
         action.oldValue,
@@ -48,6 +46,10 @@ export class PostgreSQLJobRepository implements IJobRepository {
       const query = `
         INSERT INTO document_actions (id, job_id, action_type, old_value, new_value)
         VALUES ${values}
+        ON CONFLICT (id) DO UPDATE SET
+          action_type = EXCLUDED.action_type,
+          old_value = EXCLUDED.old_value,
+          new_value = EXCLUDED.new_value
       `;
 
       await this.getClient().query(query, params);
@@ -57,19 +59,17 @@ export class PostgreSQLJobRepository implements IJobRepository {
   async create(
     documentId: string,
     jobType: WorkflowType,
-    data: Record<string, unknown>,
   ): Promise<Job> {
     const query = `
-      INSERT INTO jobs (document_id, job_type, state, data)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO jobs (document_id, job_type, state)
+      VALUES ($1, $2, $3)
       RETURNING *
     `;
 
     const result = await this.getClient().query(query, [
       documentId,
       jobType,
-      JobState.PENDING,
-      JSON.stringify(data),
+      JobState.PENDING
     ]);
 
     return Job.fromDb(result.rows[0], []);
@@ -92,14 +92,14 @@ export class PostgreSQLJobRepository implements IJobRepository {
       UPDATE jobs
       SET 
         state = $1,
-        completed_at = $3,
+        completed_at = $2,
         updated_at = NOW()
-      WHERE id = $4
+      WHERE id = $3
     `;
 
     await this.getClient().query(query, [
       job.state,
-      job.completedAt || null,
+      job.completedAt,
       job.id,
     ]);
 

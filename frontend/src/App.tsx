@@ -14,11 +14,14 @@ import {
 import {
   Description as DescriptionIcon,
   Queue as QueueIcon,
-  History as HistoryIcon,
+  CheckCircle as CheckCircleIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { DocumentsPage } from './pages/DocumentsPage';
 import { QueuesPage } from './pages/QueuesPage';
-import { AuditLogPage } from './pages/AuditLogPage';
+import { ApprovalsPage } from './pages/ApprovalsPage';
+import { PromptsPage } from './pages/PromptsPage';
+import { JobDetailsPage } from './pages/JobDetailsPage';
 
 const theme = createTheme({
   palette: {
@@ -96,15 +99,23 @@ const Navigation: React.FC = () => {
             to="/queues"
             startIcon={<QueueIcon />}
           >
-            Queues
+            Queue
           </Button>
           <Button
             color="inherit"
             component={RouterLink}
-            to="/audit"
-            startIcon={<HistoryIcon />}
+            to="/approvals"
+            startIcon={<CheckCircleIcon />}
           >
-            Audit Log
+            Approvals
+          </Button>
+          <Button
+            color="inherit"
+            component={RouterLink}
+            to="/prompts"
+            startIcon={<SettingsIcon />}
+          >
+            Prompts
           </Button>
         </Box>
       </Toolbar>
@@ -123,7 +134,9 @@ function App() {
             <Route path="/" element={<Navigate to="/documents" replace />} />
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/queues" element={<QueuesPage />} />
-            <Route path="/audit" element={<AuditLogPage />} />
+            <Route path="/approvals" element={<ApprovalsPage />} />
+            <Route path="/prompts" element={<PromptsPage />} />
+            <Route path="/jobs/:id" element={<JobDetailsPage />} />
             <Route path="*" element={<Navigate to="/documents" replace />} />
           </Routes>
         </BrowserRouter>

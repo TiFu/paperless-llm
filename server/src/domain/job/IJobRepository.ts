@@ -12,8 +12,7 @@ export interface IJobRepository {
    */
   create(
     documentId: string,
-    jobType: WorkflowType,
-    data: Record<string, unknown>,
+    jobType: WorkflowType
   ): Promise<Job>;
 
   /**

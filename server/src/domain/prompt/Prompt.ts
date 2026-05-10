@@ -1,9 +1,9 @@
-import { WorkflowType } from '../workflows/WorkflowType';
+import { StepType } from '../steps/IStep';
 
 export class Prompt {
   constructor(
     public readonly id: string,
-    public readonly jobType: WorkflowType,
+    public readonly stepType: StepType,
     public readonly template: string,
     public readonly version: number,
     public readonly createdAt: Date,
@@ -13,7 +13,7 @@ export class Prompt {
   public static fromDb(row: Record<string, unknown>): Prompt {
     return new Prompt(
       row.id as string,
-      row.job_type as WorkflowType,
+      row.step_type as StepType,
       row.template as string,
       row.version as number,
       new Date(row.created_at as string),

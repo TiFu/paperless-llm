@@ -3,8 +3,6 @@ import { Transition } from "../domain/workflows/Transition";
 import { TransactionContext, TransactionManager } from "../infrastructure/TransactionManager";
 import { getLogger } from "../utils/logger";
 
-const logger = getLogger();
-
 /**
  * WorkflowApplicationService - manages workflow progression and state transitions.
  * Application service responsible for advancing jobs through their workflow steps.
@@ -18,7 +16,7 @@ export class WorkflowOrchestratorService {
    * @param transition The transition result from the previous step
    */
   async advanceToNextStep(job: Job, transition: Transition, context: TransactionContext): Promise<void> {
-    
+    const logger = getLogger();
     const repos = context.getRepositoryRegistry();
 
       logger.info(

@@ -44,7 +44,7 @@ export interface StepResult {
 export interface StepExecutionContext {
   job: Job;
   stepId: string;
-  prompt: Prompt;
+  prompt: Prompt | null;
   services: {
     dms: IDocumentManagementSystem,
     llm: ILLMService,
@@ -102,5 +102,13 @@ export abstract class IStep {
 
   public getJobId(): string {
     return this.jobId
+  }
+
+  /**
+   * Override this method to indicate if the step requires a prompt for execution
+   * @returns true if step needs a prompt, false otherwise
+   */
+  public needsPrompt(): boolean {
+    return false;
   }
 }

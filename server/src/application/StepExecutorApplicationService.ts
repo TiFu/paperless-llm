@@ -51,9 +51,12 @@ export class StepExecutorApplicationService {
             throw new Error('Unknown job in step execution!');
         }
 
-        const prompt = await repos.getPrompts().getByJobType(job.jobType);
-        if (!prompt) {
-            throw new Error(`No prompt found for job type: ${job.jobType}`);
+        let prompt = null;
+        if (step.needsPrompt()) {
+            prompt = await repos.getPrompts().getByStepType(step.getStepType());
+            if (!prompt) {
+                throw new Error(`No prompt found for step type: ${step.getStepType()}`);
+            }
         }
 
         const domainServices = new DomainServices(context)
@@ -83,7 +86,7 @@ export class StepExecutorApplicationService {
 
         await context.commit();
     } catch (error) {
-      stepLogger.error({ error }, 'Failed to persist step execution results');
+      stepLogger.error({ error }, 'Failed to execute step');
       await context.rollback();
       throw error;
     } finally {
@@ -111,22 +114,36 @@ export class StepExecutorApplicationService {
         pendingSteps = await repos.getSteps().getPendignAutomatedSteps(batchSize);
         pendingSteps.forEach((s) => s.moveToInProgress());
         await repos.getSteps().updateAll(pendingSteps);
+        await context.commit();
     } catch (error) {
-        logger.error({ error }, 'Failed to persist step execution results');
+        logger.error({ error }, 'Failed to load pending steps');
         context.rollback();
         return 0;
     }
 
-    const all: Promise<[AutomatedStep, Boolean]>[] = []
+    logger.info({ steps: pendingSteps.map((v) => v.getStepId())}, "Found " + pendingSteps.length + " steps")
+    const results: Array<[AutomatedStep, Boolean]> = []
     for (const step of pendingSteps) {
-        const promise = this.executeStep(step).then(() => { return [step, true] }).catch((error) => {
+        const result = await this.executeStep(step).then(() => { return [step, true] }).catch((error) => {
             logger.error("Failed to process step "+ step.getStepId() + ": " + error)
             return [step, false]
-        }) as Promise<[AutomatedStep, Boolean]>;
-        all.push(promise)
-      }
+        }) as [AutomatedStep, Boolean];
+        results.push(result)
+    }
 
-    const results = await Promise.all(all);
+    logger.info("Updating step status!")
+    try {
+        await using context = await this.txManager.createContext();
+        await context.start();
+        const steps = results.map((a) => a[0]);
+        const loggableSteps = steps.map((s) => { return {id: s.getStepId(), status: s.getStepStatus()}});
+        logger.info({ steps: loggableSteps}, "Updating step statuses")
+        context.getRepositoryRegistry().getSteps().updateAll(steps)
+        context.commit()
+    } catch (error) {
+        logger.error({error}, "Failed to update step status");
+    }
+
     const processed = results.reduce((prev, current) => {
         if (current[1]) {
             return prev + 1

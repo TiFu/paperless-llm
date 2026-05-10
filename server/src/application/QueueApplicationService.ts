@@ -3,8 +3,6 @@ import { StepStatus } from '../domain/steps/IStep';
 import { StepWithJob } from '../domain/steps/IStepRepository';
 import { getLogger } from '../utils/logger';
 
-const logger = getLogger();
-
 /**
  * Queue statistics response
  */
@@ -48,6 +46,7 @@ export class QueueApplicationService {
    * @returns Aggregated statistics by status
    */
   async getQueueStats(): Promise<QueueStats> {
+    const logger = getLogger();
     const context = await this.txManager.createContext();
 
     try {
@@ -87,6 +86,7 @@ export class QueueApplicationService {
     cursor?: string,
     status?: string
   ): Promise<{ items: QueueItem[]; nextCursor: string | null }> {
+    const logger = getLogger();
     const context = await this.txManager.createContext();
 
     try {

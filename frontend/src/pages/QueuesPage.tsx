@@ -3,155 +3,82 @@ import {
   Container,
   Typography,
   Box,
-  Tabs,
-  Tab,
   CircularProgress,
   Alert,
+  Paper,
 } from '@mui/material';
 import { QueueStatsCard } from '../components/QueueStatsCard';
 import { QueueItemsTable } from '../components/QueueItemsTable';
 import { apiClient } from '../services/api';
-import {
-  QueueStats,
-  LLMQueueItem,
-  DocumentUpdateQueueItem,
-  WorkItemStatus,
-} from '../types/api';
+import { QueueStats, QueueItem, WorkItemStatus } from '../types/api';
 
 const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
 
 export const QueuesPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<QueueStats | null>(null);
+  const [items, setItems] = useState<QueueItem[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<WorkItemStatus | ''>('');
 
-  // LLM Queue State
-  const [llmStats, setLlmStats] = useState<QueueStats | null>(null);
-  const [llmItems, setLlmItems] = useState<LLMQueueItem[]>([]);
-  const [llmNextCursor, setLlmNextCursor] = useState<string | null>(null);
-  const [llmStatusFilter, setLlmStatusFilter] = useState<WorkItemStatus | ''>('');
-
-  // Document Update Queue State
-  const [docUpdateStats, setDocUpdateStats] = useState<QueueStats | null>(null);
-  const [docUpdateItems, setDocUpdateItems] = useState<DocumentUpdateQueueItem[]>([]);
-  const [docUpdateNextCursor, setDocUpdateNextCursor] = useState<string | null>(null);
-  const [docUpdateStatusFilter, setDocUpdateStatusFilter] = useState<WorkItemStatus | ''>('');
-
-  const fetchLLMQueue = async (cursor?: string, append = false) => {
+  const fetchQueue = async (cursor?: string, append = false) => {
     try {
-      const [stats, itemsResponse] = await Promise.all([
-        apiClient.fetchLLMQueueStats(),
-        apiClient.fetchLLMQueueItems(
-          50,
-          cursor,
-          llmStatusFilter || undefined
-        ),
+      setLoading(true);
+      setError(null);
+
+      const [statsResponse, itemsResponse] = await Promise.all([
+        apiClient.fetchQueueStats(),
+        apiClient.fetchQueueItems(50, cursor, statusFilter || undefined),
       ]);
 
-      setLlmStats(stats);
+      setStats(statsResponse);
       if (append) {
-        setLlmItems((prev) => [...prev, ...itemsResponse.items]);
+        setItems((prev) => [...prev, ...itemsResponse.items]);
       } else {
-        setLlmItems(itemsResponse.items);
+        setItems(itemsResponse.items);
       }
-      setLlmNextCursor(itemsResponse.pagination.nextCursor);
+      setNextCursor(itemsResponse.pagination.nextCursor || null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch LLM queue');
-    }
-  };
-
-  const fetchDocUpdateQueue = async (cursor?: string, append = false) => {
-    try {
-      const [stats, itemsResponse] = await Promise.all([
-        apiClient.fetchDocUpdateQueueStats(),
-        apiClient.fetchDocUpdateQueueItems(
-          50,
-          cursor,
-          docUpdateStatusFilter || undefined
-        ),
-      ]);
-
-      setDocUpdateStats(stats);
-      if (append) {
-        setDocUpdateItems((prev) => [...prev, ...itemsResponse.items]);
-      } else {
-        setDocUpdateItems(itemsResponse.items);
-      }
-      setDocUpdateNextCursor(itemsResponse.pagination.nextCursor);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch document update queue');
-    }
-  };
-
-  const fetchActiveQueue = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      if (activeTab === 0) {
-        await fetchLLMQueue();
-      } else {
-        await fetchDocUpdateQueue();
-      }
+      setError(err instanceof Error ? err.message : 'Failed to fetch queue');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchActiveQueue();
+    fetchQueue();
 
-    // Set up auto-refresh
-    const intervalId = setInterval(() => {
-      // Only refresh if no filter is active
-      if (activeTab === 0 && !llmStatusFilter) {
-        fetchLLMQueue();
-      } else if (activeTab === 1 && !docUpdateStatusFilter) {
-        fetchDocUpdateQueue();
-      }
-    }, AUTO_REFRESH_INTERVAL);
+    // Set up auto-refresh only if no filter is active
+    if (!statusFilter) {
+      const intervalId = setInterval(() => {
+        fetchQueue();
+      }, AUTO_REFRESH_INTERVAL);
 
-    return () => clearInterval(intervalId);
+      return () => clearInterval(intervalId);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, llmStatusFilter, docUpdateStatusFilter]);
+  }, [statusFilter]);
 
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-  };
-
-  const handleLlmLoadMore = () => {
-    if (llmNextCursor) {
-      fetchLLMQueue(llmNextCursor, true);
+  const handleLoadMore = () => {
+    if (nextCursor) {
+      fetchQueue(nextCursor, true);
     }
   };
 
-  const handleDocUpdateLoadMore = () => {
-    if (docUpdateNextCursor) {
-      fetchDocUpdateQueue(docUpdateNextCursor, true);
-    }
-  };
-
-  const handleLlmStatusFilter = (status: WorkItemStatus | '') => {
-    setLlmStatusFilter(status);
-    fetchLLMQueue(undefined, false);
-  };
-
-  const handleDocUpdateStatusFilter = (status: WorkItemStatus | '') => {
-    setDocUpdateStatusFilter(status);
-    fetchDocUpdateQueue(undefined, false);
+  const handleStatusFilter = (status: WorkItemStatus | '') => {
+    setStatusFilter(status);
+    fetchQueue(undefined, false);
   };
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" sx={{ mb: 3 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
         Queue Monitoring
       </Typography>
-
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tab label="LLM Queue" />
-          <Tab label="Document Update Queue" />
-        </Tabs>
-      </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Monitor all workflow steps across the unified queue system.
+      </Typography>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
@@ -159,43 +86,33 @@ export const QueuesPage: React.FC = () => {
         </Alert>
       )}
 
-      {loading && !llmStats && !docUpdateStats ? (
+      {loading && !stats ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
-      ) : (
+      ) : stats ? (
         <Box>
-          {activeTab === 0 && llmStats && (
-            <>
-              <Box sx={{ mb: 3 }}>
-                <QueueStatsCard title="LLM Queue Statistics" stats={llmStats} />
-              </Box>
-              <QueueItemsTable
-                items={llmItems}
-                nextCursor={llmNextCursor}
-                onLoadMore={handleLlmLoadMore}
-                onStatusFilter={handleLlmStatusFilter}
-                type="llm"
-              />
-            </>
-          )}
-
-          {activeTab === 1 && docUpdateStats && (
-            <>
-              <Box sx={{ mb: 3 }}>
-                <QueueStatsCard title="Document Update Queue Statistics" stats={docUpdateStats} />
-              </Box>
-              <QueueItemsTable
-                items={docUpdateItems}
-                nextCursor={docUpdateNextCursor}
-                onLoadMore={handleDocUpdateLoadMore}
-                onStatusFilter={handleDocUpdateStatusFilter}
-                type="docUpdate"
-              />
-            </>
-          )}
+          <Box sx={{ mb: 3 }}>
+            <QueueStatsCard title="Queue Statistics" stats={stats} />
+          </Box>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Queue Items
+            </Typography>
+            {!statusFilter && (
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                Auto-refreshing every {AUTO_REFRESH_INTERVAL / 1000} seconds
+              </Typography>
+            )}
+            <QueueItemsTable
+              items={items}
+              nextCursor={nextCursor}
+              onLoadMore={handleLoadMore}
+              onStatusFilter={handleStatusFilter}
+            />
+          </Paper>
         </Box>
-      )}
+      ) : null}
     </Container>
   );
 };

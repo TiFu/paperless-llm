@@ -7,7 +7,7 @@ import { IDocument } from '../document/IDocument';
  */
 export abstract class DocumentAction {
   constructor(
-    public readonly id: string,
+    public readonly id: string | null,
     public readonly actionType: DocumentActionType,
     public readonly jobId: string,
     public readonly oldValue: string,

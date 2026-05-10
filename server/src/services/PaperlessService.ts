@@ -101,12 +101,6 @@ export class PaperlessService implements IDocumentManagementSystem {
         payload.title = updates.title;
       }
 
-      if (updates.tags !== undefined) {
-        // Convert tag names to tag IDs
-        const tagIds = await this.resolveTagNames(updates.tags);
-        payload.tags = tagIds;
-      }
-
       await this.client.patch(`/api/documents/${documentId}/`, payload);
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -140,6 +134,7 @@ export class PaperlessService implements IDocumentManagementSystem {
     return result
   }
 
+  // TODO Requires rewrite, just one query instead of n queries...
   private async getTagNames(tagIds: number[]): Promise<string[]> {
     const names: string[] = [];
 
@@ -158,29 +153,6 @@ export class PaperlessService implements IDocumentManagementSystem {
     }
 
     return names;
-  }
-
-  private async resolveTagNames(tagNames: string[]): Promise<number[]> {
-    const tagIds: number[] = [];
-
-    for (const tagName of tagNames) {
-      try {
-        const response = await this.client.get<{ results: PaperlessTag[] }>(
-          '/api/tags/',
-          {
-            params: { name__iexact: tagName },
-          },
-        );
-
-        if (response.data.results.length > 0) {
-          tagIds.push(response.data.results[0].id);
-        }
-      } catch {
-        // Skip tags that can't be resolved
-      }
-    }
-
-    return tagIds;
   }
 
   async healthCheck(): Promise<boolean> {
