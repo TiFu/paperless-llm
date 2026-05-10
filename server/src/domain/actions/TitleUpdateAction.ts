@@ -1,6 +1,6 @@
-import { DocumentAction } from './DocumentAction';
-import { DocumentActionType } from './ActionType';
-import { IDocument } from '../document/IDocument';
+import { DocumentAction } from './DocumentAction.js';
+import { DocumentActionType } from './ActionType.js';
+import { IDocument } from '../document/IDocument.js';
 
 /**
  * Action to update a document's title

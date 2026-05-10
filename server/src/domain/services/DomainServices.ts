@@ -1,6 +1,6 @@
-import { TransactionContext } from '../../infrastructure/TransactionManager';
-import { IPromptDomainService } from '../prompt/IPromptDomainService';
-import { PromptDomainService } from '../prompt/PromptDomainService';
+import { TransactionContext } from '../../infrastructure/TransactionManager.js';
+import { IPromptDomainService } from '../prompt/IPromptDomainService.js';
+import { PromptDomainService } from '../prompt/PromptDomainService.js';
 
 /**
  * DomainServices - collection of all domain services.

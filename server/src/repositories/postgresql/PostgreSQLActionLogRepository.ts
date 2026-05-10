@@ -1,6 +1,6 @@
 import { Pool, PoolClient } from 'pg';
-import { IActionLogRepository } from '../../domain/actions/IActionLogRepository';
-import { WorkflowAction } from '../../domain/actions/WorkflowAction';
+import { IActionLogRepository } from '../../domain/actions/IActionLogRepository.js';
+import { WorkflowAction } from '../../domain/actions/WorkflowAction.js';
 
 export class PostgreSQLActionLogRepository implements IActionLogRepository {
   constructor(private readonly client: PoolClient) {}

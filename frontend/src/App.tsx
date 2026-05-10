@@ -14,14 +14,16 @@ import {
 import {
   Description as DescriptionIcon,
   Queue as QueueIcon,
+  History as HistoryIcon,
+  Work as WorkIcon,
   CheckCircle as CheckCircleIcon,
-  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { DocumentsPage } from './pages/DocumentsPage';
 import { QueuesPage } from './pages/QueuesPage';
-import { ApprovalsPage } from './pages/ApprovalsPage';
-import { PromptsPage } from './pages/PromptsPage';
+import { JobsPage } from './pages/JobsPage';
 import { JobDetailsPage } from './pages/JobDetailsPage';
+import { ApprovalsPage } from './pages/ApprovalsPage';
+import { HealthStatusIndicator } from './components/HealthStatusIndicator';
 
 const theme = createTheme({
   palette: {
@@ -96,10 +98,18 @@ const Navigation: React.FC = () => {
           <Button
             color="inherit"
             component={RouterLink}
+            to="/jobs"
+            startIcon={<WorkIcon />}
+          >
+            Jobs
+          </Button>
+          <Button
+            color="inherit"
+            component={RouterLink}
             to="/queues"
             startIcon={<QueueIcon />}
           >
-            Queue
+            Queues
           </Button>
           <Button
             color="inherit"
@@ -112,11 +122,12 @@ const Navigation: React.FC = () => {
           <Button
             color="inherit"
             component={RouterLink}
-            to="/prompts"
-            startIcon={<SettingsIcon />}
+            to="/audit"
+            startIcon={<HistoryIcon />}
           >
-            Prompts
+            Audit Log
           </Button>
+        <HealthStatusIndicator />
         </Box>
       </Toolbar>
     </AppBar>
@@ -133,10 +144,10 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/documents" replace />} />
             <Route path="/documents" element={<DocumentsPage />} />
+            <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/jobs/:id" element={<JobDetailsPage />} />
             <Route path="/queues" element={<QueuesPage />} />
             <Route path="/approvals" element={<ApprovalsPage />} />
-            <Route path="/prompts" element={<PromptsPage />} />
-            <Route path="/jobs/:id" element={<JobDetailsPage />} />
             <Route path="*" element={<Navigate to="/documents" replace />} />
           </Routes>
         </BrowserRouter>

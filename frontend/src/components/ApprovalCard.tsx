@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Card,
   CardContent,
-  CardActions,
   Typography,
   Button,
   Box,
@@ -16,8 +15,10 @@ import {
   Paper,
   CircularProgress,
   Alert,
+  Link,
 } from '@mui/material';
-import { ApprovalItem, DocumentActionType } from '../types/api';
+import { OpenInNew } from '@mui/icons-material';
+import { ApprovalItem } from '../types/api';
 
 interface ApprovalCardProps {
   approval: ApprovalItem;
@@ -39,19 +40,14 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({ approval, onDecision
     }
   };
 
-  const formatActionType = (actionType: DocumentActionType) => {
+  const formatActionType = (actionType: string) => {
     return actionType.replace(/_/g, ' ').toUpperCase();
   };
 
-  const truncateContent = (content: string, maxLength: number = 500) => {
-    if (content.length <= maxLength) return content;
-    return content.substring(0, maxLength) + '...';
-  };
-
-  const getDecisionColor = (decision: string) => {
+  const getDecisionColor = (decision: string): 'success' | 'error' | 'primary' => {
     if (decision.toLowerCase().includes('approve')) return 'success';
     if (decision.toLowerCase().includes('reject')) return 'error';
-    return 'default';
+    return 'primary';
   };
 
   return (
@@ -60,26 +56,14 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({ approval, onDecision
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Box>
             <Typography variant="h6" gutterBottom>
-              {approval.documentTitle || 'Untitled Document'}
+              Document {approval.documentId}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
               <Chip label={approval.jobType} size="small" variant="outlined" />
-              <Typography variant="caption" color="text.secondary">
-                Document ID: {approval.documentId}
-              </Typography>
             </Box>
           </Box>
           <Typography variant="caption" color="text.secondary">
             {new Date(approval.createdAt).toLocaleString()}
-          </Typography>
-        </Box>
-
-        <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Document Preview
-          </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.875rem' }}>
-            {truncateContent(approval.documentContent)}
           </Typography>
         </Box>
 
@@ -122,22 +106,46 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({ approval, onDecision
             {error}
           </Alert>
         )}
-      </CardContent>
 
-      <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 2 }}>
-        {approval.possibleDecisions.map((decision) => (
-          <Button
-            key={decision}
-            variant="contained"
-            color={getDecisionColor(decision)}
-            onClick={() => handleDecision(decision)}
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={16} /> : undefined}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
+          {approval.possibleDecisions.map((decision) => (
+            <Button
+              key={decision}
+              variant="contained"
+              color={getDecisionColor(decision)}
+              onClick={() => handleDecision(decision)}
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={16} /> : undefined}
+            >
+              {decision}
+            </Button>
+          ))}
+        </Box>
+
+        <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            View Document in Paperless
+          </Typography>
+          <Link
+            href={approval.paperlessUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              textDecoration: 'none',
+              color: 'primary.main',
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            }}
           >
-            {decision}
-          </Button>
-        ))}
-      </CardActions>
+            Open document in Paperless
+            <OpenInNew fontSize="small" />
+          </Link>
+        </Box>
+      </CardContent>
     </Card>
   );
 };

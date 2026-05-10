@@ -1,12 +1,12 @@
 import { PoolClient } from 'pg';
-import { PostgreSQLPromptsRepository } from '../repositories/postgresql/PostgreSQLPromptsRepository';
-import { PostgreSQLJobRepository } from '../repositories/postgresql/PostgreSQLJobRepository';
-import { PostgreSQLStepRepository } from '../repositories/postgresql/PostgreSQLStepRepository';
-import { PostgreSQLActionLogRepository } from '../repositories/postgresql/PostgreSQLActionLogRepository';
-import { IPromptsRepository } from '../domain/prompt/IPromptsRepository';
-import { IJobRepository } from '../domain/job/IJobRepository';
-import { IStepRepository } from '../domain/steps/IStepRepository';
-import { IActionLogRepository } from '../domain/actions/IActionLogRepository';
+import { PostgreSQLPromptsRepository } from '../repositories/postgresql/PostgreSQLPromptsRepository.js';
+import { PostgreSQLJobRepository } from '../repositories/postgresql/PostgreSQLJobRepository.js';
+import { PostgreSQLStepRepository } from '../repositories/postgresql/PostgreSQLStepRepository.js';
+import { PostgreSQLActionLogRepository } from '../repositories/postgresql/PostgreSQLActionLogRepository.js';
+import { IPromptsRepository } from '../domain/prompt/IPromptsRepository.js';
+import { IJobRepository } from '../domain/job/IJobRepository.js';
+import { IStepRepository } from '../domain/steps/IStepRepository.js';
+import { IActionLogRepository } from '../domain/actions/IActionLogRepository.js';
 
 /**
  * Registry of repositories.

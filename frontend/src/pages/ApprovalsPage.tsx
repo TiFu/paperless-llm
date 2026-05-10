@@ -58,7 +58,7 @@ export const ApprovalsPage: React.FC = () => {
 
   const handleDecision = async (stepId: string, decision: string) => {
     try {
-      const response = await apiClient.processApprovalDecision(stepId, { decision });
+      const response = await apiClient.processApprovalDecision(stepId, decision);
       setSuccessMessage(response.message || `Decision "${decision}" processed successfully`);
 
       // Remove the approved/rejected item from the list

@@ -1,4 +1,4 @@
-import { WorkflowAction } from './WorkflowAction';
+import { WorkflowAction } from './WorkflowAction.js';
 
 /**
  * Repository interface for action_log table

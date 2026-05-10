@@ -1,10 +1,10 @@
 
-import { Transition } from './Transition';
-import { TransitionMap } from './TransitionMap';
-import { IWorkflow } from './IWorkflow';
-import { IStep } from '../steps/IStep';
-import { JobState } from '../job/JobState';
-import { Job } from '../job/Job';
+import { Transition } from './Transition.js';
+import { TransitionMap } from './TransitionMap.js';
+import { IWorkflow } from './IWorkflow.js';
+import { IStep } from '../steps/IStep.js';
+import { JobState } from '../job/JobState.js';
+import { Job } from '../job/Job.js';
 
 /**
  * Result of getNextStep including the step instance, next state, and payload

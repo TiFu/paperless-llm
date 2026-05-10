@@ -1,7 +1,7 @@
-import { IPromptDomainService } from './IPromptDomainService';
-import { IDocument } from '../document/IDocument';
-import { Job } from '../job/Job';
-import { Prompt } from './Prompt';
+import { IPromptDomainService } from './IPromptDomainService.js';
+import { IDocument } from '../document/IDocument.js';
+import { Job } from '../job/Job.js';
+import { Prompt } from './Prompt.js';
 
 /**
  * PromptDomainService - handles prompt rendering with document and job context.

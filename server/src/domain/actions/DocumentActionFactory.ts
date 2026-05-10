@@ -1,6 +1,6 @@
-import { DocumentAction } from './DocumentAction';
-import { TitleUpdateAction } from './TitleUpdateAction';
-import { DocumentActionType } from './ActionType';
+import { DocumentAction } from './DocumentAction.js';
+import { TitleUpdateAction } from './TitleUpdateAction.js';
+import { DocumentActionType } from './ActionType.js';
 
 /**
  * Factory for creating Action instances from database rows

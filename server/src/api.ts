@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
-import { createAppConfig } from './config/AppConfig';
-import { Database } from './infrastructure/Database';
-import { TransactionManager } from './infrastructure/TransactionManager';
-import { initializeLogger } from './utils/logger';
-import { createApiServer } from './api/server';
-import { PaperlessService } from './services/PaperlessService';
-import { OllamaService } from './services/OllamaService';
-import { ApplicationServiceFactory } from './application/ApplicationServiceFactory';
-import { DomainServices } from './domain/services/DomainServices';
+import { createAppConfig } from './config/AppConfig.js';
+import { Database } from './infrastructure/Database.js';
+import { TransactionManager } from './infrastructure/TransactionManager.js';
+import { WorkerExecutor } from './infrastructure/WorkerExecutor.js';
+import { runMigrations } from './infrastructure/MigrationRunner.js';
+import { initializeLogger } from './utils/logger.js';
+import { createApiServer } from './api/server.js';
+import { PaperlessService } from './services/PaperlessService.js';
+import { OllamaService } from './services/OllamaService.js';
+import { ApplicationServiceFactory } from './application/ApplicationServiceFactory.js';
 
 async function main(): Promise<void> {
   // Load configuration
@@ -36,6 +37,14 @@ async function main(): Promise<void> {
   }
   logger.info('Database connection established');
 
+  // Run database migrations
+  try {
+    await runMigrations(database, logger);
+  } catch (error) {
+    logger.error('Database migration failed - cannot start server');
+    process.exit(1);
+  }
+
   // Initialize infrastructure
   const txManager = new TransactionManager(pool);
   const paperlessService = new PaperlessService(config.paperless);
@@ -62,10 +71,15 @@ async function main(): Promise<void> {
     txManager,
     paperlessService,
     ollamaService,
+    config.paperless.url,
   );
 
-  // Create step executor application service
+  // Create application services
   const stepExecutorService = applicationServiceFactory.createStepExecutorApplicationService();
+  const stuckStepResetService = applicationServiceFactory.createStuckStepResetApplicationService(
+    config.worker.stuckStepTimeoutMs,
+    config.worker.maxStepRetries,
+  );
 
   // Create Express app
   const app = createApiServer(
@@ -76,6 +90,7 @@ async function main(): Promise<void> {
     applicationServiceFactory,
     txManager,
     paperlessService,
+    ollamaService,
     logger,
   );
 
@@ -84,7 +99,33 @@ async function main(): Promise<void> {
     logger.info({ port: config.api.port }, 'API server started');
   });
 
-  // Start workflow step processing worker
+  // Create workflow step processing worker
+  const stepProcessorWorker = new WorkerExecutor(
+    async () => {
+      const processed = await stepExecutorService.processPendingSteps(
+        config.worker.batchSize,
+      );
+      if (processed > 0) {
+        logger.debug({ processed }, 'Processed steps');
+      }
+    },
+    config.worker.pollIntervalMs,
+    logger.child({ component: 'StepProcessorWorker' }),
+  );
+
+  // Create stuck step reset worker
+  const stuckStepResetWorker = new WorkerExecutor(
+    async () => {
+      const result = await stuckStepResetService.resetStuckSteps();
+      if (result.reset > 0 || result.failed > 0) {
+        logger.info({ reset: result.reset, failed: result.failed }, 'Reset stuck steps');
+      }
+    },
+    config.worker.stuckStepCheckIntervalMs,
+    logger.child({ component: 'StuckStepResetWorker' }),
+  );
+
+  // Start workers
   logger.info(
     {
       workerId: config.worker.instanceId,
@@ -93,30 +134,26 @@ async function main(): Promise<void> {
     },
     'Starting workflow step processor',
   );
+  stepProcessorWorker.start();
 
-  // Poll for pending steps and execute them
-  const stepProcessorInterval = setInterval(async () => {
-    try {
-      const processed = await stepExecutorService.processPendingSteps(
-        config.worker.batchSize,
-      );
-      if (processed > 0) {
-        logger.debug({ processed }, 'Processed steps');
-      }
-    } catch (error) {
-      logger.error({ error }, 'Error processing steps');
-    }
-  }, config.worker.pollIntervalMs);
-
-  logger.info('Workflow step processor started');
+  logger.info(
+    {
+      timeoutMs: config.worker.stuckStepTimeoutMs,
+      checkIntervalMs: config.worker.stuckStepCheckIntervalMs,
+      maxRetries: config.worker.maxStepRetries,
+    },
+    'Starting stuck step reset checker',
+  );
+  stuckStepResetWorker.start();
 
   // Graceful shutdown
   const shutdown = async () => {
     logger.info('Shutting down...');
     
-    // Stop step processor
-    logger.info('Stopping step processor...');
-    clearInterval(stepProcessorInterval);
+    // Stop workers
+    logger.info('Stopping workers...');
+    stepProcessorWorker.stop();
+    stuckStepResetWorker.stop();
     
     // Close API server
     server.close(() => {

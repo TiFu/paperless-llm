@@ -1,17 +1,18 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import pino from 'pino';
-import pinoHttp from 'pino-http';
-import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory';
-import { TransactionManager } from '../infrastructure/TransactionManager';
-import { PaperlessService } from '../services/PaperlessService';
-import { errorHandler } from './middleware/errorHandler';
-import { createPromptsRouter } from './routes/prompts';
-import { createJobsRouter } from './routes/jobs';
-import { createQueueRouter } from './routes/queue';
-import { createHealthRouter } from './routes/health';
-import { createDocumentsRouter } from './routes/documents';
-import { createApprovalsRouter } from './routes/approvals';
+import {pinoHttp} from 'pino-http';
+import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory.js';
+import { TransactionManager } from '../infrastructure/TransactionManager.js';
+import { PaperlessService } from '../services/PaperlessService.js';
+import { ILLMService } from '../domain/llm/ILLMService.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import { createPromptsRouter } from './routes/prompts.js';
+import { createJobsRouter } from './routes/jobs.js';
+import { createQueueRouter } from './routes/queue.js';
+import { createHealthRouter } from './routes/health.js';
+import { createDocumentsRouter } from './routes/documents.js';
+import { createApprovalsRouter } from './routes/approvals.js';
 
 export interface ApiServerConfig {
   port: number;
@@ -23,6 +24,7 @@ export function createApiServer(
   appFactory: ApplicationServiceFactory,
   txManager: TransactionManager,
   paperlessService: PaperlessService,
+  llmService: ILLMService,
   logger: pino.Logger,
 ): Express {
   const app = express();
@@ -58,7 +60,7 @@ export function createApiServer(
   );
 
   // Health check (outside /api prefix)
-  app.use('/', createHealthRouter(txManager, logger));
+  app.use('/', createHealthRouter(txManager, paperlessService, llmService, logger));
 
   // API routes
   app.use('/api/documents', createDocumentsRouter(paperlessService, logger));

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
-import { ApiError } from './errorHandler';
+import { ApiError } from './errorHandler.js';
 
 /**
  * Middleware to check validation results from express-validator

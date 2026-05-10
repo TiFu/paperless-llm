@@ -102,7 +102,9 @@ LOG_PRETTY=true
 | Frontend | http://localhost:5173 | React app with Vite dev server |
 | Backend API | http://localhost:3000 | Express API server |
 | API Docs | http://localhost:3000/api/health | Health check endpoint |
-| PostgreSQL | localhost:5432 | Database (user: paperless_llm, db: paperless_llm_dev) |
+| Paperless-LLM DB | localhost:5432 | PostgreSQL (user: paperless_llm, db: paperless_llm_dev) |
+| Paperless-ngx DB | localhost:5433 | PostgreSQL (user: paperless, db: paperless) |
+| Paperless-ngx | http://localhost:8000 | Document management system |
 | Ollama | http://localhost:11434 | LLM service (optional) |
 
 ## Development Workflow
@@ -116,7 +118,7 @@ docker-compose -f docker/docker-compose.dev.yml up -d
 ### 2. Attach to the dev container
 
 ```bash
-docker exec -it paperless-llm-dev sh
+docker exec -it pllm-app-dev sh
 ```
 
 ### 3. Start services
@@ -145,13 +147,17 @@ Backend and frontend logs appear in the docker-compose output:
 To run database migrations inside the dev container:
 
 ```bash
-docker exec -it paperless-llm-dev sh -c "cd /app/worker && npx ts-node src/scripts/migrate.ts"
+docker exec -it pllm-app-dev sh -c "cd /app/server && npx ts-node src/scripts/migrate.ts"
 ```
 
-Or connect to the database directly:
+Or connect to the databases directly:
 
 ```bash
-docker exec -it paperless-llm-db-dev psql -U paperless_llm -d paperless_llm_dev
+# Paperless-LLM database
+docker exec -it pllm-postgres-dev psql -U paperless_llm -d paperless_llm_dev
+
+# Paperless-ngx database
+docker exec -it paperless-postgres-dev psql -U paperless -d paperless
 ```
 
 ## Troubleshooting
@@ -176,7 +182,8 @@ ports:
 
 1. Wait for PostgreSQL to be ready (health check)
 2. Verify DATABASE_PASSWORD matches POSTGRES_PASSWORD
-3. Check logs: `docker logs paperless-llm-db-dev`
+3. Check logs: `docker logs pllm-postgres-dev`
+4. For Paperless-ngx DB issues: `docker logs paperless-postgres-dev`
 
 ### Ollama model not found
 
@@ -251,13 +258,13 @@ This gives you better debugging capabilities with VS Code.
 docker-compose -f docker/docker-compose.dev.yml up -d
 
 # Attach to running dev container
-docker exec -it paperless-llm-dev sh
+docker exec -it pllm-app-dev sh
 
 # View logs
 docker-compose -f docker/docker-compose.dev.yml logs -f
 
 # Execute one-off commands in dev container
-docker exec -it paperless-llm-dev sh -c "cd /app/worker && npm test"
+docker exec -it pllm-app-dev sh -c "cd /app/server && npm test"
 
 # Check API health
 curl http://localhost:3000/api/health

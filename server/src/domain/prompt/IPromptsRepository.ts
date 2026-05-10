@@ -1,5 +1,5 @@
-import { StepType } from '../steps/IStep';
-import { Prompt } from './Prompt';
+import { StepType } from '../steps/IStep.js';
+import { Prompt } from './Prompt.js';
 
 export interface IPromptsRepository {
   /**

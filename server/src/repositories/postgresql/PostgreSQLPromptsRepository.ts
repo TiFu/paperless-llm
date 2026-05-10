@@ -1,7 +1,7 @@
 import { Pool, PoolClient } from 'pg';
-import { IPromptsRepository } from '../../domain/prompt/IPromptsRepository';
-import { StepType } from '../../domain/steps/IStep';
-import { Prompt } from '../../domain/prompt/Prompt';
+import { IPromptsRepository } from '../../domain/prompt/IPromptsRepository.js';
+import { StepType } from '../../domain/steps/IStep.js';
+import { Prompt } from '../../domain/prompt/Prompt.js';
 
 export class PostgreSQLPromptsRepository implements IPromptsRepository {
   constructor(

@@ -1,4 +1,4 @@
-import { StepType } from '../steps/IStep';
+import { StepType } from '../steps/IStep.js';
 
 export class Prompt {
   constructor(

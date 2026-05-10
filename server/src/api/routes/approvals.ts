@@ -1,16 +1,32 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { body, param } from 'express-validator';
 import pino from 'pino';
-import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory';
-import { validateRequest } from '../middleware/validation';
-import { ApiError } from '../middleware/errorHandler';
-import { decodeCursor } from '../../domain/common/Cursor';
+import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
+import { validateRequest } from '../middleware/validation.js';
+import { ApiError } from '../middleware/errorHandler.js';
+import { decodeCursor } from '../../domain/common/Cursor.js';
 
 export function createApprovalsRouter(
   appFactory: ApplicationServiceFactory,
   logger: pino.Logger,
 ): Router {
   const router = Router();
+
+  /**
+   * GET /api/approvals/stats
+   * Get statistics for pending approvals
+   */
+  router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const approvalAppService = appFactory.createApprovalApplicationService();
+      const stats = await approvalAppService.getApprovalStats();
+
+      res.json(stats);
+    } catch (error) {
+      logger.error({ error }, 'Failed to get approval stats');
+      next(error);
+    }
+  });
 
   /**
    * GET /api/approvals

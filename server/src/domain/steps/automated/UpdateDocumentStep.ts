@@ -1,10 +1,7 @@
-import { AutomatedStep } from './AutomatedStep';
-import { StepExecutionContext, StepResult, StepStatus } from '../IStep';
-import { IDocumentManagementSystem } from '../../document/IDocumentManagementSystem';
-import { TitleUpdateAction } from '../../actions/TitleUpdateAction';
-import { Transition } from '../../workflows/Transition';
-import { DocumentActionType } from '../../actions/ActionType';
-import { StepType } from '../IStep';
+import { AutomatedStep } from './AutomatedStep.js';
+import { StepExecutionContext, StepResult, StepStatus } from '../IStep.js';
+import { Transition } from '../../workflows/Transition.js';
+import { StepType } from '../IStep.js';
 
 /**
  * Step: Update document in DMS
@@ -12,8 +9,8 @@ import { StepType } from '../IStep';
  * Returns: SUCCESS transition if update succeeds, FAILURE on error
  */
 export class UpdateDocumentStep extends AutomatedStep {
-  constructor(stepId: string | null, jobId: string, stepState: StepStatus) {
-    super(stepId, StepType.UPDATE_DOCUMENT, jobId, stepState);
+  constructor(stepId: string | null, jobId: string, stepState: StepStatus, retryCount: number = 0) {
+    super(stepId, StepType.UPDATE_DOCUMENT, jobId, stepState, retryCount);
   }
 
   protected async doExecute(context: StepExecutionContext): Promise<StepResult> {

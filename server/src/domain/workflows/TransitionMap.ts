@@ -1,5 +1,5 @@
-import { JobState } from '../job/JobState';
-import { Transition } from './Transition';
+import { JobState } from '../job/JobState.js';
+import { Transition } from './Transition.js';
 
 /**
  * TransitionMap type - defines state machine transitions

@@ -1,10 +1,10 @@
-import { UserInteractionStep } from "../domain/steps/userinteraction/UserInteractionStep";
-import { TransactionManager } from "../infrastructure/TransactionManager";
-import { IDocumentManagementSystem } from "../domain/document/IDocumentManagementSystem";
-import { DocumentAction } from "../domain/actions/DocumentAction";
-import { Cursor, encodeCursor } from "../domain/common/Cursor";
-import { getLogger } from "../utils/logger";
-import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService";
+import { UserInteractionStep } from "../domain/steps/userinteraction/UserInteractionStep.js";
+import { TransactionManager } from "../infrastructure/TransactionManager.js";
+
+import { DocumentAction } from "../domain/actions/DocumentAction.js";
+import { Cursor, encodeCursor } from "../domain/common/Cursor.js";
+import { getLogger } from "../utils/logger.js";
+import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService.js";
 
 /**
  * Enriched approval item with full context for UI display
@@ -13,8 +13,7 @@ export interface ApprovalItem {
   stepId: string;
   jobId: string;
   documentId: string;
-  documentTitle: string;
-  documentContent: string;
+  paperlessUrl: string;
   jobType: string;
   proposedActions: Array<{
     actionType: string;
@@ -26,14 +25,47 @@ export interface ApprovalItem {
 }
 
 /**
+ * Statistics for pending approvals
+ */
+export interface ApprovalStats {
+  pendingCount: number;
+}
+
+/**
  * ApprovalApplicationService - handles user approval/rejection of interactive steps.
  * Application service that orchestrates approval processing with transaction management.
  */
 export class ApprovalApplicationService {
-  constructor(
+  conGet statistics for pending approvals.
+   * @returns Object with count of pending approvals
+   */
+  async getApprovalStats(): Promise<ApprovalStats> {
+    const logger = getLogger();
+    await using context = await this.txManager.createContext();
+    
+    try {
+      await context.start();
+      const repos = context.getRepositoryRegistry();
+      
+      const pendingCount = await repos.getSteps().countPendingUserInteractionSteps();
+      
+      await context.commit();
+      
+      return { pendingCount };
+    } catch (error) {
+      logger.error({ error }, 'Failed to get approval stats');
+      await context.rollback();
+      throw error;
+    } finally {
+      await context.dispose();
+    }
+  }
+
+  /**
+   * structor(
     private readonly txManager: TransactionManager,
     private readonly workflowOrchestratorService: WorkflowOrchestratorService,
-    private readonly dmsService: IDocumentManagementSystem,
+    private readonly paperlessBaseUrl: string,
   ) {}
 
   /**
@@ -59,12 +91,6 @@ export class ApprovalApplicationService {
       const jobPromises = steps.map((step) => repos.getJobs().getById(step.getJobId()));
       const jobs = await Promise.all(jobPromises);
 
-      // Fetch document details from DMS for all documents
-      const documentPromises = jobs.map((job) => 
-        job ? this.dmsService.getDocument(job.documentId) : null
-      );
-      const documents = await Promise.all(documentPromises);
-
       await context.commit();
 
       // Build enriched approval items
@@ -72,10 +98,9 @@ export class ApprovalApplicationService {
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
         const job = jobs[i];
-        const document = documents[i];
 
-        if (!job || !document) {
-          logger.warn({ stepId: step.getStepId() }, 'Skipping approval item - missing job or document');
+        if (!job) {
+          logger.warn({ stepId: step.getStepId() }, 'Skipping approval item - missing job');
           continue;
         }
 
@@ -83,8 +108,7 @@ export class ApprovalApplicationService {
           stepId: step.getStepId() as string,
           jobId: job.id,
           documentId: job.documentId,
-          documentTitle: document.title || "",
-          documentContent: document.content.substring(0, 500), // Preview only
+          paperlessUrl: `${this.paperlessBaseUrl}/documents/${job.documentId}`,
           jobType: job.jobType,
           proposedActions: job.documentActions.map(action => ({
             actionType: action.actionType,

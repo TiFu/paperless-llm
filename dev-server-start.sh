@@ -41,4 +41,4 @@ echo "   (nodemon will watch for changes and auto-restart)"
 echo ""
 
 # Start backend with nodemon
-exec npx nodemon --watch ./ --ext ts --exec "npx ts-node src/api.ts"
+exec npx nodemon --watch ./ --ext ts --exec "node --loader ts-node/esm src/api.ts"

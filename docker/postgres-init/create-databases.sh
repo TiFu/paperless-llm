@@ -1,42 +1,22 @@
 #!/bin/bash
 set -e
 
-echo "🔧 Initializing PostgreSQL databases..."
+echo "🔧 Initializing PostgreSQL database..."
 
-# Create paperless database and user
-echo "📦 Creating paperless database..."
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    -- Create paperless user if it doesn't exist
-    DO \$\$
-    BEGIN
-        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'paperless') THEN
-            CREATE USER paperless WITH PASSWORD 'paperless';
-        END IF;
-    END
-    \$\$;
+# NOTE: This script now only creates the database structure.
+# Database migrations are automatically executed by the API server (api.ts)
+# on startup using node-pg-migrate with advisory locks for safe concurrent execution.
 
-    -- Create paperless database if it doesn't exist
-    SELECT 'CREATE DATABASE paperless OWNER paperless'
-    WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'paperless')\gexec
+# The PostgreSQL container is configured via POSTGRES_DB, POSTGRES_USER, and
+# POSTGRES_PASSWORD environment variables in docker-compose.dev.yml.
+# The database is created automatically on first container startup.
 
-    -- Grant privileges
-    GRANT ALL PRIVILEGES ON DATABASE paperless TO paperless;
-EOSQL
-
-echo "✅ Paperless database and user created"
-
-# Run paperless-llm migrations
-if [ -d "/migrations" ]; then
-    echo "📦 Running paperless-llm migrations..."
-    for migration in /migrations/*.sql; do
-        if [ -f "$migration" ]; then
-            echo "  ▶ Running $(basename $migration)..."
-            psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -f "$migration"
-        fi
-    done
-    echo "✅ Paperless-llm migrations completed"
-else
-    echo "⚠️  No migrations directory found at /migrations"
-fi
+# For manual migration management, use:
+# - npm run migrate:create <name>  - Create a new migration file
+# - npm run migrate:up            - Run pending migrations manually
+# - npm run migrate:down          - Rollback the last migration
 
 echo "✅ Database initialization complete!"
+echo ""
+echo "Migrations will run automatically when the API server starts."
+echo "Check the API logs for migration status."

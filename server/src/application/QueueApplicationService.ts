@@ -1,7 +1,7 @@
-import { TransactionManager } from '../infrastructure/TransactionManager';
-import { StepStatus } from '../domain/steps/IStep';
-import { StepWithJob } from '../domain/steps/IStepRepository';
-import { getLogger } from '../utils/logger';
+import { TransactionManager } from '../infrastructure/TransactionManager.js';
+import { StepStatus } from '../domain/steps/IStep.js';
+import { StepWithJob } from '../domain/steps/IStepRepository.js';
+import { getLogger } from '../utils/logger.js';
 
 /**
  * Queue statistics response

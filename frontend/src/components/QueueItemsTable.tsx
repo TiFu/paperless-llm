@@ -16,13 +16,14 @@ import {
   MenuItem,
   Typography,
 } from '@mui/material';
-import { QueueItem, WorkItemStatus, JobState } from '../types/api';
+import { QueueItem, WorkItemStatus } from '../types/api';
 
 interface QueueItemsTableProps {
   items: QueueItem[];
   nextCursor: string | null;
   onLoadMore: () => void;
   onStatusFilter: (status: WorkItemStatus | '') => void;
+  type: 'unified';
 }
 
 export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
@@ -54,35 +55,9 @@ export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
     }
   };
 
-  const getJobStateColor = (state: JobState) => {
-    switch (state) {
-      case JobState.PENDING:
-      case JobState.LLM_PROCESSING:
-      case JobState.UPDATING_DOCUMENT:
-        return 'info';
-      case JobState.PENDING_APPROVAL:
-        return 'warning';
-      case JobState.COMPLETED:
-        return 'success';
-      case JobState.FAILED:
-      case JobState.REJECTED:
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString();
-  };
-
-  const formatStepType = (stepType: string) => {
-    return stepType.replace(/_/g, ' ');
-  };
-
-  const formatJobState = (state: string) => {
-    return state.replace(/_/g, ' ').toUpperCase();
   };
 
   if (items.length === 0) {
@@ -119,10 +94,8 @@ export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
               <TableCell>Document ID</TableCell>
               <TableCell>Step Type</TableCell>
               <TableCell>Job Type</TableCell>
-              <TableCell>Step Status</TableCell>
+              <TableCell>Status</TableCell>
               <TableCell>Job State</TableCell>
-              <TableCell>Retry Count</TableCell>
-              <TableCell>Claimed By</TableCell>
               <TableCell>Created At</TableCell>
             </TableRow>
           </TableHead>
@@ -136,23 +109,16 @@ export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
                   {item.jobId.substring(0, 8)}...
                 </TableCell>
                 <TableCell>{item.documentId}</TableCell>
-                <TableCell>{formatStepType(item.stepType)}</TableCell>
                 <TableCell>
-                  <Chip label={item.jobType} size="small" variant="outlined" />
+                  <Chip label={item.stepType} size="small" variant="outlined" />
                 </TableCell>
+                <TableCell>{item.jobType}</TableCell>
                 <TableCell>
                   <Chip label={item.status} color={getStatusColor(item.status)} size="small" />
                 </TableCell>
                 <TableCell>
-                  <Chip
-                    label={formatJobState(item.jobState)}
-                    color={getJobStateColor(item.jobState)}
-                    size="small"
-                    variant="outlined"
-                  />
+                  <Chip label={item.jobState} size="small" variant="outlined" />
                 </TableCell>
-                <TableCell>{item.retryCount}</TableCell>
-                <TableCell>{item.claimedBy || '-'}</TableCell>
                 <TableCell>{formatDate(item.createdAt)}</TableCell>
               </TableRow>
             ))}

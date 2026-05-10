@@ -1,6 +1,6 @@
-import { TransactionManager } from '../infrastructure/TransactionManager';
-import { StepType } from '../domain/steps/IStep';
-import { Prompt } from '../domain/prompt/Prompt';
+import { TransactionManager } from '../infrastructure/TransactionManager.js';
+import { StepType } from '../domain/steps/IStep.js';
+import { Prompt } from '../domain/prompt/Prompt.js';
 
 /**
  * Application service for prompt management operations

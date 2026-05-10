@@ -1,5 +1,5 @@
-import { DocumentActionType } from './ActionType';
-import { IDocument } from '../document/IDocument';
+import { DocumentActionType } from './ActionType.js';
+import { IDocument } from '../document/IDocument.js';
 
 /**
  * Abstract base class for all actions

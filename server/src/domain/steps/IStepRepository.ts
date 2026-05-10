@@ -1,9 +1,9 @@
-import { AutomatedStep } from "./automated/AutomatedStep";
-import { UserInteractionStep } from "./userinteraction/UserInteractionStep";
-import { IStep, StepStatus, StepType } from "./IStep";
-import { WorkflowType } from "../workflows/WorkflowType";
-import { JobState } from "../job/JobState";
-import { Cursor } from "../common/Cursor";
+import { AutomatedStep } from "./automated/AutomatedStep.js";
+import { UserInteractionStep } from "./userinteraction/UserInteractionStep.js";
+import { IStep, StepStatus, StepType } from "./IStep.js";
+import { WorkflowType } from "../workflows/WorkflowType.js";
+import { JobState } from "../job/JobState.js";
+import { Cursor } from "../common/Cursor.js";
 
 /**
  * Statistics for automated steps aggregated by status
@@ -74,6 +74,16 @@ export interface IStepRepository {
   getAutomatedStepStatistics(): Promise<AutomatedStepStatistics>;
 
   /**
+   * Count pending user interaction steps (REQUIRE_APPROVAL steps in WAITING status)
+   */
+  countPendingUserInteractionSteps(): Promise<number>;
+
+  /**
+   * Get overall step statistics (all step types including REQUIRE_APPROVAL)
+   */
+  getOverallStepStatistics(): Promise<AutomatedStepStatistics>;
+
+  /**
    * List automated steps with job information for queue display
    * @param limit Maximum number of items to return
    * @param cursor Optional cursor for pagination (step ID)
@@ -85,4 +95,40 @@ export interface IStepRepository {
     cursor?: string,
     stepStatus?: StepStatus
   ): Promise<{ items: StepWithJob[]; nextCursor: string | null }>;
+
+  /**
+   * Get steps stuck in IN_PROGRESS state beyond the timeout threshold
+   * @param olderThanMs Timeout in milliseconds - steps IN_PROGRESS longer than this are considered stuck
+   * @param limit Maximum number of steps to return
+   * @returns Array of stuck steps
+   */
+  getStuckInProgressSteps(olderThanMs: number, limit?: number): Promise<IStep[]>;
+
+  /**
+   * Reset a step back to WAITING status for retry
+   * Increments retry_count and clears started_at timestamp
+   * @param stepId ID of the step to reset
+   */
+  resetStepToWaiting(stepId: string): Promise<void>;
+
+  /**
+   * Mark a step as FAILED with an error message
+   * @param stepId ID of the step to mark as failed
+   * @param errorMessage Error message describing why the step failed
+   */
+  markStepAsFailed(stepId: string, errorMessage: string): Promise<void>;
+
+  /**
+   * Get steps by job ID with timestamp information for API display
+   * @param jobId Job ID
+   * @returns Array of step data with timestamps
+   */
+  getStepsByJobIdWithTimestamps(jobId: string): Promise<Array<{
+    stepId: string;
+    stepType: StepType;
+    stepStatus: StepStatus;
+    createdAt: Date;
+    startedAt: Date | null;
+    completedAt: Date | null;
+  }>>;
 }

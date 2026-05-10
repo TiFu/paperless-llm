@@ -1,10 +1,10 @@
 import { Pool, PoolClient } from 'pg';
-import { IJobRepository } from '../../domain/job/IJobRepository';
-import { WorkflowType } from '../../domain/workflows/WorkflowType';
-import { JobState } from '../../domain/job/JobState';
-import { Job } from '../../domain/job/Job';
-import { DocumentAction } from '../../domain/actions/DocumentAction';
-import { DocumentActionFactory } from '../../domain/actions/DocumentActionFactory';
+import { IJobRepository } from '../../domain/job/IJobRepository.js';
+import { WorkflowType } from '../../domain/workflows/WorkflowType.js';
+import { JobState } from '../../domain/job/JobState.js';
+import { Job } from '../../domain/job/Job.js';
+import { DocumentAction } from '../../domain/actions/DocumentAction.js';
+import { DocumentActionFactory } from '../../domain/actions/DocumentActionFactory.js';
 
 export class PostgreSQLJobRepository implements IJobRepository {
   constructor(

@@ -1,6 +1,6 @@
 import { transcode } from "buffer";
-import { IStep, StepResult, StepStatus, StepType } from "../IStep";
-import { Transition } from "../../workflows/Transition";
+import { IStep, StepResult, StepStatus, StepType } from "../IStep.js";
+import { Transition } from "../../workflows/Transition.js";
 
 /**
  * Abstract base class for steps that require user interaction
@@ -15,8 +15,8 @@ export abstract class UserInteractionStep extends IStep  {
   protected readonly decisionToTransitionMap: Record<string, Transition>;
 
   constructor(stepId: string | null, stepType: StepType, jobId: string, stepState: StepStatus,
-      possibleDecisions: string[], decisionToTransitionMap: Record<string, Transition>) {
-    super(stepId, stepType, jobId, stepState);
+      possibleDecisions: string[], decisionToTransitionMap: Record<string, Transition>, retryCount: number = 0) {
+    super(stepId, stepType, jobId, stepState, retryCount);
     this.possibleDecisions = possibleDecisions
     this.decisionToTransitionMap = decisionToTransitionMap
     for (let decision of this.possibleDecisions) {
@@ -46,19 +46,20 @@ export abstract class UserInteractionStep extends IStep  {
 
 export class ApprovalInteractionStep extends UserInteractionStep {
 
-  constructor(stepId: string | null, jobId: string, stepState: StepStatus) {
+  constructor(stepId: string | null, jobId: string, stepState: StepStatus, retryCount: number = 0) {
     let possibleDecisions: string[]=  [ "APPROVED", "REJECTED" ]
     let decisionToTransitionMap: Record<string, Transition> = {
       "APPROVED": Transition.SUCCESS,
       "REJECTED": Transition.FAILURE
     }
 
-    super(stepId, StepType.REQUIRE_APPROVAL, jobId, stepState, possibleDecisions, decisionToTransitionMap)
+    super(stepId, StepType.REQUIRE_APPROVAL, jobId, stepState, possibleDecisions, decisionToTransitionMap, retryCount)
   }
 
   public processUserDecision(decision: string): Promise<StepResult> {
       if (this.possibleDecisions.indexOf(decision) == -1) {
         console.log("Invalid decision " + decision + " for ApprovalInteractionStep");
+        this.moveToFailed();
         return Promise.resolve({
           actions: [],
           transition: Transition.FAILURE
@@ -66,6 +67,15 @@ export class ApprovalInteractionStep extends UserInteractionStep {
       }
 
       const transition = this.decisionToTransitionMap[decision]
+      switch (transition) {
+        case Transition.FAILURE:
+          this.moveToFailed();
+          break;
+        case Transition.SUCCESS:
+          this.moveToCompleted();
+          break;
+      }
+
       return Promise.resolve({
         actions: [],
         transition: transition

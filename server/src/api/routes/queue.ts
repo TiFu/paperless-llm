@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import pino from 'pino';
-import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory';
+import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
 
 export function createQueueRouter(appFactory: ApplicationServiceFactory, logger: pino.Logger): Router {
   const router = Router();

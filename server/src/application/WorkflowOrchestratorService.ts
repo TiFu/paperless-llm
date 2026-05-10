@@ -1,7 +1,7 @@
-import { Job } from "../domain/job/Job";
-import { Transition } from "../domain/workflows/Transition";
-import { TransactionContext, TransactionManager } from "../infrastructure/TransactionManager";
-import { getLogger } from "../utils/logger";
+import { Job } from "../domain/job/Job.js";
+import { Transition } from "../domain/workflows/Transition.js";
+import { TransactionContext, TransactionManager } from "../infrastructure/TransactionManager.js";
+import { getLogger } from "../utils/logger.js";
 
 /**
  * WorkflowApplicationService - manages workflow progression and state transitions.

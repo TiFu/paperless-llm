@@ -1,9 +1,10 @@
 import { Pool, PoolClient } from 'pg';
-import { AutomatedStepStatistics, IStepRepository, StepWithJob } from '../../domain/steps/IStepRepository';
-import { IStep, StepStatus, StepType } from '../../domain/steps/IStep';
-import { StepFactory } from '../../domain/steps/StepFactory';
-import { AutomatedStep } from '../../domain/steps/automated/AutomatedStep';
-import { UserInteractionStep } from '../../domain/steps/userinteraction/UserInteractionStep';import { Cursor } from '../../domain/common/Cursor';
+import { AutomatedStepStatistics, IStepRepository, StepWithJob } from '../../domain/steps/IStepRepository.js';
+import { IStep, StepStatus, StepType } from '../../domain/steps/IStep.js';
+import { StepFactory } from '../../domain/steps/StepFactory.js';
+import { AutomatedStep } from '../../domain/steps/automated/AutomatedStep.js';
+import { UserInteractionStep } from '../../domain/steps/userinteraction/UserInteractionStep.js';
+import { Cursor } from '../../domain/common/Cursor.js';
 export class PostgreSQLStepRepository implements IStepRepository {
   constructor(private readonly client: PoolClient) {}
 
@@ -199,6 +200,49 @@ export class PostgreSQLStepRepository implements IStepRepository {
     };
   }
 
+  async countPendingUserInteractionSteps(): Promise<number> {
+    const query = `
+      SELECT COUNT(*) as count
+      FROM steps
+      WHERE status = $1 AND type = $2
+    `;
+
+    const result = await this.getClient().query(query, [
+      StepStatus.WAITING,
+      StepType.REQUIRE_APPROVAL,
+    ]);
+
+    return parseInt(result.rows[0].count, 10);
+  }
+
+  async getOverallStepStatistics(): Promise<AutomatedStepStatistics> {
+    const query = `
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = $1) as waiting,
+        COUNT(*) FILTER (WHERE status = $2) as in_progress,
+        COUNT(*) FILTER (WHERE status = $3) as completed,
+        COUNT(*) FILTER (WHERE status = $4) as failed
+      FROM steps
+    `;
+
+    const result = await this.getClient().query(query, [
+      StepStatus.WAITING,
+      StepStatus.IN_PROGRESS,
+      StepStatus.COMPLETED,
+      StepStatus.FAILED,
+    ]);
+
+    const row = result.rows[0];
+    return {
+      total: parseInt(row.total, 10),
+      waiting: parseInt(row.waiting, 10),
+      inProgress: parseInt(row.in_progress, 10),
+      completed: parseInt(row.completed, 10),
+      failed: parseInt(row.failed, 10),
+    };
+  }
+
   async listAutomatedStepsWithJob(
     limit: number,
     cursor?: string,
@@ -269,5 +313,75 @@ export class PostgreSQLStepRepository implements IStepRepository {
       items: stepWithJobItems,
       nextCursor,
     };
+  }
+
+  async getStuckInProgressSteps(olderThanMs: number, limit?: number): Promise<IStep[]> {
+    const query = `
+      SELECT * FROM steps
+      WHERE status = $1 
+        AND started_at IS NOT NULL
+        AND started_at < NOW() - INTERVAL '1 millisecond' * $2
+      ORDER BY started_at ASC
+      ${limit ? `LIMIT $3` : ''}
+    `;
+
+    const params: any[] = [StepStatus.IN_PROGRESS, olderThanMs];
+    if (limit) {
+      params.push(limit);
+    }
+
+    const result = await this.getClient().query(query, params);
+    return result.rows.map((row) => StepFactory.fromDb(row));
+  }
+
+  async resetStepToWaiting(stepId: string): Promise<void> {
+    const query = `
+      UPDATE steps
+      SET status = $1,
+          retry_count = retry_count + 1,
+          started_at = NULL,
+          completed_at = NULL
+      WHERE id = $2
+    `;
+
+    await this.getClient().query(query, [StepStatus.WAITING, stepId]);
+  }
+
+  async markStepAsFailed(stepId: string, errorMessage: string): Promise<void> {
+    const query = `
+      UPDATE steps
+      SET status = $1,
+          completed_at = COALESCE(completed_at, NOW())
+      WHERE id = $2
+    `;
+
+    await this.getClient().query(query, [StepStatus.FAILED, stepId]);
+  }
+
+  async getStepsByJobIdWithTimestamps(jobId: string): Promise<Array<{
+    stepId: string;
+    stepType: StepType;
+    stepStatus: StepStatus;
+    createdAt: Date;
+    startedAt: Date | null;
+    completedAt: Date | null;
+  }>> {
+    const query = `
+      SELECT id, type, status, created_at, started_at, completed_at
+      FROM steps
+      WHERE job_id = $1
+      ORDER BY created_at ASC
+    `;
+
+    const result = await this.getClient().query(query, [jobId]);
+
+    return result.rows.map((row: any) => ({
+      stepId: row.id,
+      stepType: row.type as StepType,
+      stepStatus: row.status as StepStatus,
+      createdAt: row.created_at,
+      startedAt: row.started_at,
+      completedAt: row.completed_at,
+    }));
   }
 }

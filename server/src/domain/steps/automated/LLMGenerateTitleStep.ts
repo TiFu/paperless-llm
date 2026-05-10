@@ -1,11 +1,11 @@
-import { AutomatedStep } from './AutomatedStep';
-import { StepExecutionContext, StepResult, StepStatus, StepType} from '../IStep';
-import { IDocumentManagementSystem } from '../../document/IDocumentManagementSystem';
-import { OllamaService } from '../../../services/OllamaService';
-import { IPromptsRepository } from '../../prompt/IPromptsRepository';
-import { TitleUpdateAction } from '../../actions/TitleUpdateAction';
-import { Transition } from '../../workflows/Transition';
-import { WorkflowType } from '../../workflows/WorkflowType';
+import { AutomatedStep } from './AutomatedStep.js';
+import { StepExecutionContext, StepResult, StepStatus, StepType} from '../IStep.js';
+import { IDocumentManagementSystem } from '../../document/IDocumentManagementSystem.js';
+import { OllamaService } from '../../../services/OllamaService.js';
+import { IPromptsRepository } from '../../prompt/IPromptsRepository.js';
+import { TitleUpdateAction } from '../../actions/TitleUpdateAction.js';
+import { Transition } from '../../workflows/Transition.js';
+import { WorkflowType } from '../../workflows/WorkflowType.js';
 
 /**
  * Step: Generate title using LLM
@@ -13,9 +13,9 @@ import { WorkflowType } from '../../workflows/WorkflowType';
  */
 export class LLMGenerateTitleStep extends AutomatedStep {
   constructor(
-    stepId: string | null, jobId: string, stepState: StepStatus
+    stepId: string | null, jobId: string, stepState: StepStatus, retryCount: number = 0
   ) {
-    super(stepId, StepType.LLM_GENERATE_TITLE, jobId, stepState);
+    super(stepId, StepType.LLM_GENERATE_TITLE, jobId, stepState, retryCount);
   }
 
   public needsPrompt(): boolean {

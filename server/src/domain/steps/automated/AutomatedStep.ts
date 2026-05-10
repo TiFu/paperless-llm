@@ -1,5 +1,5 @@
-import { IStep, StepExecutionContext, StepResult, StepStatus, StepType } from '../IStep';
-import { Transition } from '../../workflows/Transition';
+import { IStep, StepExecutionContext, StepResult, StepStatus, StepType } from '../IStep.js';
+import { Transition } from '../../workflows/Transition.js';
 
 /**
  * Abstract base class for automated steps that execute without user interaction
@@ -7,8 +7,8 @@ import { Transition } from '../../workflows/Transition';
  */
 export abstract class AutomatedStep extends IStep {
   
-  public constructor(stepId: string | null, stepType: StepType, jobId: string, stepState: StepStatus) {
-    super(stepId, stepType, jobId, stepState)
+  public constructor(stepId: string | null, stepType: StepType, jobId: string, stepState: StepStatus, retryCount: number = 0) {
+    super(stepId, stepType, jobId, stepState, retryCount)
   }
 
   /**

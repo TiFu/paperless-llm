@@ -1,5 +1,5 @@
 import pino from 'pino';
-import { AppConfig } from '../config/AppConfig';
+import { AppConfig } from '../config/AppConfig.js';
 
 let logger: pino.Logger;
 

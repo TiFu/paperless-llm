@@ -1,25 +1,40 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database (shared by paperless-llm and paperless-ngx)
-  postgres:
+  # PostgreSQL Database for paperless-llm
+  pllm-postgres:
     image: postgres:15-alpine
-    container_name: paperless-llm-db-dev
+    container_name: pllm-postgres-dev
     environment:
-      POSTGRES_DB: paperless_llm_dev
+      POSTGRES_DB: paperless_llm
       POSTGRES_USER: paperless_llm
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - postgres_data_dev:/var/lib/postgresql/data
-      # Mount init scripts - runs on first startup
-      - ./postgres-init/create-databases.sh:/docker-entrypoint-initdb.d/00-create-databases.sh:ro
-      # Mount migrations for paperless-llm (accessed by init script)
-      - ../server/migrations:/migrations:ro
-    ports:
-      - "5432:5432"
+      - pllm_postgres_data_dev:/var/lib/postgresql/data
+      # NOTE: Migrations are no longer mounted or executed here
+      # They run automatically via api.ts on startup using node-pg-migrate
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U paperless_llm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    network_mode: host
+
+  # PostgreSQL Database for paperless-ngx
+  paperless-postgres:
+    image: postgres:15-alpine
+    container_name: paperless-postgres-dev
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: ${PAPERLESS_DB_PASSWORD:-paperless}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - paperless_postgres_data_dev:/var/lib/postgresql/data
+    command: -p 5433
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless -p 5433"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,8 +45,6 @@ services:
     image: redis:7-alpine
     container_name: paperless-redis-dev
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     network_mode: host
 
   # Paperless-ngx Document Management System
@@ -40,17 +53,17 @@ services:
     container_name: paperless-ngx-dev
     restart: unless-stopped
     depends_on:
-      postgres:
+      paperless-postgres:
         condition: service_healthy
       redis:
         condition: service_started
     environment:
       PAPERLESS_REDIS: redis://localhost:6379
       PAPERLESS_DBHOST: localhost
-      PAPERLESS_DBPORT: 5432
+      PAPERLESS_DBPORT: 5433
       PAPERLESS_DBNAME: paperless
       PAPERLESS_DBUSER: paperless
-      PAPERLESS_DBPASS: paperless
+      PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD:-paperless}
       PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:-admin}
       PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD:-admin}
       PAPERLESS_ADMIN_MAIL: ${PAPERLESS_ADMIN_MAIL:-admin@localhost}
@@ -71,8 +84,6 @@ services:
       - paperless_export_dev:/usr/src/paperless/export
       # Map consume folder for easy document ingestion
       - ../test-documents/consume:/usr/src/paperless/consume
-    ports:
-      - "8000:8000"
     network_mode: host
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000"]
@@ -85,16 +96,16 @@ services:
     build:
       context: ..
       dockerfile: docker/dev.Dockerfile
-    container_name: paperless-llm-dev
+    container_name: pllm-app-dev
     user: "${UID:-1000}:${GID:-1000}"
     depends_on:
-      postgres:
+      pllm-postgres:
         condition: service_healthy
       paperless:
         condition: service_healthy
     environment:
       # Database
-      DATABASE_HOST: postgres
+      DATABASE_HOST: localhost
       DATABASE_PORT: 5432
       DATABASE_NAME: paperless_llm_dev
       DATABASE_USER: ${DB_USERNAME:-paperless_llm}
@@ -134,16 +145,14 @@ services:
     volumes:
       # Mount entire worker and frontend directories
       - ../:/app
-    ports:
-      - "3000:3000"  # Backend API
-      - "5173:5173"  # Frontend Vite dev server
     network_mode: host
     stdin_open: true  # Keep STDIN open for interactive shell
     tty: true         # Allocate a pseudo-TTY
     command: /bin/sh  # Drop into shell (or run /app/start-dev.sh to start services)
 
 volumes:
-  postgres_data_dev:
+  pllm_postgres_data_dev:
+  paperless_postgres_data_dev:
   paperless_data_dev:
   paperless_media_dev:
   paperless_export_dev:

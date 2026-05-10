@@ -1,6 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * Database configuration
@@ -31,6 +36,9 @@ export interface WorkerConfig {
   readonly pollIntervalMs: number;
   readonly maxRetries: number;
   readonly claimTimeoutMs: number;
+  readonly stuckStepTimeoutMs: number;
+  readonly stuckStepCheckIntervalMs: number;
+  readonly maxStepRetries: number;
 }
 
 /**
@@ -80,6 +88,9 @@ interface RawConfig {
     pollIntervalMs: number;
     maxRetries: number;
     claimTimeoutMs: number;
+    stuckStepTimeoutMs?: number;
+    stuckStepCheckIntervalMs?: number;
+    maxStepRetries?: number;
   };
   orchestration: OrchestrationConfig;
   logging: LoggingConfig;
@@ -114,6 +125,9 @@ export class AppConfig {
       pollIntervalMs: rawConfig.worker.pollIntervalMs,
       maxRetries: rawConfig.worker.maxRetries,
       claimTimeoutMs: rawConfig.worker.claimTimeoutMs,
+      stuckStepTimeoutMs: rawConfig.worker.stuckStepTimeoutMs ?? 300000, // Default: 5 minutes
+      stuckStepCheckIntervalMs: rawConfig.worker.stuckStepCheckIntervalMs ?? 30000, // Default: 30 seconds
+      maxStepRetries: rawConfig.worker.maxStepRetries ?? 3, // Default: 3 retries
     };
 
     // Copy remaining configurations
@@ -194,6 +208,15 @@ export class AppConfig {
     }
     if (this.worker.pollIntervalMs < 100) {
       throw new Error('worker.pollIntervalMs must be at least 100ms');
+    }
+    if (this.worker.stuckStepTimeoutMs < 1000) {
+      throw new Error('worker.stuckStepTimeoutMs must be at least 1000ms');
+    }
+    if (this.worker.stuckStepCheckIntervalMs < 1000) {
+      throw new Error('worker.stuckStepCheckIntervalMs must be at least 1000ms');
+    }
+    if (this.worker.maxStepRetries < 0) {
+      throw new Error('worker.maxStepRetries must be non-negative');
     }
     if (this.orchestration.llmCycleDurationMs < 1000) {
       throw new Error('orchestration.llmCycleDurationMs must be at least 1000ms');

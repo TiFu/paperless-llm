@@ -1,12 +1,12 @@
 import pino from 'pino';
-import { TransactionManager } from '../infrastructure/TransactionManager';
-import { DomainServices } from '../domain/services/DomainServices';
-import { IStep, StepExecutionContext } from '../domain/steps/IStep';
-import { WorkflowOrchestratorService } from './WorkflowOrchestratorService';
-import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem';
-import { ILLMService } from '../domain/llm/ILLMService';
-import { createChildLogger } from '../utils/logger';
-import { AutomatedStep } from '../domain/steps/automated/AutomatedStep';
+import { TransactionManager } from '../infrastructure/TransactionManager.js';
+import { DomainServices } from '../domain/services/DomainServices.js';
+import { IStep, StepExecutionContext } from '../domain/steps/IStep.js';
+import { WorkflowOrchestratorService } from './WorkflowOrchestratorService.js';
+import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
+import { ILLMService } from '../domain/llm/ILLMService.js';
+import { createChildLogger } from '../utils/logger.js';
+import { AutomatedStep } from '../domain/steps/automated/AutomatedStep.js';
 
 /**
  * StepExecutorApplicationService - executes steps and manages workflow progression.

@@ -16,11 +16,13 @@ import {
   TableCell,
   TableContainer,
   TableRow,
+  TableHead,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { apiClient } from '../services/api';
-import { JobResponse, JobState, Document } from '../types/api';
+import { JobResponse, JobState, Document, JobStep } from '../types/api';
+import { JobStepsTimeline } from '../components/JobStepsTimeline';
 
 export const JobDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +30,7 @@ export const JobDetailsPage: React.FC = () => {
 
   const [job, setJob] = useState<JobResponse | null>(null);
   const [document, setDocument] = useState<Document | null>(null);
+  const [steps, setSteps] = useState<JobStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -45,6 +48,14 @@ export const JobDetailsPage: React.FC = () => {
 
       const jobData = await apiClient.fetchJobById(id);
       setJob(jobData);
+
+      // Fetch job steps
+      try {
+        const stepsData = await apiClient.fetchJobSteps(id);
+        setSteps(stepsData.steps);
+      } catch (stepsErr) {
+        console.error('Failed to fetch steps:', stepsErr);
+      }
 
       // Fetch document details
       try {
@@ -309,6 +320,51 @@ export const JobDetailsPage: React.FC = () => {
             )}
           </Paper>
         </Grid>
+
+        {/* Workflow Steps */}
+        <Grid item xs={12}>
+          <JobStepsTimeline steps={steps} />
+        </Grid>
+
+        {/* Document Actions */}
+        {job.documentActions && job.documentActions.length > 0 && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Document Actions
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Action Type</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Old Value</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>New Value</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Created At</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {job.documentActions.map((action) => (
+                      <TableRow key={action.id}>
+                        <TableCell>
+                          <Chip label={action.actionType} size="small" />
+                        </TableCell>
+                        <TableCell>{action.oldValue || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 'medium' }}>
+                          {action.newValue || '-'}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(action.createdAt).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+        )}
       </Grid>
     </Container>
   );

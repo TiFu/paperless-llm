@@ -1,6 +1,6 @@
-import { Transition } from './Transition';
-import { NextStepResult } from './BaseWorkflow';
-import { Job } from '../job/Job';
+import { Transition } from './Transition.js';
+import { NextStepResult } from './BaseWorkflow.js';
+import { Job } from '../job/Job.js';
 
 /**
  * Workflow interface - defines state machine for job progression

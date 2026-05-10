@@ -1,8 +1,21 @@
-import { Job } from "../domain/job/Job";
-import { WorkflowType } from "../domain/workflows/WorkflowType";
-import { TransactionManager } from "../infrastructure/TransactionManager";
-import { getLogger } from "../utils/logger";
-import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService";
+import { Job } from "../domain/job/Job.js";
+import { JobState } from "../domain/job/JobState.js";
+import { IStep } from "../domain/steps/IStep.js";
+import { WorkflowType } from "../domain/workflows/WorkflowType.js";
+import { TransactionManager } from "../infrastructure/TransactionManager.js";
+import { getLogger } from "../utils/logger.js";
+import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService.js";
+
+/**
+ * Statistics for job steps
+ */
+export interface JobStepStats {
+  totalSteps: number;
+  waitingSteps: number;
+  inProgressSteps: number;
+  completedSteps: number;
+  failedSteps: number;
+}
 
 /**
  * JobApplicationService - handles job creation and retrieval with transaction management.
@@ -95,6 +108,103 @@ export class JobApplicationService {
       return jobs;
     } catch (error) {
       logger.error({ error, documentId }, 'Failed to get jobs by document ID');
+      await context.rollback();
+      throw error;
+    } finally {
+      await context.dispose();
+    }
+  }
+
+  /**
+   * List jobs with pagination and optional state filter.
+   * @param limit Maximum number of jobs to return
+   * @param cursor Optional cursor for pagination
+   * @param state Optional job state filter
+   * @returns Jobs and next cursor
+   */
+  async list(
+    limit: number,
+    cursor?: string,
+    state?: JobState,
+  ): Promise<{ items: Job[]; nextCursor: string | null }> {
+    const logger = getLogger();
+    const context = await this.txManager.createContext();
+    
+    try {
+      await context.start();
+      const repos = context.getRepositoryRegistry();
+
+      const result = await repos.getJobs().list(limit, cursor, state);
+
+      await context.commit();
+      returatistics for all job steps (overall step statistics).
+   * @returns Object with counts of steps by status
+   */
+  async getJobStepStats(): Promise<JobStepStats> {
+    const logger = getLogger();
+    const context = await this.txManager.createContext();
+    
+    try {
+      await context.start();
+      const repos = context.getRepositoryRegistry();
+
+      const stats = await repos.getSteps().getOverallStepStatistics();
+
+      await context.commit();
+      
+      return {
+        totalSteps: stats.total,
+        waitingSteps: stats.waiting,
+        inProgressSteps: stats.inProgress,
+        completedSteps: stats.completed,
+        failedSteps: stats.failed,
+      };
+    } catch (error) {
+      logger.error({ error }, 'Failed to get job step stats');
+      await context.rollback();
+      throw error;
+    } finally {
+      await context.dispose();
+    }
+  }
+
+  /**
+   * Get stn result;
+    } catch (error) {
+      logger.error({ error, limit, cursor, state }, 'Failed to list jobs');
+      await context.rollback();
+      throw error;
+    } finally {
+      await context.dispose();
+    }
+  }
+
+  /**
+   * Get steps for a job with timestamp information for API display.
+   * @param jobId Job ID
+   * @returns Array of step data with timestamps
+   */
+  async getStepsByJobId(jobId: string): Promise<Array<{
+    stepId: string;
+    stepType: string;
+    stepStatus: string;
+    createdAt: Date;
+    startedAt: Date | null;
+    completedAt: Date | null;
+  }>> {
+    const logger = getLogger();
+    const context = await this.txManager.createContext();
+    
+    try {
+      await context.start();
+      const repos = context.getRepositoryRegistry();
+
+      const steps = await repos.getSteps().getStepsByJobIdWithTimestamps(jobId);
+
+      await context.commit();
+      return steps;
+    } catch (error) {
+      logger.error({ error, jobId }, 'Failed to get steps by job ID');
       await context.rollback();
       throw error;
     } finally {

@@ -1,6 +1,90 @@
 // API Response Types
 
-// ========== Enums ==========
+export interface Document {
+  id: string;
+  title: string;
+  content: string;
+}
+
+export interface QueueStats {
+  total: number;
+  pending: number;
+  processing: number;
+  completed: number;
+  failed: number;
+}
+
+// Unified queue item for all automated steps
+export interface QueueItem {
+  id: string;
+  jobId: string;
+  documentId: string;
+  stepType: string;
+  jobType: string;
+  status: WorkItemStatus;
+  retryCount: number;
+  retryAfter: string | null;
+  claimedBy: string | null;
+  claimedAt: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  jobState: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  documentId: string;
+  documentSystem: string;
+  action: string;
+  details: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface JobSubmission {
+  documents: Array<{
+    documentId: string;
+    jobTypes: string[];
+  }>;
+}
+
+export interface JobSubmissionResponse {
+  submitted: number;
+  jobs: Array<{
+    documentId: string;
+    jobType: string;
+    jobId: string;
+  }>;
+}
+
+export enum WorkItemStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
+export interface PaginationCursor {
+  limit: number;
+  nextCursor: string | null;
+}
+
+export interface PaginationOffset {
+  limit: number;
+  offset: number;
+  total: number;
+}
+
+export interface QueueItemsResponse<T> {
+  items: T[];
+  pagination: PaginationCursor;
+}
+
+export interface AuditLogResponse {
+  entries: AuditEntry[];
+  pagination: PaginationOffset;
+}
+
+// Job and Step Types
 
 export enum WorkflowType {
   APPROVAL = 'approval',
@@ -30,50 +114,12 @@ export enum StepStatus {
   FAILED = 'failed',
 }
 
-export enum WorkItemStatus {
-  PENDING = 'pending',
-  PROCESSING = 'processing',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-}
-
-export enum DocumentActionType {
-  UPDATE_TITLE = 'update_title',
-}
-
-// ========== Documents ==========
-
-export interface Document {
+export interface DocumentAction {
   id: string;
-  content: string;
-  title: string | null;
-  tags: string[];
-  metadata: Record<string, unknown>;
-  createdDate: string | null;
-  modifiedDate: string | null;
-}
-
-// ========== Jobs ==========
-
-export interface JobSubmission {
-  documentId: string;
-  jobTypes: WorkflowType[];
-  requiresApproval?: boolean;
-}
-
-export interface BatchJobRequest {
-  documents: JobSubmission[];
-}
-
-export interface CreatedJob {
-  documentId: string;
-  jobType: WorkflowType;
-  jobId: string;
-}
-
-export interface BatchJobResponse {
-  submitted: number;
-  jobs: CreatedJob[];
+  actionType: string;
+  oldValue: string | null;
+  newValue: string | null;
+  createdAt: string;
 }
 
 export interface JobResponse {
@@ -84,59 +130,53 @@ export interface JobResponse {
   errorMessage?: string;
   createdAt: string;
   updatedAt: string;
-  completedAt: string | null;
+  completedAt?: string;
+  documentActions: DocumentAction[];
 }
 
-// ========== Queue ==========
-
-export interface QueueStats {
-  total: number;
-  pending: number;
-  processing: number;
-  completed: number;
-  failed: number;
-}
-
-export interface QueueItem {
-  id: string;
-  jobId: string;
-  documentId: string;
+export interface JobStep {
+  stepId: string;
   stepType: StepType;
-  jobType: WorkflowType;
-  status: WorkItemStatus;
-  retryCount: number;
-  retryAfter: string | null;
-  claimedBy: string | null;
-  claimedAt: string | null;
+  stepStatus: StepStatus;
   createdAt: string;
-  updatedAt: string | null;
-  jobState: JobState;
+  startedAt?: string;
+  completedAt?: string;
 }
 
-export interface QueueItemsResponse {
-  items: QueueItem[];
-  pagination: {
-    limit: number;
-    nextCursor?: string;
-  };
+export interface JobListResponse {
+  jobs: JobResponse[];
+  nextCursor: string | null;
 }
 
-// ========== Approvals ==========
+export interface JobStepsResponse {
+  steps: JobStep[];
+}
 
-export interface ProposedAction {
-  actionType: DocumentActionType;
-  oldValue: string;
-  newValue: string;
+export interface JobStepStats {
+  totalSteps: number;
+  waitingSteps: number;
+  inProgressSteps: number;
+  completedSteps: number;
+  failedSteps: number;
+}
+
+// Approval Types
+
+export interface ApprovalStats {
+  pendingCount: number;
 }
 
 export interface ApprovalItem {
   stepId: string;
   jobId: string;
   documentId: string;
-  documentTitle: string;
-  documentContent: string;
-  jobType: WorkflowType;
-  proposedActions: ProposedAction[];
+  paperlessUrl: string;
+  jobType: string;
+  proposedActions: Array<{
+    actionType: string;
+    oldValue: string;
+    newValue: string;
+  }>;
   possibleDecisions: string[];
   createdAt: string;
 }
@@ -146,16 +186,7 @@ export interface ApprovalsResponse {
   nextCursor: string | null;
 }
 
-export interface ApprovalDecisionRequest {
-  decision: string;
-}
-
-export interface ApprovalDecisionResponse {
-  success: boolean;
-  message: string;
-}
-
-// ========== Prompts ==========
+// Prompt Types
 
 export interface PromptResponse {
   stepType: StepType;
@@ -164,27 +195,26 @@ export interface PromptResponse {
   updatedAt: string;
 }
 
-export interface PromptsResponse {
+export interface PromptsListResponse {
   prompts: PromptResponse[];
 }
 
-export interface UpsertPromptRequest {
-  template: string;
+// System Health Types
+
+export type ServiceStatus = 'healthy' | 'unhealthy';
+export type SystemStatus = 'healthy' | 'degraded';
+
+export interface ComponentHealth {
+  status: ServiceStatus;
 }
 
-// ========== System ==========
-
-export interface SystemStatus {
-  status: 'healthy' | 'degraded';
+export interface SystemHealthResponse {
+  status: SystemStatus;
   timestamp: string;
   components: {
-    database: {
-      status: string;
-    };
+    database: ComponentHealth;
+    paperless: ComponentHealth;
+    llm: ComponentHealth;
   };
 }
 
-export interface HealthResponse {
-  status: string;
-  timestamp: string;
-}

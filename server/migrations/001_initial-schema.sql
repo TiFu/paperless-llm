@@ -1,6 +1,7 @@
--- Migration 001: Initial Schema
+-- Migration: Initial Schema
 -- Complete database schema for paperless-llm workflow system
 
+-- Up Migration
 -- ============================================================================
 -- JOBS TABLE
 -- ============================================================================
@@ -94,3 +95,10 @@ COMMENT ON TABLE prompts IS 'LLM prompt templates for different step types';
 COMMENT ON COLUMN prompts.step_type IS 'Step type this prompt is for (e.g., LLM_GENERATE_TITLE)';
 COMMENT ON COLUMN prompts.template IS 'Prompt template with {{variable}} placeholders';
 COMMENT ON COLUMN prompts.version IS 'Version number for tracking prompt evolution';
+
+-- Down Migration
+-- Drop tables in reverse order due to foreign key constraints
+DROP TABLE IF EXISTS prompts CASCADE;
+DROP TABLE IF EXISTS steps CASCADE;
+DROP TABLE IF EXISTS document_actions CASCADE;
+DROP TABLE IF EXISTS jobs CASCADE;

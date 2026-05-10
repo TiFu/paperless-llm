@@ -1,10 +1,10 @@
-import { IStep, StepStatus, StepType } from './IStep';
-import { LLMGenerateTitleStep } from './automated/LLMGenerateTitleStep';
-import { UpdateDocumentStep } from './automated/UpdateDocumentStep';
-import { IDocumentManagementSystem } from '../document/IDocumentManagementSystem';
-import { OllamaService } from '../../services/OllamaService';
-import { IPromptsRepository } from '../prompt/IPromptsRepository';
-import { ApprovalInteractionStep } from './userinteraction/UserInteractionStep';
+import { IStep, StepStatus, StepType } from './IStep.js';
+import { LLMGenerateTitleStep } from './automated/LLMGenerateTitleStep.js';
+import { UpdateDocumentStep } from './automated/UpdateDocumentStep.js';
+import { IDocumentManagementSystem } from '../document/IDocumentManagementSystem.js';
+import { OllamaService } from '../../services/OllamaService.js';
+import { IPromptsRepository } from '../prompt/IPromptsRepository.js';
+import { ApprovalInteractionStep } from './userinteraction/UserInteractionStep.js';
 
 /**
  * Type-safe dependency interfaces for each step type
@@ -26,16 +26,16 @@ export class StepFactory {
   static create(
     stepId: string | null,
     jobId: string,
-    type: StepType, stepState: StepStatus): IStep {
+    type: StepType, stepState: StepStatus, retryCount: number = 0): IStep {
     switch (type) {
       case StepType.LLM_GENERATE_TITLE:
-        return new LLMGenerateTitleStep(stepId, jobId, stepState);
+        return new LLMGenerateTitleStep(stepId, jobId, stepState, retryCount);
 
       case StepType.REQUIRE_APPROVAL:
-        return new ApprovalInteractionStep(stepId, jobId, stepState);
+        return new ApprovalInteractionStep(stepId, jobId, stepState, retryCount);
 
       case StepType.UPDATE_DOCUMENT:
-        return new UpdateDocumentStep(stepId, jobId, stepState);
+        return new UpdateDocumentStep(stepId, jobId, stepState, retryCount);
 
       default:
         throw new Error(`Unknown step type: ${type}`);
@@ -72,7 +72,8 @@ export class StepFactory {
     const jobId = row.job_id;
     const type = row.type as StepType;
     const status = row.status as StepStatus;
+    const retryCount = row.retry_count || 0;
 
-    return StepFactory.create(stepId, jobId, type, status);
+    return StepFactory.create(stepId, jobId, type, status, retryCount);
   }
 }

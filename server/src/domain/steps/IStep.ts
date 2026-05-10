@@ -1,12 +1,10 @@
-import { DocumentAction } from '../actions/DocumentAction';
-import { IDocumentManagementSystem } from '../document/IDocumentManagementSystem';
-import { Job } from '../job/Job';
-import { ILLMService } from '../llm/ILLMService';
-import { IPromptDomainService } from '../prompt/IPromptDomainService';
-import { Prompt } from '../prompt/Prompt';
-import { Transition } from '../workflows/Transition';
-import { AutomatedStep } from './automated/AutomatedStep';
-import { UserInteractionStep } from './userinteraction/UserInteractionStep';
+import { DocumentAction } from '../actions/DocumentAction.js';
+import { IDocumentManagementSystem } from '../document/IDocumentManagementSystem.js';
+import { Job } from '../job/Job.js';
+import { ILLMService } from '../llm/ILLMService.js';
+import { IPromptDomainService } from '../prompt/IPromptDomainService.js';
+import { Prompt } from '../prompt/Prompt.js';
+import { Transition } from '../workflows/Transition.js';
 
 /**
  * Step types - executable units in a workflow
@@ -54,11 +52,21 @@ export interface StepExecutionContext {
 
 export abstract class IStep {
 
-  constructor(protected stepId: string | null, protected stepType: StepType, protected jobId: string, protected stepState: StepStatus) {
+  constructor(
+    protected stepId: string | null, 
+    protected stepType: StepType, 
+    protected jobId: string, 
+    protected stepState: StepStatus,
+    protected retryCount: number = 0
+  ) {
   }
 
   public updateId(stepId: string) {
     this.stepId = stepId
+  }
+
+  public getRetryCount(): number {
+    return this.retryCount;
   }
 
   public moveToInProgress() {

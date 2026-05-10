@@ -1,6 +1,6 @@
 import { Pool, PoolClient } from 'pg';
-import { RepositoryRegistry } from './RepositoryRegistry';
-import { createChildLogger } from '../utils/logger';
+import { RepositoryRegistry } from './RepositoryRegistry.js';
+import { createChildLogger } from '../utils/logger.js';
 
 let ctxNo = 0;
 /**

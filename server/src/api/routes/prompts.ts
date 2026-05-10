@@ -1,10 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { body } from 'express-validator';
 import pino from 'pino';
-import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory';
-import { validateRequest } from '../middleware/validation';
-import { ApiError } from '../middleware/errorHandler';
-import { StepType } from '../../domain/steps/IStep';
+import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
+import { validateRequest } from '../middleware/validation.js';
+import { ApiError } from '../middleware/errorHandler.js';
+import { StepType } from '../../domain/steps/IStep.js';
 
 export function createPromptsRouter(appFactory: ApplicationServiceFactory, logger: pino.Logger): Router {
   const router = Router();

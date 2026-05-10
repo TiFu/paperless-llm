@@ -3,21 +3,21 @@ import {
   Document,
   QueueStats,
   QueueItem,
-  QueueItemsResponse,
+  JobSubmission,
+  JobSubmissionResponse,
   WorkItemStatus,
-  BatchJobRequest,
-  BatchJobResponse,
+  QueueItemsResponse,
+  AuditLogResponse,
+  JobState,
   JobResponse,
-  WorkflowType,
-  StepType,
+  JobListResponse,
+  JobStepsResponse,
   ApprovalsResponse,
-  ApprovalDecisionRequest,
-  ApprovalDecisionResponse,
-  PromptsResponse,
-  UpsertPromptRequest,
+  PromptsListResponse,
   PromptResponse,
-  SystemStatus,
-  HealthResponse,
+  SystemHealthResponse,
+  ApprovalStats,
+  JobStepStats,
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
@@ -53,8 +53,7 @@ class ApiClient {
     );
   }
 
-  // ========== Documents ==========
-  
+  // Documents
   async fetchDocumentsByTag(tag: string): Promise<Document[]> {
     const response = await this.client.get<{ documents: Document[] }>('/api/documents', {
       params: { tag },
@@ -62,25 +61,44 @@ class ApiClient {
     return response.data.documents;
   }
 
-  // ========== Jobs ==========
-
-  async fetchJobTypes(): Promise<WorkflowType[]> {
-    const response = await this.client.get<{ jobTypes: WorkflowType[] }>('/api/jobs/types');
-    return response.data.jobTypes;
-  }
-
-  async submitJobs(request: BatchJobRequest): Promise<BatchJobResponse> {
-    const response = await this.client.post<BatchJobResponse>('/api/jobs', request);
+  // Jobs
+  async submitJobs(submission: JobSubmission): Promise<JobSubmissionResponse> {
+    const response = await this.client.post<JobSubmissionResponse>('/api/jobs', submission);
     return response.data;
   }
 
-  async fetchJobById(jobId: string): Promise<JobResponse> {
-    const response = await this.client.get<{ job: JobResponse }>(`/api/jobs/${jobId}`);
+  async fetchJobTypes(): Promise<string[]> {
+    const response = await this.client.get<{ jobTypes: string[] }>('/api/jobs/types');
+    return response.data.jobTypes;
+  }
+
+  async fetchJobs(
+    limit: number = 20,
+    cursor?: string,
+    state?: JobState
+  ): Promise<JobListResponse> {
+    const response = await this.client.get<JobListResponse>('/api/jobs', {
+      params: { limit, cursor, state },
+    });
+    return response.data;
+  }
+
+  async fetchJobById(id: string): Promise<JobResponse> {
+    const response = await this.client.get<{ job: JobResponse }>(`/api/jobs/${id}`);
     return response.data.job;
   }
 
-  // ========== Queue (Unified) ==========
+  async fetchJobSteps(jobId: string): Promise<JobStepsResponse> {
+    const response = await this.client.get<JobStepsResponse>(`/api/jobs/${jobId}/steps`);
+    return response.data;
+  async fetchJobStepStats(): Promise<JobStepStats> {
+    const response = await this.client.get<JobStepStats>('/api/jobs/stats');
+    return response.data;
+  }
 
+  }
+
+  // Queue - Unified API for all automated steps
   async fetchQueueStats(): Promise<QueueStats> {
     const response = await this.client.get<QueueStats>('/api/queue/stats');
     return response.data;
@@ -90,16 +108,38 @@ class ApiClient {
     limit: number = 50,
     cursor?: string,
     status?: WorkItemStatus
-  ): Promise<QueueItemsResponse> {
-    const response = await this.client.get<QueueItemsResponse>('/api/queue/items', {
-      params: { limit, cursor, status },
+  ): Promise<QueueItemsResponse<QueueItem>> {
+    const response = await this.client.get<QueueItemsResponse<QueueItem>>(
+      '/api/queue/items',
+      {
+        params: { limit, cursor, status },
+      }
+    );
+    return response.data;
+  }
+
+  // Audit Log
+  async fetchAuditLog(
+    documentId?: string,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<AuditLogResponse> {
+    const response = await this.client.get<AuditLogResponse>('/api/audit', {
+      params: { documentId, limit, offset },
     });
     return response.data;
   }
 
-  // ========== Approvals ==========
+  // Approvals
+  async fetchPendingApprovals(
+    limit: number = 50,
+    cursor?: string
+  ): ProfetchApprovalStats(): Promise<ApprovalStats> {
+    const response = await this.client.get<ApprovalStats>('/api/approvals/stats');
+    return response.data;
+  }
 
-  async fetchPendingApprovals(limit: number = 50, cursor?: string): Promise<ApprovalsResponse> {
+  async mise<ApprovalsResponse> {
     const response = await this.client.get<ApprovalsResponse>('/api/approvals', {
       params: { limit, cursor },
     });
@@ -108,36 +148,40 @@ class ApiClient {
 
   async processApprovalDecision(
     stepId: string,
-    request: ApprovalDecisionRequest
-  ): Promise<ApprovalDecisionResponse> {
-    const response = await this.client.post<ApprovalDecisionResponse>(
+    decision: string
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.post<{ success: boolean; message: string }>(
       `/api/approvals/${stepId}`,
-      request
+      { decision }
     );
     return response.data;
   }
 
-  // ========== Prompts ==========
-
-  async fetchPrompts(): Promise<PromptsResponse> {
-    const response = await this.client.get<PromptsResponse>('/api/prompts');
+  // Prompts
+  async fetchPrompts(): Promise<PromptsListResponse> {
+    const response = await this.client.get<PromptsListResponse>('/api/prompts');
     return response.data;
   }
 
-  async upsertPrompt(stepType: StepType, request: UpsertPromptRequest): Promise<PromptResponse> {
-    const response = await this.client.put<PromptResponse>(`/api/prompts/${stepType}`, request);
+  async updatePrompt(
+    stepType: string,
+    template: string
+  ): Promise<PromptResponse> {
+    const response = await this.client.put<PromptResponse>(
+      `/api/prompts/${stepType}`,
+      { template }
+    );
     return response.data;
   }
 
-  // ========== System & Health ==========
-
-  async fetchSystemStatus(): Promise<SystemStatus> {
-    const response = await this.client.get<SystemStatus>('/api/system/status');
+  // Health
+  async checkHealth(): Promise<{ status: string }> {
+    const response = await this.client.get<{ status: string }>('/health');
     return response.data;
   }
 
-  async checkHealth(): Promise<HealthResponse> {
-    const response = await this.client.get<HealthResponse>('/health');
+  async fetchSystemStatus(): Promise<SystemHealthResponse> {
+    const response = await this.client.get<SystemHealthResponse>('/api/system/status');
     return response.data;
   }
 }

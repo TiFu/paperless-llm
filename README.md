@@ -119,7 +119,7 @@ Run both backend and frontend with hot reload:
 ./dev-start.sh
 
 # Attach to the dev container
-docker exec -it paperless-llm-dev sh
+docker exec -it pllm-app-dev sh
 
 # Inside the container, start services
 /app/start-services.sh
@@ -132,7 +132,7 @@ Or manually:
 docker-compose -f docker/docker-compose.dev.yml up -d
 
 # Attach and start services
-docker exec -it paperless-llm-dev sh
+docker exec -it pllm-app-dev sh
 /app/start-dev.sh
 ```
 

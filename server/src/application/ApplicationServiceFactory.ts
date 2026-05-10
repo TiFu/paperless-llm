@@ -1,13 +1,14 @@
-import { JobApplicationService } from './JobApplicationService';
-import { StepExecutorApplicationService } from './StepExecutorApplicationService';
-import { ApprovalApplicationService } from './ApprovalApplicationService';
-import { PromptApplicationService } from './PromptApplicationService';
-import { QueueApplicationService } from './QueueApplicationService';
-import { TransactionManager } from '../infrastructure/TransactionManager';
-import { DomainServices } from '../domain/services/DomainServices';
-import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem';
-import { ILLMService } from '../domain/llm/ILLMService';
-import { WorkflowOrchestratorService } from './WorkflowOrchestratorService';
+import { JobApplicationService } from './JobApplicationService.js';
+import { StepExecutorApplicationService } from './StepExecutorApplicationService.js';
+import { ApprovalApplicationService } from './ApprovalApplicationService.js';
+import { PromptApplicationService } from './PromptApplicationService.js';
+import { QueueApplicationService } from './QueueApplicationService.js';
+import { StuckStepResetApplicationService } from './StuckStepResetApplicationService.js';
+import { TransactionManager } from '../infrastructure/TransactionManager.js';
+import { DomainServices } from '../domain/services/DomainServices.js';
+import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
+import { ILLMService } from '../domain/llm/ILLMService.js';
+import { WorkflowOrchestratorService } from './WorkflowOrchestratorService.js';
 
 /**
  * ApplicationServiceFactory - creates application service instances per request.
@@ -19,6 +20,7 @@ export class ApplicationServiceFactory {
     private readonly txManager: TransactionManager,
     private readonly dmsService: IDocumentManagementSystem,
     private readonly llmService: ILLMService,
+    private readonly paperlessBaseUrl: string,
   ) {}
 
   /**
@@ -58,7 +60,7 @@ export class ApplicationServiceFactory {
     return new ApprovalApplicationService(
       this.txManager,
       workflowAppService,
-      this.dmsService,
+      this.paperlessBaseUrl,
     );
   }
 
@@ -74,5 +76,17 @@ export class ApplicationServiceFactory {
    */
   createQueueApplicationService(): QueueApplicationService {
     return new QueueApplicationService(this.txManager);
+  }
+
+  /**
+   * Create a new StuckStepResetApplicationService instance.
+   * @param timeoutMs Time in milliseconds before a step is considered stuck
+   * @param maxRetries Maximum number of retry attempts before marking as failed
+   */
+  createStuckStepResetApplicationService(
+    timeoutMs: number,
+    maxRetries: number,
+  ): StuckStepResetApplicationService {
+    return new StuckStepResetApplicationService(this.txManager, timeoutMs, maxRetries);
   }
 }

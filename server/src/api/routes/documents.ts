@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import pino from 'pino';
-import { PaperlessService } from '../../services/PaperlessService';
-import { ApiError } from '../middleware/errorHandler';
+import { PaperlessService } from '../../services/PaperlessService.js';
+import { ApiError } from '../middleware/errorHandler.js';
 
 export function createDocumentsRouter(
   paperlessService: PaperlessService,

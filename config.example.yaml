@@ -25,6 +25,10 @@ worker:
   pollIntervalMs: 3000
   maxRetries: 3
   claimTimeoutMs: 300000
+  # Stuck step recovery settings (all optional, defaults shown)
+  stuckStepTimeoutMs: 300000        # 5 minutes - time before a step is considered stuck
+  stuckStepCheckIntervalMs: 30000   # 30 seconds - how often to check for stuck steps
+  maxStepRetries: 3                 # Maximum retry attempts before marking step as failed
 
 orchestration:
   llmCycleDurationMs: 30000

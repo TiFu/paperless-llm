@@ -1,10 +1,10 @@
-import { Transition } from './Transition';
-import { TransitionMap, createTransitionMap } from './TransitionMap';
-import { BaseWorkflow } from './BaseWorkflow';
-import { StepFactory, WorkflowContext } from '../steps/StepFactory';
-import { JobState } from '../job/JobState';
-import { IStep } from '../steps/IStep';
-import { Job } from '../job/Job';
+import { Transition } from './Transition.js';
+import { TransitionMap, createTransitionMap } from './TransitionMap.js';
+import { BaseWorkflow } from './BaseWorkflow.js';
+import { StepFactory, WorkflowContext } from '../steps/StepFactory.js';
+import { JobState } from '../job/JobState.js';
+import { IStep } from '../steps/IStep.js';
+import { Job } from '../job/Job.js';
 
 /**
  * ApprovalWorkflow - workflow with approval step

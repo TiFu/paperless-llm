@@ -1,5 +1,5 @@
 import { Pool, PoolConfig } from 'pg';
-import { DatabaseConfig } from '../config/AppConfig';
+import { DatabaseConfig } from '../config/AppConfig.js';
 
 export class Database {
   private pool: Pool;

@@ -1,6 +1,6 @@
-import { Job } from "./Job";
-import { JobState } from "./JobState";
-import { WorkflowType } from "../workflows/WorkflowType";
+import { Job } from "./Job.js";
+import { JobState } from "./JobState.js";
+import { WorkflowType } from "../workflows/WorkflowType.js";
 
 export interface IJobRepository {
   /**

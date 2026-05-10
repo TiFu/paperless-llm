@@ -1,6 +1,7 @@
--- Migration 002: Seed default prompts
+-- Migration: Seed default prompts
 -- Insert default prompt templates for step types
 
+-- Up Migration
 -- LLM_GENERATE_TITLE step prompt
 INSERT INTO prompts (step_type, template, version)
 VALUES (
@@ -14,3 +15,6 @@ Title:',
     1
 )
 ON CONFLICT (step_type) DO NOTHING;
+
+-- Down Migration
+DELETE FROM prompts WHERE step_type = 'LLM_GENERATE_TITLE';
