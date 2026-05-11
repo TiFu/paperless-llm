@@ -75,6 +75,34 @@ export class PostgreSQLJobRepository implements IJobRepository {
     return Job.fromDb(result.rows[0], []);
   }
 
+  async createBulk(
+    jobs: Array<{ documentId: string; jobType: WorkflowType }>
+  ): Promise<Job[]> {
+    if (jobs.length === 0) {
+      return [];
+    }
+
+    // Build bulk insert query
+    const values = jobs.map((_, idx) => {
+      const base = idx * 2;
+      return `($${base + 1}, $${base + 2}, '${JobState.PENDING}')`;
+    }).join(', ');
+
+    const params = jobs.flatMap((job) => [
+      job.documentId,
+      job.jobType,
+    ]);
+
+    const query = `
+      INSERT INTO jobs (document_id, job_type, state)
+      VALUES ${values}
+      RETURNING *
+    `;
+
+    const result = await this.getClient().query(query, params);
+    return result.rows.map((row) => Job.fromDb(row, []));
+  }
+
   async getById(id: string): Promise<Job | null> {
     const query = `SELECT * FROM jobs WHERE id = $1`;
     const result = await this.getClient().query(query, [id]);
@@ -200,5 +228,21 @@ export class PostgreSQLJobRepository implements IJobRepository {
     });
 
     return counts;
+  }
+
+  async filterInProgressDocuments(documentIds: string[]): Promise<string[]> {
+    if (documentIds.length === 0) {
+      return [];
+    }
+
+    const query = `
+      SELECT DISTINCT document_id 
+      FROM jobs 
+      WHERE document_id = ANY($1)
+        AND state NOT IN ('completed', 'failed', 'rejected')
+    `;
+
+    const result = await this.getClient().query(query, [documentIds]);
+    return result.rows.map((row) => row.document_id);
   }
 }

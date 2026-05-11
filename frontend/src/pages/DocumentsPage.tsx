@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -12,8 +13,8 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
-  Paper,
-  Divider,
+  Card,
+  CardContent,
   Link,
 } from '@mui/material';
 import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
@@ -23,11 +24,15 @@ import { apiClient } from '../services/api';
 import { Document, WorkflowType, BatchJobResponse } from '../types/api';
 
 const DEFAULT_TAG = 'llm-process';
+const PAGE_LIMIT = 50;
 
 export const DocumentsPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [availableJobTypes, setAvailableJobTypes] = useState<WorkflowType[]>([]);
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowType>(WorkflowType.AUTOMATED);
@@ -38,11 +43,35 @@ export const DocumentsPage: React.FC = () => {
     severity: 'success' | 'error';
   }>({ open: false, message: '', severity: 'success' });
 
-  const fetchDocuments = async () => {
-    setLoading(true);
+  const fetchDocuments = async (cursor?: string, append = false) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+    
     try {
-      const docs = await apiClient.fetchDocumentsByTag(DEFAULT_TAG);
-      setDocuments(docs);
+      const response = await apiClient.fetchDocumentsByTag(
+        DEFAULT_TAG,
+        PAGE_LIMIT,
+        cursor
+      );
+      
+      if (append) {
+        setDocuments((prev) => [...prev, ...response.documents]);
+      } else {
+        setDocuments(response.documents);
+      }
+      
+      setNextCursor(response.pagination.nextCursor);
+      
+      // Update URL with cursor if we're paginating
+      if (response.pagination.nextCursor) {
+        setSearchParams({ cursor: response.pagination.nextCursor }, { replace: true });
+      } else if (!append) {
+        // Clear cursor from URL if we're on first page and there's no next page
+        setSearchParams({}, { replace: true });
+      }
     } catch (error) {
       setSnackbar({
         open: true,
@@ -51,6 +80,13 @@ export const DocumentsPage: React.FC = () => {
       });
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (nextCursor && !loadingMore) {
+      fetchDocuments(nextCursor, true);
     }
   };
 
@@ -69,9 +105,57 @@ export const DocumentsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDocuments();
+    const urlCursor = searchParams.get('cursor');
+    
+    if (urlCursor) {
+      // Restore pagination state from URL
+      // Fetch from start up to the cursor to rebuild full list
+      restorePaginationState(urlCursor);
+    } else {
+      // Normal initial load
+      fetchDocuments();
+    }
+    
     fetchJobTypes();
   }, []);
+
+  const restorePaginationState = async (targetCursor: string) => {
+    setLoading(true);
+    try {
+      const allDocs: Document[] = [];
+      let currentCursor: string | undefined = undefined;
+      
+      // Fetch pages until we reach the target cursor
+      while (true) {
+        const response = await apiClient.fetchDocumentsByTag(
+          DEFAULT_TAG,
+          PAGE_LIMIT,
+          currentCursor
+        );
+        
+        allDocs.push(...response.documents);
+        
+        // Check if we've reached the target cursor or there are no more pages
+        if (response.pagination.nextCursor === targetCursor || !response.pagination.nextCursor) {
+          setDocuments(allDocs);
+          setNextCursor(response.pagination.nextCursor);
+          break;
+        }
+        
+        currentCursor = response.pagination.nextCursor;
+      }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error instanceof Error ? error.message : 'Failed to restore pagination state',
+        severity: 'error',
+      });
+      // Fall back to initial load
+      fetchDocuments();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmitJobs = async () => {
     if (selectedIds.length === 0) return;
@@ -146,12 +230,13 @@ export const DocumentsPage: React.FC = () => {
       </Box>
 
       {/* Workflow Selection */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Workflow Selection
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-        <FormControl component="fieldset">
+      <Box sx={{ mb: 3 }}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Workflow Selection
+            </Typography>
+            <FormControl component="fieldset">
           <FormLabel component="legend">Choose Workflow Type</FormLabel>
           <RadioGroup
             value={selectedWorkflow}
@@ -190,7 +275,9 @@ export const DocumentsPage: React.FC = () => {
               : `Submit ${selectedIds.length} Document${selectedIds.length !== 1 ? 's' : ''}`}
           </Button>
         </Box>
-      </Paper>
+          </CardContent>
+        </Card>
+      </Box>
 
       {/* Submission Result */}
       {submissionResult && (
@@ -212,26 +299,30 @@ export const DocumentsPage: React.FC = () => {
       )}
 
       {/* Documents List */}
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Available Documents
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Showing documents tagged with "{DEFAULT_TAG}"
-        </Typography>
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Available Documents
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Showing documents tagged with "{DEFAULT_TAG}"
+          </Typography>
 
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <DocumentList
-            documents={documents}
-            selectedIds={selectedIds}
-            onSelectionChange={setSelectedIds}
-          />
-        )}
-      </Paper>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <DocumentList
+              documents={documents}
+              selectedIds={selectedIds}
+              onSelectionChange={setSelectedIds}
+              onLoadMore={nextCursor ? handleLoadMore : undefined}
+              loadingMore={loadingMore}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       <Snackbar
         open={snackbar.open}

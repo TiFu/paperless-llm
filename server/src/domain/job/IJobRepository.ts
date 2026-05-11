@@ -16,6 +16,15 @@ export interface IJobRepository {
   ): Promise<Job>;
 
   /**
+   * Create multiple jobs in bulk
+   * @param jobs Array of {documentId, jobType} objects
+   * @returns Array of created jobs with empty documentActions arrays
+   */
+  createBulk(
+    jobs: Array<{ documentId: string; jobType: WorkflowType }>
+  ): Promise<Job[]>;
+
+  /**
    * Get a job by ID
    * @param id Job ID
    * @returns Job with documentActions loaded, or null if not found
@@ -57,4 +66,12 @@ export interface IJobRepository {
    * Get job counts grouped by state
    */
   getJobCountsByState(): Promise<{ [state: string]: number }>;
+
+  /**
+   * Filter the given document IDs to return only those with jobs in progress
+   * (i.e., jobs that are not in terminal states: completed, failed, rejected)
+   * @param documentIds Array of document IDs to check
+   * @returns Array of document IDs that have jobs in progress
+   */
+  filterInProgressDocuments(documentIds: string[]): Promise<string[]>;
 }

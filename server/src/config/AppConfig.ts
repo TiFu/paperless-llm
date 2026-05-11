@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { WorkflowType } from '../domain/workflows/WorkflowType.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -85,6 +86,16 @@ export interface RetryConfig {
 }
 
 /**
+ * Automated document queue configuration
+ */
+export interface AutoQueueConfig {
+  readonly enabled: boolean;
+  readonly pollIntervalMs: number;
+  readonly workflowType: WorkflowType;
+  readonly tag: string;
+}
+
+/**
  * Raw config structure from YAML file
  */
 interface RawConfig {
@@ -112,6 +123,12 @@ interface RawConfig {
     retryDelayInMs?: number;
     retryExponent?: number;
   };
+  autoQueue?: {
+    enabled?: boolean;
+    pollIntervalMs?: number;
+    workflowType?: string;
+    tag?: string;
+  };
 }
 
 /**
@@ -126,6 +143,7 @@ export class AppConfig {
   public readonly llm: LLMConfig;
   public readonly api: ApiConfig;
   public readonly retry: RetryConfig;
+  public readonly autoQueue: AutoQueueConfig;
 
   constructor(configPath?: string) {
     const rawConfig = this.loadConfig(configPath);
@@ -159,8 +177,17 @@ export class AppConfig {
       retryExponent: rawConfig.retry?.retryExponent ?? 2, // Default: exponential backoff base 2
     };
 
+    // Auto Queue Configuration
+    this.autoQueue = {
+      enabled: rawConfig.autoQueue?.enabled ?? false, // Default: disabled
+      pollIntervalMs: rawConfig.autoQueue?.pollIntervalMs ?? 60000, // Default: 60 seconds
+      workflowType: this.parseWorkflowType(rawConfig.autoQueue?.workflowType) ?? WorkflowType.AUTOMATED, // Default: AUTOMATED
+      tag: rawConfig.autoQueue?.tag ?? 'llm-auto-process', // Default: llm-auto-process
+    };
+
     this.validate();
     this.validateLLMConfig();
+    this.validateAutoQueueConfig();
   }
 
   private loadConfig(configPath?: string): RawConfig {
@@ -251,6 +278,25 @@ export class AppConfig {
   private validateLLMConfig(): void {
     if (this.llm.temperature < 0 || this.llm.temperature > 2) {
       throw new Error('llm.temperature must be between 0 and 2');
+    }
+  }
+
+  private parseWorkflowType(value: string | undefined): WorkflowType | undefined {
+    if (!value) return undefined;
+    
+    const normalized = value.toLowerCase();
+    if (normalized === 'automated') return WorkflowType.AUTOMATED;
+    if (normalized === 'approval') return WorkflowType.APPROVAL;
+    
+    throw new Error(`Invalid workflow type: ${value}. Must be 'automated' or 'approval'`);
+  }
+
+  private validateAutoQueueConfig(): void {
+    if (this.autoQueue.pollIntervalMs < 1000) {
+      throw new Error('autoQueue.pollIntervalMs must be at least 1000ms');
+    }
+    if (!this.autoQueue.tag || this.autoQueue.tag.trim().length === 0) {
+      throw new Error('autoQueue.tag must be a non-empty string');
     }
   }
 }

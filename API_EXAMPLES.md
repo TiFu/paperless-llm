@@ -2,6 +2,8 @@
 
 Quick reference for interacting with the Paperless-LLM API.
 
+> 📚 **Full API Documentation**: For comprehensive API documentation with detailed schemas, all endpoints, and interactive exploration, visit the [ReDoc UI](http://localhost:3000/api/docs) or download the [OpenAPI specification](http://localhost:3000/api/openapi.yaml).
+
 ## Submit a Job
 
 ### Single document, single job type

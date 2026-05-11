@@ -13,7 +13,7 @@ import { Transition } from '../workflows/Transition.js';
  * Contains job-specific data and tracks overall workflow state
  */
 export class Job {
-
+  
   constructor(
     public readonly id: string,
     public readonly documentId: string,

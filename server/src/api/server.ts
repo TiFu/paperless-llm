@@ -2,6 +2,10 @@ import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import pino from 'pino';
 import {pinoHttp} from 'pino-http';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+import fs from 'fs';
 import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory.js';
 import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { PaperlessService } from '../services/PaperlessService.js';
@@ -14,6 +18,11 @@ import { createHealthRouter } from './routes/health.js';
 import { createDocumentsRouter } from './routes/documents.js';
 import { createApprovalsRouter } from './routes/approvals.js';
 import { createStepsRouter } from './routes/steps.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
+const redoc = require('redoc-express');
 
 export interface ApiServerConfig {
   port: number;
@@ -64,12 +73,54 @@ export function createApiServer(
   app.use('/', createHealthRouter(txManager, paperlessService, llmService, logger));
 
   // API routes
-  app.use('/api/documents', createDocumentsRouter(paperlessService));
+  app.use('/api/documents', createDocumentsRouter(paperlessService, txManager));
   app.use('/api/prompts', createPromptsRouter(appFactory));
   app.use('/api/jobs', createJobsRouter(appFactory));
   app.use('/api/approvals', createApprovalsRouter(appFactory));
   app.use('/api/steps', createStepsRouter(appFactory));
   app.use('/api/queue', createQueueRouter(appFactory));
+
+  // OpenAPI specification routes
+  // Serve the OpenAPI YAML spec file
+  app.get('/api/openapi.yaml', (_req: Request, res: Response) => {
+    const specPath = path.resolve(__dirname, '../../docs/openapi.yaml');
+    if (fs.existsSync(specPath)) {
+      res.setHeader('Content-Type', 'application/x-yaml');
+      res.sendFile(specPath);
+    } else {
+      res.status(404).json({
+        type: 'about:blank',
+        title: 'Not Found',
+        status: 404,
+        detail: 'OpenAPI specification file not found',
+      });
+    }
+  });
+
+  // Serve ReDoc interactive documentation UI
+  app.get(
+    '/api/docs',
+    redoc({
+      title: 'Paperless-LLM API Documentation',
+      specUrl: '/api/openapi.yaml',
+      redocOptions: {
+        theme: {
+          colors: {
+            primary: {
+              main: '#3b82f6',
+            },
+          },
+          typography: {
+            fontSize: '14px',
+            fontFamily: '"Inter", "Segoe UI", "Roboto", sans-serif',
+          },
+        },
+        hideDownloadButton: false,
+        disableSearch: false,
+        scrollYOffset: 0,
+      },
+    }),
+  );
 
   // 404 handler
   app.use((_req: Request, res: Response) => {

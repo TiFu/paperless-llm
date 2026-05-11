@@ -18,6 +18,7 @@ export class ApprovalWorkflow extends BaseWorkflow {
   ) {
     super(job);
   }
+  
   /**
    * Define approval-enabled workflow transitions
    * Can be overridden by subclasses for custom behavior

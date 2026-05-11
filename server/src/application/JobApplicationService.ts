@@ -100,6 +100,53 @@ export class JobApplicationService {
   }
 
   /**
+   * Create multiple jobs in bulk with initial steps.
+   * More efficient than calling create() multiple times.
+   * @param jobs Array of {documentId, jobType} objects
+   * @returns Array of created jobs
+   */
+  async createBulk(
+    jobs: Array<{ documentId: string; jobType: WorkflowType }>
+  ): Promise<Job[]> {
+    if (jobs.length === 0) {
+      return [];
+    }
+
+    const logger = getLogger();
+    const context = await this.txManager.createContext();
+    
+    try {
+      await context.start();
+      const repos = context.getRepositoryRegistry();
+
+      logger.info({ count: jobs.length }, 'Creating jobs in bulk');
+
+      // Create all jobs in a single database operation
+      const createdJobs = await repos.getJobs().createBulk(jobs);
+      
+      // Start workflow for each job (creates initial steps)
+      const orchestrator = new WorkflowOrchestratorService();
+      for (const job of createdJobs) {
+        orchestrator.startWorkflow(job, context);
+      }
+
+      logger.info(
+        { count: createdJobs.length, jobIds: createdJobs.map(j => j.id) },
+        'Jobs created in bulk'
+      );
+
+      await context.commit();
+      return createdJobs;
+    } catch (error) {
+      logger.error({ error, count: jobs.length }, 'Failed to create jobs in bulk');
+      await context.rollback();
+      throw error;
+    } finally {
+      await context.dispose();
+    }
+  }
+
+  /**
    * Get a job by ID.
    * @param id Job ID
    * @returns Job or null if not found

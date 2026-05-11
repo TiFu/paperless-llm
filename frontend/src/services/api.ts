@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import {
   Document,
+  DocumentsResponse,
   QueueStats,
   QueueItem,
   JobSubmission,
@@ -54,11 +55,21 @@ class ApiClient {
   }
 
   // Documents
-  async fetchDocumentsByTag(tag: string): Promise<Document[]> {
-    const response = await this.client.get<{ documents: Document[] }>('/api/documents', {
-      params: { tag },
-    });
-    return response.data.documents;
+  async fetchDocumentsByTag(
+    tag: string,
+    limit?: number,
+    cursor?: string
+  ): Promise<DocumentsResponse> {
+    const params: Record<string, string> = { tag };
+    if (limit !== undefined) {
+      params.limit = limit.toString();
+    }
+    if (cursor) {
+      params.cursor = cursor;
+    }
+    
+    const response = await this.client.get<DocumentsResponse>('/api/documents', { params });
+    return response.data;
   }
 
   // Jobs

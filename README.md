@@ -205,6 +205,34 @@ api:
 | `PAPERLESS_TAGS` | Comma-separated tags to filter documents | llm-pending |
 | `LOG_PRETTY` | Enable pretty-printed logs | false |
 
+## API Documentation
+
+The REST API provides comprehensive endpoints for job submission, workflow management, and system monitoring.
+
+### Interactive Documentation
+
+**ReDoc UI**: Visit [http://localhost:3000/api/docs](http://localhost:3000/api/docs) for the full interactive API documentation with detailed schemas, examples, and descriptions.
+
+**OpenAPI Spec**: Download the machine-readable specification at [http://localhost:3000/api/openapi.yaml](http://localhost:3000/api/openapi.yaml)
+
+### Quick Reference
+
+**Key Endpoints**:
+- `POST /api/jobs` - Submit batch processing jobs
+- `GET /api/jobs` - List jobs with filtering and pagination
+- `GET /api/jobs/{id}` - Get detailed job status
+- `GET /api/queue/stats` - Monitor queue statistics
+- `GET /api/approvals` - List pending approval requests
+- `POST /api/approvals/{stepId}` - Approve or reject a step
+- `GET /api/prompts` - View LLM prompt templates
+- `PUT /api/prompts/{stepType}` - Update prompt templates
+
+**Common Examples**:
+See [API_EXAMPLES.md](API_EXAMPLES.md) for curl examples of common operations.
+
+**Error Handling**:
+All errors follow [RFC 7807 Problem Details](https://tools.ietf.org/html/rfc7807) format with structured error information.
+
 ## Usage
 
 ### Adding Documents to the Queue

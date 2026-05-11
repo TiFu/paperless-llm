@@ -81,6 +81,11 @@ export interface QueueItemsResponse<T> {
   pagination: PaginationCursor;
 }
 
+export interface DocumentsResponse {
+  documents: Document[];
+  pagination: PaginationCursor;
+}
+
 export interface AuditLogResponse {
   entries: AuditEntry[];
   pagination: PaginationOffset;

@@ -10,6 +10,8 @@ import {
   Checkbox,
   Typography,
   Box,
+  Button,
+  CircularProgress,
 } from '@mui/material';
 import { Document } from '../types/api';
 
@@ -17,12 +19,16 @@ interface DocumentListProps {
   documents: Document[];
   selectedIds: string[];
   onSelectionChange: (selectedIds: string[]) => void;
+  onLoadMore?: () => void;
+  loadingMore?: boolean;
 }
 
 export const DocumentList: React.FC<DocumentListProps> = ({
   documents,
   selectedIds,
   onSelectionChange,
+  onLoadMore,
+  loadingMore = false,
 }) => {
   const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked) {
@@ -55,48 +61,63 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   }
 
   return (
-    <TableContainer component={Paper}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell padding="checkbox">
-              <Checkbox
-                checked={isAllSelected}
-                indeterminate={isIndeterminate}
-                onChange={handleSelectAll}
-              />
-            </TableCell>
-            <TableCell>ID</TableCell>
-            <TableCell>Title</TableCell>
-            <TableCell>Content</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {documents.map((doc) => {
-            const isSelected = selectedIds.includes(doc.id);
-            return (
-              <TableRow
-                key={doc.id}
-                hover
-                onClick={() => handleSelectOne(doc.id)}
-                selected={isSelected}
-                sx={{ cursor: 'pointer' }}
-              >
-                <TableCell padding="checkbox">
-                  <Checkbox checked={isSelected} />
-                </TableCell>
-                <TableCell>{doc.id}</TableCell>
-                <TableCell>{doc.title || '(No Title)'}</TableCell>
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary" noWrap>
-                    {doc.content}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell padding="checkbox">
+                <Checkbox
+                  checked={isAllSelected}
+                  indeterminate={isIndeterminate}
+                  onChange={handleSelectAll}
+                />
+              </TableCell>
+              <TableCell>ID</TableCell>
+              <TableCell>Title</TableCell>
+              <TableCell>Content</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {documents.map((doc) => {
+              const isSelected = selectedIds.includes(doc.id);
+              return (
+                <TableRow
+                  key={doc.id}
+                  hover
+                  onClick={() => handleSelectOne(doc.id)}
+                  selected={isSelected}
+                  sx={{ cursor: 'pointer' }}
+                >
+                  <TableCell padding="checkbox">
+                    <Checkbox checked={isSelected} />
+                  </TableCell>
+                  <TableCell>{doc.id}</TableCell>
+                  <TableCell>{doc.title || '(No Title)'}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary" noWrap>
+                      {doc.content}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      
+      {onLoadMore && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Button
+            variant="outlined"
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            startIcon={loadingMore ? <CircularProgress size={16} /> : undefined}
+          >
+            {loadingMore ? 'Loading...' : 'Load More'}
+          </Button>
+        </Box>
+      )}
+    </>
   );
 };

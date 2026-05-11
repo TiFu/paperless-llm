@@ -6,12 +6,14 @@ import { QueueApplicationService } from './QueueApplicationService.js';
 import { StuckStepResetApplicationService } from './StuckStepResetApplicationService.js';
 import { StepRetryApplicationService } from './StepRetryApplicationService.js';
 import { StepCancelApplicationService } from './StepCancelApplicationService.js';
+import { DocumentAutoQueueApplicationService } from './DocumentAutoQueueApplicationService.js';
 import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { DomainServices } from '../domain/services/DomainServices.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { WorkflowOrchestratorService } from './WorkflowOrchestratorService.js';
 import { RetryConfig } from '../domain/steps/IStep.js';
+import { AutoQueueConfig } from '../config/AppConfig.js';
 
 /**
  * ApplicationServiceFactory - creates application service instances per request.
@@ -110,6 +112,23 @@ export class ApplicationServiceFactory {
   createStepCancelApplicationService(): StepCancelApplicationService {
     const workflowAppService = this.createWorkflowApplicationService();
     return new StepCancelApplicationService(this.txManager, workflowAppService);
+  }
+
+  /**
+   * Create a new DocumentAutoQueueApplicationService instance.
+   * Used for automated document pickup and job creation.
+   * @param autoQueueConfig Configuration for the auto-queue feature
+   */
+  createDocumentAutoQueueApplicationService(
+    autoQueueConfig: AutoQueueConfig,
+  ): DocumentAutoQueueApplicationService {
+    const jobAppService = this.createJobApplicationService();
+    return new DocumentAutoQueueApplicationService(
+      this.txManager,
+      this.dmsService,
+      jobAppService,
+      autoQueueConfig,
+    );
   }
 
 }

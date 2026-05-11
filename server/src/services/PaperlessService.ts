@@ -1,7 +1,8 @@
 import axios, { AxiosInstance } from 'axios';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { PaperlessConfig } from '../config/AppConfig.js';
-import { IDocument } from '../domain/document/IDocument.js';
+import { IDocument, PaginatedDocuments } from '../domain/document/IDocument.js';
+import { decodeCursor, encodeCursor } from '../utils/cursorUtils.js';
 
 interface PaperlessDocument {
   id: number;
@@ -20,6 +21,13 @@ interface PaperlessTag {
   name: string;
 }
 
+interface PaperlessPaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
 export class PaperlessService implements IDocumentManagementSystem {
   private readonly client: AxiosInstance;
   private readonly tagCache: Map<number, string> = new Map();
@@ -35,10 +43,26 @@ export class PaperlessService implements IDocumentManagementSystem {
     });
   }
 
-  async getDocumentsByTag(tag: string): Promise<IDocument[]> {
+  async getDocumentsByTag(
+    tag: string,
+    limit: number,
+    cursor?: string
+  ): Promise<PaginatedDocuments> {
     try {
+      // Decode cursor to get starting position
+      let paperlessPage = 1;
+      let lastDocumentId: number | undefined;
+      
+      if (cursor) {
+        const decoded = decodeCursor(cursor);
+        if (decoded) {
+          paperlessPage = decoded.paperlessPage;
+          lastDocumentId = decoded.lastDocumentId;
+        }
+      }
+
       // First, find the tag ID by name
-      const tagsResponse = await this.client.get<{ results: PaperlessTag[] }>(
+      const tagsResponse = await this.client.get<PaperlessPaginatedResponse<PaperlessTag>>(
         '/api/tags/',
         {
           params: { name__iexact: tag },
@@ -46,27 +70,68 @@ export class PaperlessService implements IDocumentManagementSystem {
       );
 
       if (tagsResponse.data.results.length === 0) {
-        return [];
+        return { documents: [], nextCursor: null };
       }
 
       const tagId = tagsResponse.data.results[0].id;
 
-      // Get documents with this tag
-      const docsResponse = await this.client.get<{ results: PaperlessDocument[] }>(
+      // Get documents with this tag from the specified page
+      const docsResponse = await this.client.get<PaperlessPaginatedResponse<PaperlessDocument>>(
         '/api/documents/',
         {
           params: {
             tags__id__in: tagId,
-            page_size: 100,
+            page: paperlessPage,
+            page_size: limit,
           },
         },
       );
-      
-      console.log(docsResponse.data)
 
-      return Promise.all(
-        docsResponse.data.results.map((doc) => this.convertToIDocument(doc)),
+      let results = docsResponse.data.results;
+
+      // If cursor provided, skip documents until we pass the lastDocumentId
+      if (lastDocumentId !== undefined) {
+        const startIndex = results.findIndex(doc => doc.id === lastDocumentId);
+        if (startIndex !== -1) {
+          // Skip the lastDocumentId itself and all documents before it
+          results = results.slice(startIndex + 1);
+        } else {
+          // If lastDocumentId not found on this page, assume we start fresh
+          // This handles the case where documents were deleted
+          results = [];
+        }
+      }
+
+      // Convert to domain documents
+      const documents = await Promise.all(
+        results.map((doc) => this.convertToIDocument(doc)),
       );
+
+      // Determine nextCursor
+      let nextCursor: string | null = null;
+      
+      if (documents.length > 0) {
+        const lastDoc = results[results.length - 1];
+        
+        // Check if there are more pages or more documents on current page
+        if (docsResponse.data.next) {
+          // If we consumed all results from this page, move to next page
+          if (results.length === docsResponse.data.results.length) {
+            nextCursor = encodeCursor({
+              paperlessPage: paperlessPage + 1,
+              lastDocumentId: lastDoc.id,
+            });
+          } else {
+            // Still on same page, more documents after lastDocumentId
+            nextCursor = encodeCursor({
+              paperlessPage: paperlessPage,
+              lastDocumentId: lastDoc.id,
+            });
+          }
+        }
+      }
+
+      return { documents, nextCursor };
     } catch (error) {
       if (axios.isAxiosError(error)) {
         throw new Error(`Paperless-NG API error: ${error.message}`);

@@ -1,12 +1,18 @@
-import { IDocument } from "./IDocument.js";
+import { IDocument, PaginatedDocuments } from "./IDocument.js";
 
 export interface IDocumentManagementSystem {
   /**
-   * Get documents by tag
+   * Get documents by tag with pagination
    * @param tag Tag to filter documents by
-   * @returns Array of documents with the specified tag
+   * @param limit Number of documents to return (max)
+   * @param cursor Optional cursor for pagination
+   * @returns Paginated documents with nextCursor
    */
-  getDocumentsByTag(tag: string): Promise<IDocument[]>;
+  getDocumentsByTag(
+    tag: string,
+    limit: number,
+    cursor?: string
+  ): Promise<PaginatedDocuments>;
 
   /**
    * Get a single document by ID

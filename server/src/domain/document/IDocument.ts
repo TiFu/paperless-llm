@@ -7,3 +7,8 @@ export interface IDocument {
   createdDate: Date | null;
   modifiedDate: Date | null;
 }
+
+export interface PaginatedDocuments {
+  documents: IDocument[];
+  nextCursor: string | null;
+}

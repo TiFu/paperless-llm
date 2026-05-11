@@ -47,3 +47,11 @@ retry:
   maxRetries: 3                 # Maximum retry attempts for automated steps
   retryDelayInMs: 30000         # Base delay in milliseconds (30 seconds)
   retryExponent: 2              # Exponential backoff multiplier (2^retryCount)
+
+# Automated document pickup queue
+# Periodically checks Paperless for documents with a specific tag and creates jobs automatically
+autoQueue:
+  enabled: false                # Enable/disable auto-processing queue
+  pollIntervalMs: 60000         # How often to check for new documents (60 seconds)
+  workflowType: automated       # Job type to create: 'automated' or 'approval'
+  tag: llm-auto-process         # Paperless tag to identify documents for auto-processing

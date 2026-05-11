@@ -131,6 +131,28 @@ async function main(): Promise<void> {
     logger.child({ component: 'StuckStepResetWorker' }),
   );
 
+  // Create document auto-queue worker (if enabled)
+  let documentAutoQueueWorker: WorkerExecutor | null = null;
+  if (config.autoQueue.enabled) {
+    const autoQueueService = applicationServiceFactory.createDocumentAutoQueueApplicationService(
+      config.autoQueue,
+    );
+
+    documentAutoQueueWorker = new WorkerExecutor(
+      async () => {
+        const result = await autoQueueService.processNewDocuments();
+        if (result.created > 0 || result.skipped > 0) {
+          logger.info(
+            { processed: result.processed, created: result.created, skipped: result.skipped },
+            'Auto-queue processed documents'
+          );
+        }
+      },
+      config.autoQueue.pollIntervalMs,
+      logger.child({ component: 'DocumentAutoQueueWorker' }),
+    );
+  }
+
   // Start workers
   logger.info(
     {
@@ -152,6 +174,22 @@ async function main(): Promise<void> {
   );
   stuckStepResetWorker.start();
 
+  // Start document auto-queue worker if enabled
+  if (documentAutoQueueWorker) {
+    logger.info(
+      {
+        enabled: config.autoQueue.enabled,
+        pollIntervalMs: config.autoQueue.pollIntervalMs,
+        workflowType: config.autoQueue.workflowType,
+        tag: config.autoQueue.tag,
+      },
+      'Starting document auto-queue worker',
+    );
+    documentAutoQueueWorker.start();
+  } else {
+    logger.info('Document auto-queue worker disabled');
+  }
+
   // Graceful shutdown
   const shutdown = async () => {
     logger.info('Shutting down...');
@@ -160,6 +198,9 @@ async function main(): Promise<void> {
     logger.info('Stopping workers...');
     stepProcessorWorker.stop();
     stuckStepResetWorker.stop();
+    if (documentAutoQueueWorker) {
+      documentAutoQueueWorker.stop();
+    }
     
     // Close API server
     server.close(() => {

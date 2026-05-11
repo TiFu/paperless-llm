@@ -86,7 +86,7 @@ async function checkPaperlessHealth(
   logger: pino.Logger,
 ): Promise<boolean> {
   try {
-    await paperlessService.getDocumentsByTag('__health_check__');
+    await paperlessService.getDocumentsByTag('__health_check__', 1);
     return true;
   } catch (error) {
     return false;
