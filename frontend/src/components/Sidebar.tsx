@@ -21,6 +21,7 @@ import {
   Work as WorkIcon,
   CheckCircle as CheckCircleIcon,
   Menu as MenuIcon,
+  TextSnippet as TextSnippetIcon,
 } from '@mui/icons-material';
 import { useStats } from '../contexts/StatsContext';
 import { HealthStatusIndicator } from './HealthStatusIndicator';
@@ -88,6 +89,11 @@ export const Sidebar: React.FC = () => {
         if (!approvalStats) return 0;
         return approvalStats.pendingCount;
       },
+    },
+    {
+      path: '/prompts',
+      label: 'Prompts',
+      icon: <TextSnippetIcon />,
     },
     {
       path: '/audit',

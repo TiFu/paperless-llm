@@ -72,9 +72,7 @@ export const PromptsPage: React.FC = () => {
       setSaving(true);
       setError(null);
 
-      const updatedPrompt = await apiClient.upsertPrompt(editingPrompt.stepType, {
-        template: editedTemplate,
-      });
+      const updatedPrompt = await apiClient.updatePrompt(editingPrompt.stepType, editedTemplate);
 
       // Update the prompt in the list
       setPrompts((prev) =>

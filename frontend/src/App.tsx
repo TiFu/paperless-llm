@@ -13,6 +13,7 @@ import { QueuesPage } from './pages/QueuesPage';
 import { JobsPage } from './pages/JobsPage';
 import { JobDetailsPage } from './pages/JobDetailsPage';
 import { ApprovalsPage } from './pages/ApprovalsPage';
+import { PromptsPage } from './pages/PromptsPage';
 import { Sidebar } from './components/Sidebar';
 import { StatsProvider } from './contexts/StatsContext';
 
@@ -93,6 +94,7 @@ function App() {
                   <Route path="/jobs/:id" element={<JobDetailsPage />} />
                   <Route path="/queues" element={<QueuesPage />} />
                   <Route path="/approvals" element={<ApprovalsPage />} />
+                  <Route path="/prompts" element={<PromptsPage />} />
                   <Route path="*" element={<Navigate to="/documents" replace />} />
                 </Routes>
               </Box>
