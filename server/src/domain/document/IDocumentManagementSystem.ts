@@ -27,4 +27,23 @@ export interface IDocumentManagementSystem {
    * @param updates Object containing fields to update
    */
   updateDocument(documentId: string, updates: Partial<IDocument>): Promise<void>;
+
+  /**
+   * Remove tags from a document
+   * @param documentId Document ID
+   * @param tagNames Array of tag names to remove
+   */
+  removeTagsFromDocument(documentId: string, tagNames: string[]): Promise<void>;
+
+  /**
+   * Remove the processing tag from a document
+   * Uses the configured processing tag from system configuration
+   * @param documentId Document ID
+   */
+  removeProcessingTag(documentId: string): Promise<void>;
+
+  /**
+   * Perform a health check on the document management system
+   */
+  healthCheck(): Promise<boolean>;
 }

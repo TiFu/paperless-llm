@@ -14,6 +14,7 @@ export interface JobStats {
   llmProcessing: number;
   pendingApproval: number;
   updatingDocument: number;
+  removingTags: number;
   completed: number;
   failed: number;
   rejected: number;
@@ -47,6 +48,7 @@ export class JobApplicationService {
         llmProcessing: countsByState[JobState.LLM_PROCESSING] || 0,
         pendingApproval: countsByState[JobState.PENDING_APPROVAL] || 0,
         updatingDocument: countsByState[JobState.UPDATING_DOCUMENT] || 0,
+        removingTags: countsByState[JobState.REMOVING_TAGS] || 0,
         completed: countsByState[JobState.COMPLETED] || 0,
         failed: countsByState[JobState.FAILED] || 0,
         rejected: countsByState[JobState.REJECTED] || 0,
@@ -83,8 +85,8 @@ export class JobApplicationService {
       const job = await repos.getJobs().create(documentId, jobType);
       
       // Start job with first transition
-      const orchestrator = new WorkflowOrchestratorService()
-      orchestrator.startWorkflow(job, context)
+      const orchestrator = new WorkflowOrchestratorService();
+      await orchestrator.startWorkflow(job, context);
 
       logger.info({ jobId: job.id, state: job.state }, 'Job created');
 
@@ -127,7 +129,7 @@ export class JobApplicationService {
       // Start workflow for each job (creates initial steps)
       const orchestrator = new WorkflowOrchestratorService();
       for (const job of createdJobs) {
-        orchestrator.startWorkflow(job, context);
+        await orchestrator.startWorkflow(job, context);
       }
 
       logger.info(

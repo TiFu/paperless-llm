@@ -101,7 +101,7 @@ export const PromptsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, textAlign: 'center' }}>
+      <Container maxWidth="lg" sx={{ py: 4, textAlign: 'center' }}>
         <CircularProgress />
         <Typography variant="body1" sx={{ mt: 2 }}>
           Loading prompts...
@@ -111,11 +111,11 @@ export const PromptsPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Typography variant="h4" component="h1" sx={{ mb: 1 }}>
         Prompt Templates
       </Typography>
-      <Typography variant="body2" color="text.secondary" paragraph>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Configure prompt templates for different step types. Templates use variables for dynamic content.
       </Typography>
 

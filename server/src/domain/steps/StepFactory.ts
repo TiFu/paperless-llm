@@ -1,6 +1,7 @@
 import { IStep, StepStatus, StepType } from './IStep.js';
 import { LLMGenerateTitleStep } from './automated/LLMGenerateTitleStep.js';
 import { UpdateDocumentStep } from './automated/UpdateDocumentStep.js';
+import { RemoveTagsStep } from './automated/RemoveTagsStep.js';
 import { IDocumentManagementSystem } from '../document/IDocumentManagementSystem.js';
 import { OllamaService } from '../../services/OllamaService.js';
 import { IPromptsRepository } from '../prompt/IPromptsRepository.js';
@@ -41,6 +42,9 @@ export class StepFactory {
       case StepType.UPDATE_DOCUMENT:
         return new UpdateDocumentStep(stepId, jobId, stepState, retryCount, retryAfter);
 
+      case StepType.REMOVE_TAGS:
+        return new RemoveTagsStep(stepId, jobId, stepState, retryCount, retryAfter);
+
       default:
         throw new Error(`Unknown step type: ${type}`);
     }
@@ -65,6 +69,13 @@ export class StepFactory {
    */
   static newUpdateDocumentStep(jobId: string): IStep {
     return new UpdateDocumentStep(null, jobId, StepStatus.WAITING);
+  }
+
+  /**
+   * Shorthand: Create a new Remove Tags step (not yet persisted)
+   */
+  static newRemoveTagsStep(jobId: string): IStep {
+    return new RemoveTagsStep(null, jobId, StepStatus.WAITING);
   }
 
   /**

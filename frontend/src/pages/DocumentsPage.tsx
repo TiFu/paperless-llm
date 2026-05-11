@@ -24,7 +24,7 @@ import { apiClient } from '../services/api';
 import { Document, WorkflowType, BatchJobResponse } from '../types/api';
 
 const DEFAULT_TAG = 'llm-process';
-const PAGE_LIMIT = 50;
+const PAGE_LIMIT = 10;
 
 export const DocumentsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -65,12 +65,14 @@ export const DocumentsPage: React.FC = () => {
       
       setNextCursor(response.pagination.nextCursor);
       
-      // Update URL with cursor if we're paginating
-      if (response.pagination.nextCursor) {
-        setSearchParams({ cursor: response.pagination.nextCursor }, { replace: true });
-      } else if (!append) {
-        // Clear cursor from URL if we're on first page and there's no next page
-        setSearchParams({}, { replace: true });
+      // Only update URL for initial loads, not when appending pages
+      // This prevents URL changes from interfering with pagination state
+      if (!append) {
+        if (response.pagination.nextCursor) {
+          setSearchParams({ cursor: response.pagination.nextCursor }, { replace: true });
+        } else {
+          setSearchParams({}, { replace: true });
+        }
       }
     } catch (error) {
       setSnackbar({
@@ -220,23 +222,21 @@ export const DocumentsPage: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Documents
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Select documents and choose a workflow to process them.
-        </Typography>
-      </Box>
+      <Typography variant="h4" component="h1" sx={{ mb: 1 }}>
+        Documents
+      </Typography>
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Select documents and choose a workflow to process them.
+      </Typography>
 
       {/* Workflow Selection */}
-      <Box sx={{ mb: 3 }}>
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Workflow Selection
-            </Typography>
-            <FormControl component="fieldset">
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Workflow Selection
+          </Typography>
+          <FormControl component="fieldset">
           <FormLabel component="legend">Choose Workflow Type</FormLabel>
           <RadioGroup
             value={selectedWorkflow}
@@ -275,9 +275,8 @@ export const DocumentsPage: React.FC = () => {
               : `Submit ${selectedIds.length} Document${selectedIds.length !== 1 ? 's' : ''}`}
           </Button>
         </Box>
-          </CardContent>
-        </Card>
-      </Box>
+        </CardContent>
+      </Card>
 
       {/* Submission Result */}
       {submissionResult && (
@@ -299,30 +298,28 @@ export const DocumentsPage: React.FC = () => {
       )}
 
       {/* Documents List */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Available Documents
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Showing documents tagged with "{DEFAULT_TAG}"
-          </Typography>
+      <Box>
+        <Typography variant="h6" gutterBottom>
+          Available Documents
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Showing documents tagged with "{DEFAULT_TAG}"
+        </Typography>
 
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <DocumentList
-              documents={documents}
-              selectedIds={selectedIds}
-              onSelectionChange={setSelectedIds}
-              onLoadMore={nextCursor ? handleLoadMore : undefined}
-              loadingMore={loadingMore}
-            />
-          )}
-        </CardContent>
-      </Card>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <DocumentList
+            documents={documents}
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            onLoadMore={nextCursor ? handleLoadMore : undefined}
+            loadingMore={loadingMore}
+          />
+        )}
+      </Box>
 
       <Snackbar
         open={snackbar.open}

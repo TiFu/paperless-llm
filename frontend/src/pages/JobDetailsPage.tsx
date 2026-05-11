@@ -120,7 +120,7 @@ export const JobDetailsPage: React.FC = () => {
 
   if (loading && !job) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, textAlign: 'center' }}>
+      <Container maxWidth="lg" sx={{ py: 4, textAlign: 'center' }}>
         <CircularProgress />
         <Typography variant="body1" sx={{ mt: 2 }}>
           Loading job details...
@@ -131,7 +131,7 @@ export const JobDetailsPage: React.FC = () => {
 
   if (error && !job) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         <Alert severity="error">{error}</Alert>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mt: 2 }}>
           Go Back
@@ -142,7 +142,7 @@ export const JobDetailsPage: React.FC = () => {
 
   if (!job) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         <Alert severity="warning">Job not found</Alert>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mt: 2 }}>
           Go Back
@@ -152,7 +152,7 @@ export const JobDetailsPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>

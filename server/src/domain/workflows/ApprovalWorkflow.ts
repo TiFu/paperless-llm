@@ -38,6 +38,10 @@ export class ApprovalWorkflow extends BaseWorkflow {
         [Transition.FAILURE]: JobState.REJECTED,          // Approval rejected
       },
       [JobState.UPDATING_DOCUMENT]: {
+        [Transition.SUCCESS]: JobState.REMOVING_TAGS,
+        [Transition.FAILURE]: JobState.FAILED,
+      },
+      [JobState.REMOVING_TAGS]: {
         [Transition.SUCCESS]: JobState.COMPLETED,
         [Transition.FAILURE]: JobState.FAILED,
       },
@@ -62,6 +66,9 @@ export class ApprovalWorkflow extends BaseWorkflow {
 
       case JobState.UPDATING_DOCUMENT:
         return StepFactory.newUpdateDocumentStep(job.id)
+
+      case JobState.REMOVING_TAGS:
+        return StepFactory.newRemoveTagsStep(job.id)
 
       case JobState.COMPLETED:
       case JobState.FAILED:

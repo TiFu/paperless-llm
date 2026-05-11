@@ -31,8 +31,10 @@ interface PaperlessPaginatedResponse<T> {
 export class PaperlessService implements IDocumentManagementSystem {
   private readonly client: AxiosInstance;
   private readonly tagCache: Map<number, string> = new Map();
+  private readonly paperlessConfig: PaperlessConfig;
 
   constructor(config: PaperlessConfig) {
+    this.paperlessConfig = config;
     this.client = axios.create({
       baseURL: config.url,
       headers: {
@@ -89,17 +91,16 @@ export class PaperlessService implements IDocumentManagementSystem {
 
       let results = docsResponse.data.results;
 
-      // If cursor provided, skip documents until we pass the lastDocumentId
+      // If cursor provided AND lastDocumentId > 0, skip documents until we pass the lastDocumentId
+      // (lastDocumentId is 0 when moving to a new page, so we don't skip anything)
       if (lastDocumentId !== undefined) {
         const startIndex = results.findIndex(doc => doc.id === lastDocumentId);
         if (startIndex !== -1) {
           // Skip the lastDocumentId itself and all documents before it
           results = results.slice(startIndex + 1);
-        } else {
-          // If lastDocumentId not found on this page, assume we start fresh
-          // This handles the case where documents were deleted
-          results = [];
         }
+        // If lastDocumentId not found, we're likely on a different page than expected
+        // due to deletions/changes. Return all results from this page.
       }
 
       // Convert to domain documents
@@ -117,6 +118,7 @@ export class PaperlessService implements IDocumentManagementSystem {
         if (docsResponse.data.next) {
           // If we consumed all results from this page, move to next page
           if (results.length === docsResponse.data.results.length) {
+            // Moving to next page: set lastDocumentId to 0 so we don't skip anything on the new page
             nextCursor = encodeCursor({
               paperlessPage: paperlessPage + 1,
               lastDocumentId: lastDoc.id,
@@ -176,6 +178,90 @@ export class PaperlessService implements IDocumentManagementSystem {
       }
       throw error;
     }
+  }
+
+  /**
+   * Resolve tag name to tag ID
+   * @param tagName The tag name to resolve
+   * @returns The tag ID, or null if not found
+   */
+  private async resolveTagId(tagName: string): Promise<number | null> {
+    try {
+      const response = await this.client.get<PaperlessPaginatedResponse<PaperlessTag>>(
+        '/api/tags/',
+        {
+          params: { name__iexact: tagName },
+        },
+      );
+
+      if (response.data.results.length === 0) {
+        return null;
+      }
+
+      return response.data.results[0].id;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Paperless-NG API error resolving tag: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Remove tags from a document using the bulk_edit endpoint
+   * @param documentId The document ID to remove tags from
+   * @param tagNames Array of tag names to remove
+   */
+  async removeTagsFromDocument(documentId: string, tagNames: string[]): Promise<void> {
+    try {
+      // Resolve tag names to IDs
+      const tagIds: number[] = [];
+      for (const tagName of tagNames) {
+        const tagId = await this.resolveTagId(tagName);
+        if (tagId === null) {
+          // Tag doesn't exist - log warning but continue
+          console.warn(`Tag "${tagName}" not found, skipping removal`);
+          continue;
+        }
+        tagIds.push(tagId);
+      }
+
+      // If no valid tags to remove, exit early
+      if (tagIds.length === 0) {
+        return;
+      }
+
+      // Call bulk_edit endpoint to remove tags
+      await this.client.post('/api/documents/bulk_edit/', {
+        documents: [parseInt(documentId, 10)],
+        method: 'remove_tags',
+        parameters: {
+          tags: tagIds,
+        },
+      });
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          throw new Error(`Document not found: ${documentId}`);
+        }
+        throw new Error(`Paperless-NG API error removing tags: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Remove the processing tag from a document
+   * Uses the configured processing tag
+   */
+  async removeProcessingTag(documentId: string): Promise<void> {
+    const processingTag = this.paperlessConfig.tags;
+    if (!processingTag) {
+      // No processing tag configured, nothing to remove
+      return;
+    }
+    
+    await this.removeTagsFromDocument(documentId, [processingTag]);
   }
 
   private async convertToIDocument(doc: PaperlessDocument): Promise<IDocument> {

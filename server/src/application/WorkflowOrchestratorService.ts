@@ -1,10 +1,10 @@
 import { Job } from "../domain/job/Job.js";
 import { Transition } from "../domain/workflows/Transition.js";
-import { TransactionContext, TransactionManager } from "../infrastructure/TransactionManager.js";
+import { TransactionContext } from "../infrastructure/TransactionManager.js";
 import { getLogger } from "../utils/logger.js";
 
 /**
- * WorkflowApplicationService - manages workflow progression and state transitions.
+ * WorkflowOrchestratorService - manages workflow progression and state transitions.
  * Application service responsible for advancing jobs through their workflow steps.
  */
 export class WorkflowOrchestratorService {

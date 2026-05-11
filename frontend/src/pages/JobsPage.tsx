@@ -55,6 +55,7 @@ export const JobsPage: React.FC = () => {
   const [stats, setStats] = useState<JobStats | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [stateFilter, setStateFilter] = useState<JobState | ''>('');
+  const [hasLoadedMore, setHasLoadedMore] = useState(false);
 
   const fetchJobs = async (cursor?: string, append = false) => {
     setLoading(true);
@@ -69,6 +70,7 @@ export const JobsPage: React.FC = () => {
         setJobs((prev) => [...prev, ...jobsResponse.jobs]);
       } else {
         setJobs(jobsResponse.jobs);
+        setHasLoadedMore(false); // Reset pagination tracking when fetching first page
       }
       setNextCursor(jobsResponse.nextCursor);
       
@@ -87,17 +89,18 @@ export const JobsPage: React.FC = () => {
   }, [stateFilter]);
 
   useEffect(() => {
-    // Auto-refresh if there are non-terminal jobs
+    // Auto-refresh if there are non-terminal jobs and user hasn't paginated
+    // Disable auto-refresh when paginated to avoid losing loaded items
     const hasActiveJobs = jobs.some((job) => !isTerminalState(job.status));
     
-    if (hasActiveJobs) {
+    if (hasActiveJobs && !hasLoadedMore) {
       const interval = setInterval(() => {
         fetchJobs();
       }, AUTO_REFRESH_INTERVAL);
 
       return () => clearInterval(interval);
-    }
-  }, [jobs]);
+    } 
+  }, [jobs, hasLoadedMore]);
 
   const handleLoadMore = () => {
     if (nextCursor) {
@@ -110,19 +113,22 @@ export const JobsPage: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="xl">
-      <Box sx={{ py: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Jobs
-        </Typography>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Typography variant="h4" component="h1" sx={{ mb: 1 }}>
+        Jobs
+      </Typography>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Track and monitor document processing jobs.
+      </Typography>
 
-        <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
           <FormControl sx={{ minWidth: 200 }}>
             <InputLabel>Filter by State</InputLabel>
             <Select
@@ -138,16 +144,16 @@ export const JobsPage: React.FC = () => {
               ))}
             </Select>
           </FormControl>
-          <Button variant="outlined" onClick={() => fetchJobs()} disabled={loading}>
-            Refresh
-          </Button>
-        </Box>
+        <Button variant="outlined" onClick={() => fetchJobs()} disabled={loading}>
+          Refresh
+        </Button>
+      </Box>
 
-        {loading && jobs.length === 0 ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
+      {loading && jobs.length === 0 ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
           <>
             <TableContainer component={Paper}>
               <Table>
@@ -218,7 +224,6 @@ export const JobsPage: React.FC = () => {
             )}
           </>
         )}
-      </Box>
     </Container>
   );
 };

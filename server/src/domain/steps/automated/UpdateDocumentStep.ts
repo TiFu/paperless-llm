@@ -5,7 +5,7 @@ import { StepType } from '../IStep.js';
 
 /**
  * Step: Update document in DMS
- * Reads the TitleUpdateAction from job context and executes it
+ * Reads document actions from job context and executes them
  * Returns: SUCCESS transition if update succeeds, FAILURE on error
  */
 export class UpdateDocumentStep extends AutomatedStep {
@@ -25,7 +25,7 @@ export class UpdateDocumentStep extends AutomatedStep {
 
     const document = await context.services.dms.getDocument(documentId);
 
-    const partials= context.job.documentActions.map((a) => {
+    const partials = context.job.documentActions.map((a) => {
       return a.apply(document)
     })
 

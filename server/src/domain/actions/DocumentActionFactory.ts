@@ -1,5 +1,6 @@
 import { DocumentAction } from './DocumentAction.js';
 import { TitleUpdateAction } from './TitleUpdateAction.js';
+import { TagRemoveAction } from './TagRemoveAction.js';
 import { DocumentActionType } from './ActionType.js';
 
 /**
@@ -22,6 +23,13 @@ export class DocumentActionFactory {
     switch (actionType) {
       case DocumentActionType.UPDATE_TITLE:
         return new TitleUpdateAction(
+          baseArgs.id,
+          baseArgs.jobId,
+          oldValue,
+          newValue
+        );
+      case DocumentActionType.REMOVE_TAGS:
+        return new TagRemoveAction(
           baseArgs.id,
           baseArgs.jobId,
           oldValue,

@@ -28,7 +28,7 @@ export function decodeCursor(cursor: string): DocumentCursor | null {
       typeof decoded.paperlessPage === 'number' &&
       typeof decoded.lastDocumentId === 'number' &&
       decoded.paperlessPage > 0 &&
-      decoded.lastDocumentId > 0
+      decoded.lastDocumentId >= 0  // Allow 0 (indicates new page, no skipping needed)
     ) {
       return decoded;
     }
