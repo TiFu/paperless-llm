@@ -6,8 +6,8 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { QueueStatsCard } from '../components/QueueStatsCard';
-import { QueueItemsTable } from '../components/QueueItemsTable';
+import { AutomatedStepsStatsCard } from '../components/AutomatedStepsStatsCard';
+import { AutomatedStepsItemsTable } from '../components/AutomatedStepsItemsTable';
 import { apiClient } from '../services/api';
 import {
   QueueStats,
@@ -17,7 +17,7 @@ import {
 
 const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
 
-export const QueuesPage: React.FC = () => {
+export const AutomatedStepsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,7 +89,7 @@ export const QueuesPage: React.FC = () => {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" component="h1" sx={{ mb: 1 }}>
-        Queue Monitoring
+        Automated Steps Monitoring
       </Typography>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -111,9 +111,9 @@ export const QueuesPage: React.FC = () => {
           {stats && (
             <>
               <Box sx={{ mb: 3 }}>
-                <QueueStatsCard title="Queue Statistics" stats={stats} />
+                <AutomatedStepsStatsCard title="Automated Steps Statistics" stats={stats} />
               </Box>
-              <QueueItemsTable
+              <AutomatedStepsItemsTable
                 items={items}
                 nextCursor={nextCursor}
                 onLoadMore={handleLoadMore}

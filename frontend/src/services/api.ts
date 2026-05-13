@@ -1,6 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
 import {
-  Document,
   DocumentsResponse,
   QueueStats,
   QueueItem,
@@ -13,12 +12,14 @@ import {
   JobResponse,
   JobListResponse,
   JobStepsResponse,
+  JobAuditLogResponse,
   ApprovalsResponse,
   PromptsListResponse,
   PromptResponse,
   SystemHealthResponse,
   ApprovalStats,
   JobStats,
+  DashboardStats,
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
@@ -104,8 +105,19 @@ class ApiClient {
     return response.data;
   }
 
+  async fetchJobAuditLog(jobId: string): Promise<JobAuditLogResponse> {
+    const response = await this.client.get<JobAuditLogResponse>(`/api/jobs/${jobId}/audit-log`);
+    return response.data;
+  }
+
   async fetchJobStats(): Promise<JobStats> {
     const response = await this.client.get<JobStats>('/api/jobs/stats');
+    return response.data;
+  }
+
+  // Stats - Unified Dashboard Stats
+  async fetchDashboardStats(): Promise<DashboardStats> {
+    const response = await this.client.get<DashboardStats>('/api/stats/dashboard');
     return response.data;
   }
 
@@ -150,6 +162,14 @@ class ApiClient {
       params: { limit, cursor },
     });
     return response.data;
+  }
+
+  // Fallouts - Convenience method for fetching steps in fallout status
+  async fetchFallouts(
+    limit: number = 50,
+    cursor?: string
+  ): Promise<QueueItemsResponse<QueueItem>> {
+    return this.fetchQueueItems(limit, cursor, WorkItemStatus.IN_FALLOUT);
   }
 
   async fetchApprovalStats(): Promise<ApprovalStats> {

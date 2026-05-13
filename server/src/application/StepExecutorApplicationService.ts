@@ -1,12 +1,13 @@
 import pino from 'pino';
 import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { DomainServices } from '../domain/services/DomainServices.js';
-import { IStep, RetryConfig, StepExecutionContext } from '../domain/steps/IStep.js';
+import { IStep, RetryConfig, StepExecutionContext, StepStatus } from '../domain/steps/IStep.js';
 import { WorkflowOrchestratorService } from './WorkflowOrchestratorService.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { createChildLogger } from '../utils/logger.js';
 import { AutomatedStep } from '../domain/steps/automated/AutomatedStep.js';
+import { AuditLogApplicationService } from './AuditLogApplicationService.js';
 
 /**
  * StepExecutorApplicationService - executes steps and manages workflow progression.
@@ -20,7 +21,8 @@ export class StepExecutorApplicationService {
     private readonly workflowOrchestratorService: WorkflowOrchestratorService,
     private readonly dmsService: IDocumentManagementSystem,
     private readonly llmService: ILLMService,
-    private readonly retryConfig: RetryConfig
+    private readonly retryConfig: RetryConfig,
+    private readonly auditLogService: AuditLogApplicationService
   ) {
     this.logger = createChildLogger({ service: 'StepExecutorApplicationService' });
   }
@@ -44,6 +46,8 @@ export class StepExecutorApplicationService {
     }
 
     await using context = await this.txManager.createContext()
+    const startTime = new Date();
+    let endTime: Date | null = null;
     try {
         await context.start();
         const repos = context.getRepositoryRegistry();
@@ -78,17 +82,79 @@ export class StepExecutorApplicationService {
 
             // Execute step (may involve external calls)
         const result = await step.execute(executionContext, this.retryConfig);
+        endTime = new Date();
+        
         job.addDocumentActions(result.actions);
-        // Advance workflow (separate transaction)
-        await this.workflowOrchestratorService.advanceToNextStep(job, result.transition, context);
+        // Advance workflow (separate transaction) - pass step ID for parent completion check
+        await this.workflowOrchestratorService.advanceToNextStep(
+          job, 
+          result.transition, 
+          context,
+          step.getStepId() as string
+        );
 
         await repos.getJobs().update(job);
         await repos.getSteps().update(step);
+        
+        // Log STEP_COMPLETED event
+        const stepId = step.getStepId();
+        if (stepId) {
+          await this.auditLogService.logStepCompleted(
+            context,
+            job.id,
+            stepId,
+            startTime,
+            endTime,
+            step.getRetryCount()
+          );
+        }
 
         await context.commit();
     } catch (error) {
+      endTime = new Date();
       stepLogger.error({ error }, 'Failed to execute step');
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Log STEP_FAILED event
+      const stepId = step.getStepId();
+      if (stepId) {
+        await this.auditLogService.logStepFailed(
+          context,
+          step.getJobId(),
+          stepId,
+          startTime,
+          endTime,
+          step.getRetryCount(),
+          errorMessage
+        );
+      }
+      
+      const previousStatus = step.getStepStatus();
       step.markExecutionFailed(this.retryConfig)
+      const newStatus = step.getStepStatus();
+      
+      // Log state transition event
+      const retryAfter = step.getRetryAfter();
+      if (stepId && newStatus === StepStatus.RETRYING && retryAfter) {
+        await this.auditLogService.logStepMovedToRetrying(
+          context,
+          step.getJobId(),
+          stepId,
+          step.getRetryCount(),
+          errorMessage,
+          retryAfter
+        );
+      } else if (stepId && newStatus === StepStatus.IN_FALLOUT) {
+        await this.auditLogService.logStepMovedToFallout(
+          context,
+          step.getJobId(),
+          stepId,
+          step.getRetryCount(),
+          errorMessage
+        );
+      }
+      
       await context.rollback();
       throw error;
     } finally {

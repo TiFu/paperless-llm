@@ -22,6 +22,7 @@ import {
 } from '@mui/icons-material';
 import { JobStep, StepStatus, StepType } from '../types/api';
 import { apiClient } from '../services/api';
+import { useStats } from '../contexts/StatsContext';
 
 interface JobStepsTimelineProps {
   steps: JobStep[];
@@ -114,7 +115,7 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
   const [retryingStepId, setRetryingStepId] = useState<string | null>(null);
   const [cancelingStepId, setCancelingStepId] = useState<string | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
-  const [retrySuccess, setRetrySuccess] = useState<string | null>(null);
+  const { adjustQueueStats } = useStats();
 
   const handleRetry = async (stepId: string) => {
     setRetryingStepId(stepId);
@@ -124,6 +125,10 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
     try {
       const result = await apiClient.retryStep(stepId);
       setRetrySuccess(result.message);
+      
+      // Optimistically adjust queue stats: failed -> processing
+      adjustQueueStats({ failed: -1, processing: 1 });
+      
       // Clear success message after 3 seconds
       setTimeout(() => setRetrySuccess(null), 3000);
     } catch (error) {
@@ -140,6 +145,11 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
     
     try {
       const result = await apiClient.cancelStep(stepId);
+      setRetrySuccess(result.message);
+      
+      // Optimistically adjust queue stats: processing/retrying -> failed
+      adjustQueueStats({ processing: -1, failed: 1 });
+      ancelStep(stepId);
       setRetrySuccess(result.message);
       // Clear success message after 3 seconds
       setTimeout(() => setRetrySuccess(null), 3000);

@@ -7,6 +7,8 @@ import { StuckStepResetApplicationService } from './StuckStepResetApplicationSer
 import { StepRetryApplicationService } from './StepRetryApplicationService.js';
 import { StepCancelApplicationService } from './StepCancelApplicationService.js';
 import { DocumentAutoQueueApplicationService } from './DocumentAutoQueueApplicationService.js';
+import { AuditLogApplicationService } from './AuditLogApplicationService.js';
+import { DashboardStatsApplicationService } from './DashboardStatsApplicationService.js';
 import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { DomainServices } from '../domain/services/DomainServices.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
@@ -33,14 +35,16 @@ export class ApplicationServiceFactory {
    * Create a new JobApplicationService instance.
    */
   createJobApplicationService(): JobApplicationService {
-    return new JobApplicationService(this.txManager);
+    const auditLogService = this.createAuditLogApplicationService();
+    return new JobApplicationService(this.txManager, auditLogService);
   }
 
   /**
    * Create a new WorkflowApplicationService instance.
    */
   createWorkflowApplicationService(): WorkflowOrchestratorService {
-    return new WorkflowOrchestratorService();
+    const auditLogService = this.createAuditLogApplicationService();
+    return new WorkflowOrchestratorService(auditLogService);
   }
 
   /**
@@ -48,13 +52,15 @@ export class ApplicationServiceFactory {
    */
   createStepExecutorApplicationService(): StepExecutorApplicationService {
     const workflowAppService = this.createWorkflowApplicationService();
+    const auditLogService = this.createAuditLogApplicationService();
 
     return new StepExecutorApplicationService(
       this.txManager,
       workflowAppService,
       this.dmsService,
       this.llmService,
-      this.retryConfig
+      this.retryConfig,
+      auditLogService
     );
   }
 
@@ -63,11 +69,13 @@ export class ApplicationServiceFactory {
    */
   createApprovalApplicationService(): ApprovalApplicationService {
     const workflowAppService = this.createWorkflowApplicationService();
+    const auditLogService = this.createAuditLogApplicationService();
     
     return new ApprovalApplicationService(
       this.txManager,
       workflowAppService,
       this.paperlessBaseUrl,
+      auditLogService
     );
   }
 
@@ -85,7 +93,15 @@ export class ApplicationServiceFactory {
     return new QueueApplicationService(this.txManager);
   }
 
+  /**DashboardStatsApplicationService instance.
+   * Provides unified statistics for dashboard views.
+   */
+  createDashboardStatsApplicationService(): DashboardStatsApplicationService {
+    return new DashboardStatsApplicationService(this);
+  }
+
   /**
+   * Create a new 
    * Create a new StuckStepResetApplicationService instance.
    * @param timeoutMs Time in milliseconds before a step is considered stuck
    * @param maxRetries Maximum number of retry attempts before marking as failed
@@ -94,7 +110,8 @@ export class ApplicationServiceFactory {
     timeoutMs: number,
     maxRetries: number,
   ): StuckStepResetApplicationService {
-    return new StuckStepResetApplicationService(this.txManager, timeoutMs, this.retryConfig);
+    const auditLogService = this.createAuditLogApplicationService();
+    return new StuckStepResetApplicationService(this.txManager, timeoutMs, this.retryConfig, auditLogService);
 
   }
   /**
@@ -102,7 +119,8 @@ export class ApplicationServiceFactory {
    * Used for manual retry of steps in fallout or retry state.
    */
   createStepRetryApplicationService(): StepRetryApplicationService {
-    return new StepRetryApplicationService(this.txManager);
+    const auditLogService = this.createAuditLogApplicationService();
+    return new StepRetryApplicationService(this.txManager, auditLogService);
   }
 
   /**
@@ -111,7 +129,8 @@ export class ApplicationServiceFactory {
    */
   createStepCancelApplicationService(): StepCancelApplicationService {
     const workflowAppService = this.createWorkflowApplicationService();
-    return new StepCancelApplicationService(this.txManager, workflowAppService);
+    const auditLogService = this.createAuditLogApplicationService();
+    return new StepCancelApplicationService(this.txManager, workflowAppService, auditLogService);
   }
 
   /**
@@ -129,6 +148,14 @@ export class ApplicationServiceFactory {
       jobAppService,
       autoQueueConfig,
     );
+  }
+
+  /**
+   * Create a new AuditLogApplicationService instance.
+   * Used for logging all job and step lifecycle events.
+   */
+  createAuditLogApplicationService(): AuditLogApplicationService {
+    return new AuditLogApplicationService(this.txManager);
   }
 
 }

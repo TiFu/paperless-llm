@@ -18,6 +18,7 @@ import { createHealthRouter } from './routes/health.js';
 import { createDocumentsRouter } from './routes/documents.js';
 import { createApprovalsRouter } from './routes/approvals.js';
 import { createStepsRouter } from './routes/steps.js';
+import { createStatsRouter } from './routes/stats.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,6 +79,7 @@ export function createApiServer(
   app.use('/api/jobs', createJobsRouter(appFactory));
   app.use('/api/approvals', createApprovalsRouter(appFactory));
   app.use('/api/steps', createStepsRouter(appFactory));
+  app.use('/api/stats', createStatsRouter(appFactory));
   app.use('/api/queue', createQueueRouter(appFactory));
 
   // OpenAPI specification routes

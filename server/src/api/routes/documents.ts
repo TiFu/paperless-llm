@@ -80,5 +80,47 @@ export function createDocumentsRouter(
     }
   });
 
+  /**
+   * GET /api/documents/tags
+   * Get all available tags
+   */
+  router.get('/tags', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const tags = await paperlessService.getTags();
+      res.json({ tags });
+    } catch (error) {
+      logger.error({ error }, 'Failed to fetch tags');
+      next(error);
+    }
+  });
+
+  /**
+   * GET /api/documents/correspondents
+   * Get all available correspondents
+   */
+  router.get('/correspondents', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const correspondents = await paperlessService.getCorrespondents();
+      res.json({ correspondents });
+    } catch (error) {
+      logger.error({ error }, 'Failed to fetch correspondents');
+      next(error);
+    }
+  });
+
+  /**
+   * GET /api/documents/document-types
+   * Get all available document types
+   */
+  router.get('/document-types', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const documentTypes = await paperlessService.getDocumentTypes();
+      res.json({ documentTypes });
+    } catch (error) {
+      logger.error({ error }, 'Failed to fetch document types');
+      next(error);
+    }
+  });
+
   return router;
 }

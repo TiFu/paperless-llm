@@ -5,6 +5,7 @@ import { DocumentAction } from "../domain/actions/DocumentAction.js";
 import { Cursor, encodeCursor } from "../domain/common/Cursor.js";
 import { getLogger } from "../utils/logger.js";
 import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService.js";
+import { AuditLogApplicationService } from "./AuditLogApplicationService.js";
 
 /**
  * Enriched approval item with full context for UI display
@@ -40,6 +41,7 @@ export class ApprovalApplicationService {
     private readonly txManager: TransactionManager,
     private readonly workflowOrchestratorService: WorkflowOrchestratorService,
     private readonly paperlessBaseUrl: string,
+    private readonly auditLogService: AuditLogApplicationService
   ) {}
 
   /**
@@ -181,7 +183,32 @@ export class ApprovalApplicationService {
       const result = await step.processUserDecision(decision);
       job.addDocumentActions(result.actions);
 
-      await this.workflowOrchestratorService.advanceToNextStep(job, result.transition, context);
+      await this.workflowOrchestratorService.advanceToNextStep(
+        job, 
+        result.transition, 
+        context,
+        stepId
+      );
+      
+      // Log approval decision
+      if (decision.toUpperCase() === 'APPROVED') {
+        await this.auditLogService.logApprovalApproved(
+          context,
+          job.id,
+          stepId,
+          decision,
+          job.documentActions
+        );
+      } else {
+        await this.auditLogService.logApprovalRejected(
+          context,
+          job.id,
+          stepId,
+          decision,
+          job.documentActions
+        );
+      }
+      
       // Persist changes
       await repos.getJobs().update(job);
       await repos.getSteps().update(step);

@@ -2,12 +2,12 @@ import React from 'react';
 import { Card, CardContent, Typography, Grid, Chip, Box } from '@mui/material';
 import { QueueStats } from '../types/api';
 
-interface QueueStatsCardProps {
+interface AutomatedStepsStatsCardProps {
   title: string;
   stats: QueueStats;
 }
 
-export const QueueStatsCard: React.FC<QueueStatsCardProps> = ({ title, stats }) => {
+export const AutomatedStepsStatsCard: React.FC<AutomatedStepsStatsCardProps> = ({ title, stats }) => {
   return (
     <Card>
       <CardContent>

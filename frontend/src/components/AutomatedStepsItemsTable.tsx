@@ -26,7 +26,7 @@ import {
 import { QueueItem, WorkItemStatus } from '../types/api';
 import { apiClient } from '../services/api';
 
-interface QueueItemsTableProps {
+interface AutomatedStepsItemsTableProps {
   items: QueueItem[];
   nextCursor: string | null;
   onLoadMore: () => void;
@@ -34,7 +34,7 @@ interface QueueItemsTableProps {
   type: 'unified';
 }
 
-export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
+export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> = ({
   items,
   nextCursor,
   onLoadMore,
@@ -121,7 +121,7 @@ export const QueueItemsTable: React.FC<QueueItemsTableProps> = ({
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Typography variant="body1" color="text.secondary">
-          No queue items found.
+          No automated steps found.
         </Typography>
       </Box>
     );

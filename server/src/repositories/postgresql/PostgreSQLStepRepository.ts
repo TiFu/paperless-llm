@@ -14,8 +14,8 @@ export class PostgreSQLStepRepository implements IStepRepository {
 
   async create(step: IStep): Promise<IStep> {
     const query = `
-      INSERT INTO steps (job_id, type, status)
-      VALUES ($1, $2, $3)
+      INSERT INTO steps (job_id, type, status, parent_step_id, configuration)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `;
 
@@ -23,10 +23,27 @@ export class PostgreSQLStepRepository implements IStepRepository {
       step.getJobId(),
       step.getStepType(),
       step.getStepStatus(),
+      step.getParentStepId(),
+      step.getConfiguration() ? JSON.stringify(step.getConfiguration()) : null,
     ]);
 
     step.updateId(result.rows[0].id)
     return step;
+  }
+
+  async createAll(steps: IStep[]): Promise<IStep[]> {
+    if (steps.length === 0) {
+      return [];
+    }
+
+    // Create each step and collect results
+    const createdSteps: IStep[] = [];
+    for (const step of steps) {
+      const createdStep = await this.create(step);
+      createdSteps.push(createdStep);
+    }
+
+    return createdSteps;
   }
 
   async getById(id: string): Promise<IStep | null> {
@@ -177,9 +194,10 @@ export class PostgreSQLStepRepository implements IStepRepository {
         COUNT(*) FILTER (WHERE status = $1) as waiting,
         COUNT(*) FILTER (WHERE status = $2) as in_progress,
         COUNT(*) FILTER (WHERE status = $3) as completed,
-        COUNT(*) FILTER (WHERE status = $4) as failed
+        COUNT(*) FILTER (WHERE status = $4) as failed,
+        COUNT(*) FILTER (WHERE status = $5) as in_fallout
       FROM steps
-      WHERE type != $5
+      WHERE type != $6
     `;
 
     const result = await this.getClient().query(query, [
@@ -187,6 +205,7 @@ export class PostgreSQLStepRepository implements IStepRepository {
       StepStatus.IN_PROGRESS,
       StepStatus.COMPLETED,
       StepStatus.FAILED,
+      StepStatus.IN_FALLOUT,
       StepType.REQUIRE_APPROVAL,
     ]);
 
@@ -197,6 +216,7 @@ export class PostgreSQLStepRepository implements IStepRepository {
       inProgress: parseInt(row.in_progress, 10),
       completed: parseInt(row.completed, 10),
       failed: parseInt(row.failed, 10),
+      inFallout: parseInt(row.in_fallout, 10),
     };
   }
 
@@ -386,5 +406,51 @@ export class PostgreSQLStepRepository implements IStepRepository {
       retryCount: row.retry_count || 0,
       retryAfter: row.retry_after ? new Date(row.retry_after) : null,
     }));
+  }
+
+  async getChildSteps(parentStepId: string): Promise<IStep[]> {
+    const query = `
+      SELECT * FROM steps
+      WHERE parent_step_id = $1
+      ORDER BY created_at ASC
+    `;
+
+    const result = await this.getClient().query(query, [parentStepId]);
+    return result.rows.map((row) => StepFactory.fromDb(row));
+  }
+
+  async areAllChildStepsInFinalState(parentStepId: string): Promise<boolean> {
+    const query = `
+      SELECT COUNT(*) as count
+      FROM steps
+      WHERE parent_step_id = $1
+        AND status NOT IN ($2, $3, $4)
+    `;
+
+    const result = await this.getClient().query(query, [
+      parentStepId,
+      StepStatus.COMPLETED,
+      StepStatus.FAILED,
+      StepStatus.IN_FALLOUT
+    ]);
+
+    return parseInt(result.rows[0].count, 10) === 0;
+  }
+
+  async hasFailedChildSteps(parentStepId: string): Promise<boolean> {
+    const query = `
+      SELECT COUNT(*) as count
+      FROM steps
+      WHERE parent_step_id = $1
+        AND status IN ($2, $3)
+    `;
+
+    const result = await this.getClient().query(query, [
+      parentStepId,
+      StepStatus.FAILED,
+      StepStatus.IN_FALLOUT
+    ]);
+
+    return parseInt(result.rows[0].count, 10) > 0;
   }
 }

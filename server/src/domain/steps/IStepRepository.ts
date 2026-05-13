@@ -14,6 +14,7 @@ export interface AutomatedStepStatistics {
   inProgress: number;
   completed: number;
   failed: number;
+  inFallout: number;
 }
 
 /**
@@ -42,6 +43,13 @@ export interface IStepRepository {
    * Create a new step
    */
   create(step: IStep): Promise<IStep>;
+
+  /**
+   * Create multiple steps at once (for composite steps spawning children)
+   * @param steps Array of steps to create
+   * @returns Array of created steps with IDs assigned
+   */
+  createAll(steps: IStep[]): Promise<IStep[]>;
 
   /**
    * Get pending automated steps for execution
@@ -136,4 +144,25 @@ export interface IStepRepository {
     retryCount: number;
     retryAfter: Date | null;
   }>>;
+
+  /**
+   * Get all child steps of a parent step
+   * @param parentStepId Parent step ID
+   * @returns Array of child steps
+   */
+  getChildSteps(parentStepId: string): Promise<IStep[]>;
+
+  /**
+   * Check if all child steps of a parent are in final states (COMPLETED, FAILED, IN_FALLOUT)
+   * @param parentStepId Parent step ID
+   * @returns true if all children are in final states, false otherwise
+   */
+  areAllChildStepsInFinalState(parentStepId: string): Promise<boolean>;
+
+  /**
+   * Check if any child steps have failed or are in fallout
+   * @param parentStepId Parent step ID
+   * @returns true if any children are FAILED or IN_FALLOUT, false otherwise
+   */
+  hasFailedChildSteps(parentStepId: string): Promise<boolean>;
 }

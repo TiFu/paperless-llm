@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { PaperlessConfig } from '../config/AppConfig.js';
 import { IDocument, PaginatedDocuments } from '../domain/document/IDocument.js';
+import { ITag, ICorrespondent, IDocumentType } from '../domain/document/IDocumentEntities.js';
 import { decodeCursor, encodeCursor } from '../utils/cursorUtils.js';
 
 interface PaperlessDocument {
@@ -17,6 +18,18 @@ interface PaperlessDocument {
 }
 
 interface PaperlessTag {
+  id: number;
+  name: string;
+  color?: string;
+  is_inbox_tag?: boolean;
+}
+
+interface PaperlessCorrespondent {
+  id: number;
+  name: string;
+}
+
+interface PaperlessDocumentType {
   id: number;
   name: string;
 }
@@ -168,6 +181,27 @@ export class PaperlessService implements IDocumentManagementSystem {
         payload.title = updates.title;
       }
 
+      // Handle tags - IDocument has string[] but Paperless expects number[]
+      // The updates object should have the metadata with tag IDs if tags are being updated
+      if (updates.tags !== undefined && updates.metadata?.tags !== undefined) {
+        payload.tags = updates.metadata.tags;
+      }
+
+      // Handle correspondent - from metadata
+      if (updates.metadata?.correspondent !== undefined) {
+        payload.correspondent = updates.metadata.correspondent;
+      }
+
+      // Handle document_type - from metadata
+      if (updates.metadata?.document_type !== undefined) {
+        payload.document_type = updates.metadata.document_type;
+      }
+
+      // Handle created date - from createdDate field
+      if (updates.createdDate !== undefined) {
+        payload.created = updates.createdDate ? updates.createdDate.toISOString() : null;
+      }
+
       await this.client.patch(`/api/documents/${documentId}/`, payload);
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -181,11 +215,80 @@ export class PaperlessService implements IDocumentManagementSystem {
   }
 
   /**
-   * Resolve tag name to tag ID
-   * @param tagName The tag name to resolve
-   * @returns The tag ID, or null if not found
+   * Get all available tags
    */
-  private async resolveTagId(tagName: string): Promise<number | null> {
+  async getTags(): Promise<ITag[]> {
+    try {
+      const response = await this.client.get<PaperlessPaginatedResponse<PaperlessTag>>(
+        '/api/tags/',
+        { params: { page_size: 1000 } } // Large page size to get all tags
+      );
+
+      return response.data.results.map((tag) => ({
+        id: tag.id,
+        name: tag.name,
+        color: tag.color,
+        isInboxTag: tag.is_inbox_tag,
+      }));
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Paperless-NG API error fetching tags: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get all available correspondents
+   */
+  async getCorrespondents(): Promise<ICorrespondent[]> {
+    try {
+      const response = await this.client.get<PaperlessPaginatedResponse<PaperlessCorrespondent>>(
+        '/api/correspondents/',
+        { params: { page_size: 1000 } }
+      );
+
+      return response.data.results.map((correspondent) => ({
+        id: correspondent.id,
+        name: correspondent.name,
+      }));
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Paperless-NG API error fetching correspondents: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get all available document types
+   */
+  async getDocumentTypes(): Promise<IDocumentType[]> {
+    try {
+      const response = await this.client.get<PaperlessPaginatedResponse<PaperlessDocumentType>>(
+        '/api/document_types/',
+        { params: { page_size: 1000 } }
+      );
+
+      return response.data.results.map((docType) => ({
+        id: docType.id,
+        name: docType.name,
+      }));
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Paperless-NG API error fetching document types: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Resolve tag name to tag ID, optionally creating if it doesn't exist
+   * @param tagName Tag name to resolve
+   * @param createIfMissing If true, create the tag if it doesn't exist
+   * @returns Tag ID, or null if not found and createIfMissing is false
+   */
+  async resolveTagId(tagName: string, createIfMissing: boolean = false): Promise<number | null> {
     try {
       const response = await this.client.get<PaperlessPaginatedResponse<PaperlessTag>>(
         '/api/tags/',
@@ -195,6 +298,13 @@ export class PaperlessService implements IDocumentManagementSystem {
       );
 
       if (response.data.results.length === 0) {
+        if (createIfMissing) {
+          // Create the tag
+          const createResponse = await this.client.post<PaperlessTag>('/api/tags/', {
+            name: tagName,
+          });
+          return createResponse.data.id;
+        }
         return null;
       }
 
@@ -202,6 +312,76 @@ export class PaperlessService implements IDocumentManagementSystem {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         throw new Error(`Paperless-NG API error resolving tag: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Resolve correspondent name to correspondent ID, optionally creating if it doesn't exist
+   * @param correspondentName Correspondent name to resolve
+   * @param createIfMissing If true, create the correspondent if it doesn't exist
+   * @returns Correspondent ID, or null if not found and createIfMissing is false
+   */
+  async resolveCorrespondentId(correspondentName: string, createIfMissing: boolean = false): Promise<number | null> {
+    try {
+      const response = await this.client.get<PaperlessPaginatedResponse<PaperlessCorrespondent>>(
+        '/api/correspondents/',
+        {
+          params: { name__iexact: correspondentName },
+        },
+      );
+
+      if (response.data.results.length === 0) {
+        if (createIfMissing) {
+          // Create the correspondent
+          const createResponse = await this.client.post<PaperlessCorrespondent>('/api/correspondents/', {
+            name: correspondentName,
+          });
+          return createResponse.data.id;
+        }
+        return null;
+      }
+
+      return response.data.results[0].id;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Paperless-NG API error resolving correspondent: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Resolve document type name to document type ID, optionally creating if it doesn't exist
+   * @param documentTypeName Document type name to resolve
+   * @param createIfMissing If true, create the document type if it doesn't exist
+   * @returns Document type ID, or null if not found and createIfMissing is false
+   */
+  async resolveDocumentTypeId(documentTypeName: string, createIfMissing: boolean = false): Promise<number | null> {
+    try {
+      const response = await this.client.get<PaperlessPaginatedResponse<PaperlessDocumentType>>(
+        '/api/document_types/',
+        {
+          params: { name__iexact: documentTypeName },
+        },
+      );
+
+      if (response.data.results.length === 0) {
+        if (createIfMissing) {
+          // Create the document type
+          const createResponse = await this.client.post<PaperlessDocumentType>('/api/document_types/', {
+            name: documentTypeName,
+          });
+          return createResponse.data.id;
+        }
+        return null;
+      }
+
+      return response.data.results[0].id;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Paperless-NG API error resolving document type: ${error.message}`);
       }
       throw error;
     }

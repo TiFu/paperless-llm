@@ -4,6 +4,7 @@ import { createChildLogger } from '../utils/logger.js';
 import { AutomatedStep } from '../domain/steps/automated/AutomatedStep.js';
 import { Transition } from '../domain/workflows/Transition.js';
 import { WorkflowOrchestratorService } from './WorkflowOrchestratorService.js';
+import { AuditLogApplicationService } from './AuditLogApplicationService.js';
 
 /**
  * StepCancelApplicationService - handles manual cancellation of steps in fallout or retry state.
@@ -15,6 +16,7 @@ export class StepCancelApplicationService {
   constructor(
     private readonly txManager: TransactionManager,
     private readonly workflowOrchestrator: WorkflowOrchestratorService,
+    private readonly auditLogService: AuditLogApplicationService
   ) {
     this.logger = createChildLogger({ service: 'StepCancelApplicationService' });
   }
@@ -71,7 +73,12 @@ export class StepCancelApplicationService {
       await repos.getSteps().update(step);
 
       // Advance workflow with FAILURE transition (will move job to FAILED state)
-      await this.workflowOrchestrator.advanceToNextStep(job, Transition.FAILURE, context);
+      await this.workflowOrchestrator.advanceToNextStep(
+        job, 
+        Transition.FAILURE, 
+        context,
+        stepId
+      );
 
       await context.commit();
 

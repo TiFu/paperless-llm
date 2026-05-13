@@ -1,6 +1,10 @@
 import { DocumentAction } from './DocumentAction.js';
 import { TitleUpdateAction } from './TitleUpdateAction.js';
 import { TagRemoveAction } from './TagRemoveAction.js';
+import { TagUpdateAction } from './TagUpdateAction.js';
+import { CorrespondentUpdateAction } from './CorrespondentUpdateAction.js';
+import { DocumentTypeUpdateAction } from './DocumentTypeUpdateAction.js';
+import { CreatedDateUpdateAction } from './CreatedDateUpdateAction.js';
 import { DocumentActionType } from './ActionType.js';
 
 /**
@@ -23,6 +27,34 @@ export class DocumentActionFactory {
     switch (actionType) {
       case DocumentActionType.UPDATE_TITLE:
         return new TitleUpdateAction(
+          baseArgs.id,
+          baseArgs.jobId,
+          oldValue,
+          newValue
+        );
+      case DocumentActionType.UPDATE_TAGS:
+        return new TagUpdateAction(
+          baseArgs.id,
+          baseArgs.jobId,
+          oldValue,
+          newValue
+        );
+      case DocumentActionType.UPDATE_CORRESPONDENT:
+        return new CorrespondentUpdateAction(
+          baseArgs.id,
+          baseArgs.jobId,
+          oldValue,
+          newValue
+        );
+      case DocumentActionType.UPDATE_DOCUMENT_TYPE:
+        return new DocumentTypeUpdateAction(
+          baseArgs.id,
+          baseArgs.jobId,
+          oldValue,
+          newValue
+        );
+      case DocumentActionType.UPDATE_CREATED_DATE:
+        return new CreatedDateUpdateAction(
           baseArgs.id,
           baseArgs.jobId,
           oldValue,

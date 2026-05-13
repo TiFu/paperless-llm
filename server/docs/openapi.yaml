@@ -287,6 +287,57 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/jobs/{id}/audit-log:
+    get:
+      tags:
+        - Jobs
+      summary: Get job audit log
+      description: Retrieve the complete audit trail for a specific job, including all step executions, retries, approvals, and state changes
+      operationId: getJobAuditLog
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job audit log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogResponse'
+              example:
+                auditLog:
+                  - id: "550e8400-e29b-41d4-a716-446655440000"
+                    jobId: "123e4567-e89b-12d3-a456-426614174000"
+                    stepId: null
+                    eventType: "JOB_CREATED"
+                    eventTimestamp: "2024-01-15T10:00:00.000Z"
+                    processingStartTime: null
+                    processingEndTime: null
+                    processingDurationMs: null
+                    metadata:
+                      documentId: "42"
+                      jobType: "GENERATE_TITLE"
+                  - id: "550e8400-e29b-41d4-a716-446655440001"
+                    jobId: "123e4567-e89b-12d3-a456-426614174000"
+                    stepId: "789e4567-e89b-12d3-a456-426614174000"
+                    eventType: "STEP_COMPLETED"
+                    eventTimestamp: "2024-01-15T10:00:15.000Z"
+                    processingStartTime: "2024-01-15T10:00:10.000Z"
+                    processingEndTime: "2024-01-15T10:00:15.000Z"
+                    processingDurationMs: 5000
+                    metadata:
+                      stepType: "LLM_GENERATE_TITLE"
+                      retryCount: 0
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /api/approvals:
     get:
       tags:
@@ -540,6 +591,78 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/documents/tags:
+    get:
+      tags:
+        - Documents
+      summary: Get all available tags
+      description: Retrieve all tags from Paperless-NGX
+      operationId: getTags
+      responses:
+        '200':
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
+                required:
+                  - tags
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/documents/correspondents:
+    get:
+      tags:
+        - Documents
+      summary: Get all available correspondents
+      description: Retrieve all correspondents from Paperless-NGX
+      operationId: getCorrespondents
+      responses:
+        '200':
+          description: List of correspondents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  correspondents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Correspondent'
+                required:
+                  - correspondents
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/documents/document-types:
+    get:
+      tags:
+        - Documents
+      summary: Get all available document types
+      description: Retrieve all document types from Paperless-NGX
+      operationId: getDocumentTypes
+      responses:
+        '200':
+          description: List of document types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documentTypes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DocumentType'
+                required:
+                  - documentTypes
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /api/steps/{id}/retry:
     post:
       tags:
@@ -642,6 +765,23 @@ components:
         - retrying
         - in_fallout
       description: Current status of a workflow step
+
+    AuditEventType:
+      type: string
+      enum:
+        - JOB_CREATED
+        - STEP_CREATED
+        - STEP_COMPLETED
+        - STEP_FAILED
+        - STEP_MOVED_TO_RETRYING
+        - STEP_MOVED_TO_FALLOUT
+        - APPROVAL_REQUESTED
+        - APPROVAL_APPROVED
+        - APPROVAL_REJECTED
+        - STEP_MANUALLY_RETRIED
+        - STEP_CANCELLED
+        - STUCK_STEP_RESET
+      description: Type of audit log event
 
     WorkItemStatus:
       type: string
@@ -871,6 +1011,69 @@ components:
         - createdAt
         - retryCount
         - retryAfter
+
+    AuditLogResponse:
+      type: object
+      properties:
+        auditLog:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
+      required:
+        - auditLog
+
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        jobId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        stepId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Step ID (null for job-level events)
+          example: "789e4567-e89b-12d3-a456-426614174000"
+        eventType:
+          $ref: '#/components/schemas/AuditEventType'
+        eventTimestamp:
+          type: string
+          format: date-time
+          description: When the event occurred
+          example: "2024-01-15T10:00:00.000Z"
+        processingStartTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: When processing started (for execution events)
+          example: "2024-01-15T10:00:10.000Z"
+        processingEndTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: When processing ended (for execution events)
+          example: "2024-01-15T10:00:15.000Z"
+        processingDurationMs:
+          type: integer
+          nullable: true
+          description: Processing duration in milliseconds
+          minimum: 0
+          example: 5000
+        metadata:
+          type: object
+          nullable: true
+          description: Event-specific metadata (varies by eventType)
+          additionalProperties: true
+      required:
+        - id
+        - jobId
+        - eventType
+        - eventTimestamp
 
     JobStats:
       type: object
@@ -1168,6 +1371,51 @@ components:
         - id
         - title
         - content
+
+    Tag:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 42
+        name:
+          type: string
+          example: "Invoice"
+        color:
+          type: string
+          example: "#ff0000"
+        isInboxTag:
+          type: boolean
+          example: false
+      required:
+        - id
+        - name
+
+    Correspondent:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 15
+        name:
+          type: string
+          example: "ACME Corporation"
+      required:
+        - id
+        - name
+
+    DocumentType:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 8
+        name:
+          type: string
+          example: "Invoice"
+      required:
+        - id
+        - name
 
     SystemHealthResponse:
       type: object

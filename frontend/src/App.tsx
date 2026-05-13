@@ -9,11 +9,10 @@ import {
   createTheme,
 } from '@mui/material';
 import { DocumentsPage } from './pages/DocumentsPage';
-import { QueuesPage } from './pages/QueuesPage';
+import { AutomatedStepsPage } from './pages/AutomatedStepsPage';
 import { JobsPage } from './pages/JobsPage';
 import { JobDetailsPage } from './pages/JobDetailsPage';
-import { ApprovalsPage } from './pages/ApprovalsPage';
-import { PromptsPage } from './pages/PromptsPage';
+import { ApprovalsPage } from './pages/ApprovalsPage';import { FalloutsPage } from './pages/FalloutsPage';import { PromptsPage } from './pages/PromptsPage';
 import { Sidebar } from './components/Sidebar';
 import { StatsProvider } from './contexts/StatsContext';
 
@@ -92,8 +91,9 @@ function App() {
                   <Route path="/documents" element={<DocumentsPage />} />
                   <Route path="/jobs" element={<JobsPage />} />
                   <Route path="/jobs/:id" element={<JobDetailsPage />} />
-                  <Route path="/queues" element={<QueuesPage />} />
+                  {/* <Route path="/queues" element={<QueuesPage />} /> removed: replaced by /automated-steps */}
                   <Route path="/approvals" element={<ApprovalsPage />} />
+                  <Route path="/fallouts" element={<FalloutsPage />} />
                   <Route path="/prompts" element={<PromptsPage />} />
                   <Route path="*" element={<Navigate to="/documents" replace />} />
                 </Routes>

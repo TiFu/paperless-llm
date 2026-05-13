@@ -8,6 +8,9 @@ interface StatsContextValue {
   jobStats: JobStats | null;
   loading: boolean;
   error: string | null;
+  // Optimistic update methods
+  decrementApprovalCount: () => void;
+  adjustQueueStats: (changes: { failed?: number; retrying?: number; processing?: number }) => void;
 }
 
 const StatsContext = createContext<StatsContextValue | undefined>(undefined);
@@ -23,15 +26,11 @@ export const StatsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const fetchStats = async () => {
     try {
-      const [queue, approval, job] = await Promise.all([
-        apiClient.fetchQueueStats(),
-        apiClient.fetchApprovalStats(),
-        apiClient.fetchJobStats(),
-      ]);
+      const stats = await apiClient.fetchDashboardStats();
 
-      setQueueStats(queue);
-      setApprovalStats(approval);
-      setJobStats(job);
+      setQueueStats(stats.queue);
+      setApprovalStats(stats.approvals);
+      setJobStats(stats.jobs);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch stats');
@@ -41,6 +40,30 @@ export const StatsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  // Optimistic update: decrement approval count after processing an approval
+  const decrementApprovalCount = () => {
+    setApprovalStats((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        pendingCount: Math.max(0, prev.pendingCount - 1),
+      };
+    });
+  };
+
+  // Optimistic update: adjust queue stats after retry/cancel actions
+  const adjustQueueStats = (changes: { failed?: number; retrying?: number; processing?: number }) => {
+    setQueueStats((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        failed: Math.max(0, prev.failed + (changes.failed || 0)),
+        processing: Math.max(0, prev.processing + (changes.processing || 0)),
+        // Note: retrying is not in QueueStats interface, but processing covers in-progress retries
+      };
+    });
+  };
+
   useEffect(() => {
     fetchStats();
     const interval = setInterval(fetchStats, POLL_INTERVAL);
@@ -48,7 +71,17 @@ export const StatsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   return (
-    <StatsContext.Provider value={{ queueStats, approvalStats, jobStats, loading, error }}>
+    <StatsContext.Provider 
+      value={{ 
+        queueStats, 
+        approvalStats, 
+        jobStats, 
+        loading, 
+        error,
+        decrementApprovalCount,
+        adjustQueueStats,
+      }}
+    >
       {children}
     </StatsContext.Provider>
   );

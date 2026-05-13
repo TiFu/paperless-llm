@@ -12,6 +12,7 @@ export interface QueueStats {
   processing: number;
   completed: number;
   failed: number;
+  inFallout: number;
 }
 
 /**
@@ -64,6 +65,7 @@ export class QueueApplicationService {
         processing: stats.inProgress, // IN_PROGRESS -> processing
         completed: stats.completed,
         failed: stats.failed,
+        inFallout: stats.inFallout,
       };
     } catch (error) {
       logger.error({ error }, 'Failed to get queue statistics');

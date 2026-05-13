@@ -22,6 +22,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Menu as MenuIcon,
   TextSnippet as TextSnippetIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useStats } from '../contexts/StatsContext';
 import { HealthStatusIndicator } from './HealthStatusIndicator';
@@ -32,6 +33,8 @@ interface NavItem {
   path: string;
   label: string;
   icon: React.ReactElement;
+  nested?: boolean;
+  badgeColor?: 'error' | 'warning' | 'info' | 'success';
   getBadgeCount?: () => number;
 }
 
@@ -73,21 +76,33 @@ export const Sidebar: React.FC = () => {
       },
     },
     {
+      path: '/approvals',
+      label: 'Approvals',
+      icon: <CheckCircleIcon />,
+      nested: true,
+      getBadgeCount: () => {
+        if (!approvalStats) return 0;
+        return approvalStats.pendingCount;
+      },
+    },
+    {
+      path: '/fallouts',
+      label: 'Fallouts',
+      icon: <ErrorIcon />,
+      nested: true,
+      badgeColor: 'warning',
+      getBadgeCount: () => {
+        if (!queueStats) return 0;
+        return queueStats.inFallout || 0;
+      },
+    },
+    {
       path: '/queues',
       label: 'Queues',
       icon: <QueueIcon />,
       getBadgeCount: () => {
         if (!queueStats) return 0;
         return queueStats.pending + queueStats.processing;
-      },
-    },
-    {
-      path: '/approvals',
-      label: 'Approvals',
-      icon: <CheckCircleIcon />,
-      getBadgeCount: () => {
-        if (!approvalStats) return 0;
-        return approvalStats.pendingCount;
       },
     },
     {
@@ -123,6 +138,7 @@ export const Sidebar: React.FC = () => {
         {navItems.map((item, index) => {
           const isActive = location.pathname === item.path;
           const badgeCount = item.getBadgeCount ? item.getBadgeCount() : undefined;
+          const badgeColor = item.badgeColor || 'error';
 
           return (
             <React.Fragment key={item.path}>
@@ -135,6 +151,7 @@ export const Sidebar: React.FC = () => {
                   mx: 1,
                   borderRadius: 1,
                   color: 'rgba(255, 255, 255, 0.7)',
+                  pl: item.nested ? 4 : 2,
                   '&:hover': {
                     backgroundColor: 'rgba(255, 255, 255, 0.08)',
                   },
@@ -153,11 +170,11 @@ export const Sidebar: React.FC = () => {
                   },
                 }}
               >
-                <ListItemIcon>
+                <ListItemIcon sx={{ minWidth: item.nested ? 36 : 40 }}>
                   {badgeCount !== undefined ? (
                     <Badge
                       badgeContent={badgeCount}
-                      color="error"
+                      color={badgeColor}
                       max={999}
                       overlap="circular"
                     >
@@ -169,7 +186,7 @@ export const Sidebar: React.FC = () => {
                 </ListItemIcon>
                 <ListItemText primary={item.label} />
               </ListItemButton>
-              {index < navItems.length - 1 && (
+              {index < navItems.length - 1 && !item.nested && !navItems[index + 1]?.nested && (
                 <Divider sx={{ my: 1, mx: 2, borderColor: 'rgba(255, 255, 255, 0.12)' }} />
               )}
             </React.Fragment>

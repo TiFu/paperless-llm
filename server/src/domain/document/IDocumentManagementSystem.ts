@@ -1,4 +1,5 @@
 import { IDocument, PaginatedDocuments } from "./IDocument.js";
+import { ITag, ICorrespondent, IDocumentType } from "./IDocumentEntities.js";
 
 export interface IDocumentManagementSystem {
   /**
@@ -46,4 +47,46 @@ export interface IDocumentManagementSystem {
    * Perform a health check on the document management system
    */
   healthCheck(): Promise<boolean>;
+
+  /**
+   * Get all available tags
+   * @returns Array of tags
+   */
+  getTags(): Promise<ITag[]>;
+
+  /**
+   * Get all available correspondents
+   * @returns Array of correspondents
+   */
+  getCorrespondents(): Promise<ICorrespondent[]>;
+
+  /**
+   * Get all available document types
+   * @returns Array of document types
+   */
+  getDocumentTypes(): Promise<IDocumentType[]>;
+
+  /**
+   * Resolve tag name to tag ID, optionally creating if it doesn't exist
+   * @param tagName Tag name to resolve
+   * @param createIfMissing If true, create the tag if it doesn't exist
+   * @returns Tag ID, or null if not found and createIfMissing is false
+   */
+  resolveTagId(tagName: string, createIfMissing?: boolean): Promise<number | null>;
+
+  /**
+   * Resolve correspondent name to correspondent ID, optionally creating if it doesn't exist
+   * @param correspondentName Correspondent name to resolve
+   * @param createIfMissing If true, create the correspondent if it doesn't exist
+   * @returns Correspondent ID, or null if not found and createIfMissing is false
+   */
+  resolveCorrespondentId(correspondentName: string, createIfMissing?: boolean): Promise<number | null>;
+
+  /**
+   * Resolve document type name to document type ID, optionally creating if it doesn't exist
+   * @param documentTypeName Document type name to resolve
+   * @param createIfMissing If true, create the document type if it doesn't exist
+   * @returns Document type ID, or null if not found and createIfMissing is false
+   */
+  resolveDocumentTypeId(documentTypeName: string, createIfMissing?: boolean): Promise<number | null>;
 }

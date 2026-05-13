@@ -5,6 +5,7 @@ import { WorkflowType } from "../domain/workflows/WorkflowType.js";
 import { TransactionManager } from "../infrastructure/TransactionManager.js";
 import { getLogger } from "../utils/logger.js";
 import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService.js";
+import { AuditLogApplicationService } from "./AuditLogApplicationService.js";
 
 /**
  * Statistics for jobs grouped by state
@@ -25,7 +26,10 @@ export interface JobStats {
  * Application service that orchestrates persistence for job operations.
  */
 export class JobApplicationService {
-  constructor(private readonly txManager: TransactionManager) {}
+  constructor(
+    private readonly txManager: TransactionManager,
+    private readonly auditLogService: AuditLogApplicationService
+  ) {}
 
   /**
    * Get statistics for jobs grouped by state.
@@ -84,6 +88,14 @@ export class JobApplicationService {
 
       const job = await repos.getJobs().create(documentId, jobType);
       
+      // Log JOB_CREATED event
+      await this.auditLogService.logJobCreated(
+        context,
+        job.id,
+        documentId,
+        jobType
+      );
+      
       // Start job with first transition
       const orchestrator = new WorkflowOrchestratorService();
       await orchestrator.startWorkflow(job, context);
@@ -125,6 +137,16 @@ export class JobApplicationService {
 
       // Create all jobs in a single database operation
       const createdJobs = await repos.getJobs().createBulk(jobs);
+      
+      // Log JOB_CREATED events for all jobs
+      for (const job of createdJobs) {
+        await this.auditLogService.logJobCreated(
+          context,
+          job.id,
+          job.documentId,
+          job.jobType
+        );
+      }
       
       // Start workflow for each job (creates initial steps)
       const orchestrator = new WorkflowOrchestratorService();

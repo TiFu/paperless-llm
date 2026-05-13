@@ -11,6 +11,11 @@ import { Transition } from '../workflows/Transition.js';
  */
 export enum StepType {
   LLM_GENERATE_TITLE = 'LLM_GENERATE_TITLE',
+  LLM_GENERATE_FIELDS = 'LLM_GENERATE_FIELDS',
+  LLM_GENERATE_TAGS = 'LLM_GENERATE_TAGS',
+  LLM_GENERATE_CORRESPONDENT = 'LLM_GENERATE_CORRESPONDENT',
+  LLM_GENERATE_DOCUMENT_TYPE = 'LLM_GENERATE_DOCUMENT_TYPE',
+  LLM_GENERATE_CREATED_DATE = 'LLM_GENERATE_CREATED_DATE',
   REQUIRE_APPROVAL = 'REQUIRE_APPROVAL',
   UPDATE_DOCUMENT = 'UPDATE_DOCUMENT',
   REMOVE_TAGS = 'REMOVE_TAGS',
@@ -67,12 +72,22 @@ export abstract class IStep {
     protected jobId: string, 
     protected stepState: StepStatus,
     protected retryCount: number = 0,
-    protected retryAfter: Date | null = null
+    protected retryAfter: Date | null = null,
+    protected startedAt: Date | null = null,
+    protected parentStepId: string | null = null,
+    protected configuration: Record<string, any> | null = null
   ) {
   }
 
   public updateId(stepId: string) {
     this.stepId = stepId
+  }
+  
+  public getStepId(): string {
+    if (!this.stepId) {
+      throw new Error('Step ID is not set');
+    }
+    return this.stepId;
   }
 
   public getRetryCount(): number {
@@ -81,6 +96,10 @@ export abstract class IStep {
 
   public getRetryAfter(): Date | null {
     return this.retryAfter;
+  }
+  
+  public getStartedAt(): Date | null {
+    return this.startedAt;
   }
 
   private setRetryAfter(date: Date | null): void {
@@ -169,12 +188,16 @@ export abstract class IStep {
     return this.stepType
   }
 
-  public getStepId(): string | null {
-    return this.stepId
-  }
-
   public getJobId(): string {
     return this.jobId
+  }
+
+  public getParentStepId(): string | null {
+    return this.parentStepId
+  }
+
+  public getConfiguration(): Record<string, any> | null {
+    return this.configuration
   }
 
   /**
@@ -182,6 +205,14 @@ export abstract class IStep {
    * @returns true if step needs a prompt, false otherwise
    */
   public needsPrompt(): boolean {
+    return false;
+  }
+
+  /**
+   * Override this method to indicate if this is a composite step that spawns child steps
+   * @returns true if step is composite (parent), false otherwise
+   */
+  public isCompositeStep(): boolean {
     return false;
   }
 }

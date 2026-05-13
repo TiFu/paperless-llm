@@ -21,8 +21,9 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { apiClient } from '../services/api';
-import { JobResponse, JobState, Document, JobStep } from '../types/api';
+import { JobResponse, JobState, Document, JobStep, AuditLogEntry } from '../types/api';
 import { JobStepsTimeline } from '../components/JobStepsTimeline';
+import { AuditLogTimeline } from '../components/AuditLogTimeline';
 
 export const JobDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +32,7 @@ export const JobDetailsPage: React.FC = () => {
   const [job, setJob] = useState<JobResponse | null>(null);
   const [document, setDocument] = useState<Document | null>(null);
   const [steps, setSteps] = useState<JobStep[]>([]);
+  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -57,10 +59,18 @@ export const JobDetailsPage: React.FC = () => {
         console.error('Failed to fetch steps:', stepsErr);
       }
 
+      // Fetch audit log
+      try {
+        const auditData = await apiClient.fetchJobAuditLog(id);
+        setAuditLog(auditData.auditLog);
+      } catch (auditErr) {
+        console.error('Failed to fetch audit log:', auditErr);
+      }
+
       // Fetch document details
       try {
-        const docs = await apiClient.fetchDocumentsByTag('llm-process');
-        const doc = docs.find((d) => d.id === jobData.documentId);
+        const docsResponse = await apiClient.fetchDocumentsByTag('llm-process');
+        const doc = docsResponse.documents.find((d) => d.id === jobData.documentId);
         if (doc) {
           setDocument(doc);
         }
@@ -365,6 +375,11 @@ export const JobDetailsPage: React.FC = () => {
             </Paper>
           </Grid>
         )}
+
+        {/* Audit Log */}
+        <Grid item xs={12}>
+          <AuditLogTimeline entries={auditLog} />
+        </Grid>
       </Grid>
     </Container>
   );

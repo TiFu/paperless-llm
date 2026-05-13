@@ -13,9 +13,12 @@ export abstract class AutomatedStep extends IStep {
     jobId: string, 
     stepState: StepStatus, 
     retryCount: number = 0,
-    retryAfter: Date | null = null
+    retryAfter: Date | null = null,
+    startedAt: Date | null = null,
+    parentStepId: string | null = null,
+    configuration: Record<string, any> | null = null
   ) {
-    super(stepId, stepType, jobId, stepState, retryCount, retryAfter)
+    super(stepId, stepType, jobId, stepState, retryCount, retryAfter, startedAt, parentStepId, configuration)
   }
 
   /**

@@ -14,9 +14,12 @@ export class UpdateDocumentStep extends AutomatedStep {
     jobId: string, 
     stepState: StepStatus, 
     retryCount: number = 0,
-    retryAfter: Date | null = null
+    retryAfter: Date | null = null,
+    startedAt: Date | null = null,
+    parentStepId: string | null = null,
+    configuration: Record<string, any> | null = null
   ) {
-    super(stepId, StepType.UPDATE_DOCUMENT, jobId, stepState, retryCount, retryAfter);
+    super(stepId, StepType.UPDATE_DOCUMENT, jobId, stepState, retryCount, retryAfter, startedAt, parentStepId, configuration);
   }
 
   protected async doExecute(context: StepExecutionContext): Promise<StepResult> {

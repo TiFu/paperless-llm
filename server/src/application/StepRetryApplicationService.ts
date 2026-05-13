@@ -2,6 +2,7 @@ import pino from 'pino';
 import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { createChildLogger } from '../utils/logger.js';
 import { AutomatedStep } from '../domain/steps/automated/AutomatedStep.js';
+import { AuditLogApplicationService } from './AuditLogApplicationService.js';
 
 /**
  * StepRetryApplicationService - handles manual retry of steps in fallout or retry state.
@@ -12,6 +13,7 @@ export class StepRetryApplicationService {
 
   constructor(
     private readonly txManager: TransactionManager,
+    private readonly auditLogService: AuditLogApplicationService
   ) {
     this.logger = createChildLogger({ service: 'StepRetryApplicationService' });
   }
@@ -56,7 +58,16 @@ export class StepRetryApplicationService {
       }
 
       // Reset step using domain logic
+      const previousRetryCount = step.getRetryCount();
       step.resetForManualRetry();
+      
+      // Log manual retry event
+      await this.auditLogService.logStepManuallyRetried(
+        context,
+        step.getJobId(),
+        stepId,
+        previousRetryCount
+      );
 
       // Persist changes
       await repos.getSteps().update(step);

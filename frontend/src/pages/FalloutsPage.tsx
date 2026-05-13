@@ -9,21 +9,20 @@ import {
   Paper,
 } from '@mui/material';
 import { apiClient } from '../services/api';
-import { ApprovalItem, ApprovalStats } from '../types/api';
-import { ApprovalCard } from '../components/ApprovalCard';
+import { QueueItem, WorkItemStatus } from '../types/api';
+import { FalloutCard } from '../components/FalloutCard';
 import { useStats } from '../contexts/StatsContext';
 
-export const ApprovalsPage: React.FC = () => {
-  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
-  const [stats, setStats] = useState<ApprovalStats | null>(null);
+export const FalloutsPage: React.FC = () => {
+  const [fallouts, setFallouts] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const { decrementApprovalCount } = useStats();
+  const { adjustQueueStats } = useStats();
 
-  const fetchApprovals = async (cursor?: string, append: boolean = false) => {
+  const fetchFallouts = async (cursor?: string, append: boolean = false) => {
     try {
       if (!append) {
         setLoading(true);
@@ -32,23 +31,16 @@ export const ApprovalsPage: React.FC = () => {
       }
       setError(null);
 
-      const [approvalsResponse, statsResponse] = await Promise.all([
-        apiClient.fetchPendingApprovals(50, cursor),
-        cursor ? Promise.resolve(stats) : apiClient.fetchApprovalStats(),
-      ]);
+      const response = await apiClient.fetchQueueItems(50, cursor, WorkItemStatus.IN_FALLOUT);
 
       if (append) {
-        setApprovals((prev) => [...prev, ...approvalsResponse.items]);
+        setFallouts((prev) => [...prev, ...response.items]);
       } else {
-        setApprovals(approvalsResponse.items);
+        setFallouts(response.items);
       }
-      setNextCursor(approvalsResponse.nextCursor);
-      
-      if (!cursor && statsResponse) {
-        setStats(statsResponse);
-      }
+      setNextCursor(response.pagination.nextCursor);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch approvals');
+      setError(err instanceof Error ? err.message : 'Failed to fetch fallouts');
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -56,37 +48,55 @@ export const ApprovalsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchApprovals();
+    fetchFallouts();
 
     // Auto-refresh every 10 seconds
     const interval = setInterval(() => {
-      fetchApprovals();
+      fetchFallouts();
     }, 10000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const handleDecision = async (stepId: string, decision: string) => {
+  const handleRetry = async (stepId: string) => {
     try {
-      const response = await apiClient.processApprovalDecision(stepId, decision);
-      setSuccessMessage(response.message || `Decision "${decision}" processed successfully`);
+      const response = await apiClient.retryStep(stepId);
+      setSuccessMessage(response.message || 'Step retry initiated successfully');
 
-      // Remove the approved/rejected item from the list
-      setApprovals((prev) => prev.filter((approval) => approval.stepId !== stepId));
+      // Remove the retried item from the list
+      setFallouts((prev) => prev.filter((fallout) => fallout.id !== stepId));
 
-      // Optimistically decrement the approval count in global stats
-      decrementApprovalCount();
+      // Optimistically update queue stats (one less in fallout, one more processing)
+      adjustQueueStats({ failed: -1, processing: 1 });
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
-      throw err; // Let ApprovalCard handle the error display
+      throw err; // Let FalloutCard handle the error display
+    }
+  };
+
+  const handleCancel = async (stepId: string) => {
+    try {
+      const response = await apiClient.cancelStep(stepId);
+      setSuccessMessage(response.message || 'Step cancelled successfully');
+
+      // Remove the cancelled item from the list
+      setFallouts((prev) => prev.filter((fallout) => fallout.id !== stepId));
+
+      // Optimistically update queue stats (one less in fallout)
+      adjustQueueStats({ failed: -1 });
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      throw err; // Let FalloutCard handle the error display
     }
   };
 
   const handleLoadMore = () => {
     if (nextCursor) {
-      fetchApprovals(nextCursor, true);
+      fetchFallouts(nextCursor, true);
     }
   };
 
@@ -95,7 +105,7 @@ export const ApprovalsPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ py: 4, textAlign: 'center' }}>
         <CircularProgress />
         <Typography variant="body1" sx={{ mt: 2 }}>
-          Loading approvals...
+          Loading fallouts...
         </Typography>
       </Container>
     );
@@ -104,11 +114,11 @@ export const ApprovalsPage: React.FC = () => {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" component="h1" sx={{ mb: 1 }}>
-        Pending Approvals
+        Fallouts
       </Typography>
       
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Review and approve or reject proposed document changes.
+        Steps that have exhausted all automatic retry attempts and require manual intervention.
       </Typography>
 
       {error && (
@@ -123,20 +133,25 @@ export const ApprovalsPage: React.FC = () => {
         </Alert>
       )}
 
-      {approvals.length === 0 ? (
+      {fallouts.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h6" color="text.secondary">
-            No pending approvals
+          <Typography variant="h6" color="success.main" sx={{ mb: 1 }}>
+            ✓ No fallouts
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            All approval requests have been processed.
+          <Typography variant="body2" color="text.secondary">
+            All systems running smoothly. No steps require manual intervention.
           </Typography>
         </Paper>
       ) : (
         <>
           <Box>
-            {approvals.map((approval) => (
-              <ApprovalCard key={approval.stepId} approval={approval} onDecision={handleDecision} />
+            {fallouts.map((fallout) => (
+              <FalloutCard 
+                key={fallout.id} 
+                fallout={fallout} 
+                onRetry={handleRetry} 
+                onCancel={handleCancel}
+              />
             ))}
           </Box>
 

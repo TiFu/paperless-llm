@@ -259,5 +259,49 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
     },
   );
 
+  /**
+   * GET /api/jobs/:id/audit-log
+   * Get audit log for a job
+   */
+  router.get(
+    '/:id/audit-log',
+    [param('id').isString().notEmpty().withMessage('id must be a non-empty string')],
+    validateRequest,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const jobId = req.params.id;
+
+        const jobAppService = appFactory.createJobApplicationService();
+
+        // Verify job exists
+        const job = await jobAppService.getById(jobId);
+        if (!job) {
+          throw new ApiError(404, 'Job not found');
+        }
+
+        // Get audit log for the job
+        const auditLogService = appFactory.createAuditLogApplicationService();
+        const auditLog = await auditLogService.getAuditLogForJobById(jobId);
+
+        res.json({
+          auditLog: auditLog.map((entry) => ({
+            id: entry.id,
+            jobId: entry.jobId,
+            stepId: entry.stepId,
+            eventType: entry.eventType,
+            eventTimestamp: entry.eventTimestamp,
+            processingStartTime: entry.processingStartTime,
+            processingEndTime: entry.processingEndTime,
+            processingDurationMs: entry.getProcessingDurationMs(),
+            metadata: entry.metadata,
+          })),
+        });
+      } catch (error) {
+        logger.error({ error, id: req.params.id }, 'Failed to get job audit log');
+        next(error);
+      }
+    },
+  );
+
   return router;
 }

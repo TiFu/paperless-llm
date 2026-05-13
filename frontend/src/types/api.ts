@@ -12,6 +12,7 @@ export interface QueueStats {
   processing: number;
   completed: number;
   failed: number;
+  inFallout: number;
 }
 
 // Unified queue item for all automated steps
@@ -163,6 +164,37 @@ export interface JobStepsResponse {
   steps: JobStep[];
 }
 
+export enum AuditEventType {
+  JOB_CREATED = 'JOB_CREATED',
+  STEP_CREATED = 'STEP_CREATED',
+  STEP_COMPLETED = 'STEP_COMPLETED',
+  STEP_FAILED = 'STEP_FAILED',
+  STEP_MOVED_TO_RETRYING = 'STEP_MOVED_TO_RETRYING',
+  STEP_MOVED_TO_FALLOUT = 'STEP_MOVED_TO_FALLOUT',
+  APPROVAL_REQUESTED = 'APPROVAL_REQUESTED',
+  APPROVAL_APPROVED = 'APPROVAL_APPROVED',
+  APPROVAL_REJECTED = 'APPROVAL_REJECTED',
+  STEP_MANUALLY_RETRIED = 'STEP_MANUALLY_RETRIED',
+  STEP_CANCELLED = 'STEP_CANCELLED',
+  STUCK_STEP_RESET = 'STUCK_STEP_RESET',
+}
+
+export interface AuditLogEntry {
+  id: string;
+  jobId: string;
+  stepId: string | null;
+  eventType: AuditEventType;
+  eventTimestamp: string;
+  processingStartTime: string | null;
+  processingEndTime: string | null;
+  processingDurationMs: number | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface JobAuditLogResponse {
+  auditLog: AuditLogEntry[];
+}
+
 export interface JobStats {
   pending: number;
   llmProcessing: number;
@@ -177,6 +209,14 @@ export interface JobStats {
 
 export interface ApprovalStats {
   pendingCount: number;
+}
+
+// Dashboard Stats (Unified)
+
+export interface DashboardStats {
+  queue: QueueStats;
+  approvals: ApprovalStats;
+  jobs: JobStats;
 }
 
 export interface ApprovalItem {
