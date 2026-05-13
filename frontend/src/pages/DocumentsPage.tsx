@@ -21,7 +21,7 @@ import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
 import { apiClient } from '../services/api';
-import { Document, WorkflowType, BatchJobResponse } from '../types/api';
+import { Document, WorkflowType, JobSubmissionResponse } from '../types/api';
 
 const DEFAULT_TAG = 'llm-process';
 const PAGE_LIMIT = 10;
@@ -34,9 +34,9 @@ export const DocumentsPage: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [availableJobTypes, setAvailableJobTypes] = useState<WorkflowType[]>([]);
-  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowType>(WorkflowType.AUTOMATED);
-  const [submissionResult, setSubmissionResult] = useState<BatchJobResponse | null>(null);
+  const [availableJobTypes, setAvailableJobTypes] = useState<string[]>([]);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<string>('automated');
+  const [submissionResult, setSubmissionResult] = useState<JobSubmissionResponse | null>(null);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -240,7 +240,7 @@ export const DocumentsPage: React.FC = () => {
           <FormLabel component="legend">Choose Workflow Type</FormLabel>
           <RadioGroup
             value={selectedWorkflow}
-            onChange={(e) => setSelectedWorkflow(e.target.value as WorkflowType)}
+            onChange={(e) => setSelectedWorkflow(e.target.value)}
           >
             {availableJobTypes.map((workflow) => (
               <FormControlLabel
@@ -250,10 +250,10 @@ export const DocumentsPage: React.FC = () => {
                 label={
                   <Box>
                     <Typography variant="body1" fontWeight="medium">
-                      {getWorkflowLabel(workflow)}
+                      {getWorkflowLabel(workflow as WorkflowType)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {getWorkflowDescription(workflow)}
+                      {getWorkflowDescription(workflow as WorkflowType)}
                     </Typography>
                   </Box>
                 }
@@ -285,7 +285,7 @@ export const DocumentsPage: React.FC = () => {
             Successfully created {submissionResult.submitted} job(s):
           </Typography>
           <Box component="ul" sx={{ mt: 1, mb: 0 }}>
-            {submissionResult.jobs.map((job) => (
+            {submissionResult.jobs.map((job: { documentId: string; jobType: string; jobId: string }) => (
               <li key={job.jobId}>
                 Document {job.documentId} - {job.jobType}:{' '}
                 <Link component={RouterLink} to={`/jobs/${job.jobId}`}>

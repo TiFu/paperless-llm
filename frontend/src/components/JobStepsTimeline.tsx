@@ -115,6 +115,7 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
   const [retryingStepId, setRetryingStepId] = useState<string | null>(null);
   const [cancelingStepId, setCancelingStepId] = useState<string | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [retrySuccess, setRetrySuccess] = useState<string | null>(null);
   const { adjustQueueStats } = useStats();
 
   const handleRetry = async (stepId: string) => {
@@ -149,7 +150,6 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
       
       // Optimistically adjust queue stats: processing/retrying -> failed
       adjustQueueStats({ processing: -1, failed: 1 });
-      ancelStep(stepId);
       setRetrySuccess(result.message);
       // Clear success message after 3 seconds
       setTimeout(() => setRetrySuccess(null), 3000);

@@ -282,7 +282,7 @@ export const JobDetailsPage: React.FC = () => {
                       <TableCell sx={{ fontWeight: 'bold' }}>Tags</TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                          {document.tags.map((tag) => (
+                          {(document.tags ?? []).map((tag) => (
                             <Chip key={tag} label={tag} size="small" />
                           ))}
                         </Box>

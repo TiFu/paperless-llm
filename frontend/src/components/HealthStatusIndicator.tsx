@@ -29,7 +29,7 @@ interface HealthStatusIndicatorProps {
 
 export const HealthStatusIndicator: React.FC<HealthStatusIndicatorProps> = ({ vertical = false }) => {
   const [health, setHealth] = useState<SystemHealthResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   const fetchHealth = async () => {
     try {

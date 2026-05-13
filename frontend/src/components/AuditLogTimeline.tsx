@@ -151,33 +151,32 @@ const MetadataDisplay: React.FC<{ metadata: Record<string, unknown> | null }> = 
 
   return (
     <Box sx={{ mt: 1, fontSize: '0.875rem', color: 'text.secondary' }}>
-      {metadata.documentId && (
+      {metadata.documentId !== undefined && (
         <Box>Document ID: {String(metadata.documentId)}</Box>
       )}
-      {metadata.jobType && (
+      {metadata.jobType !== undefined && (
         <Box>Job Type: {String(metadata.jobType)}</Box>
       )}
-      {metadata.stepType && (
+      {metadata.stepType !== undefined && (
         <Box>Step Type: {String(metadata.stepType)}</Box>
       )}
       {metadata.retryCount !== undefined && (
         <Box>Retry Count: {String(metadata.retryCount)}</Box>
       )}
-      {metadata.errorMessage && (
+      {metadata.errorMessage !== undefined && (
         <Box sx={{ color: 'error.main', mt: 0.5 }}>
-          Error: {String(metadata.errorMessage)}
-        </Box>
+          Error: {String(metadata.errorMessage)}</Box>
       )}
-      {metadata.nextRetryTime && (
+      {metadata.nextRetryTime !== undefined && (
         <Box>Next Retry: {formatFullDateTime(String(metadata.nextRetryTime))}</Box>
       )}
-      {metadata.stuckDurationMs && (
+      {metadata.stuckDurationMs !== undefined && (
         <Box>Stuck Duration: {formatDuration(Number(metadata.stuckDurationMs))}</Box>
       )}
-      {metadata.decision && (
+      {metadata.decision !== undefined && (
         <Box>Decision: {String(metadata.decision)}</Box>
       )}
-      {metadata.previousStatus && (
+      {metadata.previousStatus !== undefined && (
         <Box>Previous Status: {String(metadata.previousStatus)}</Box>
       )}
       {metadata.previousRetryCount !== undefined && (

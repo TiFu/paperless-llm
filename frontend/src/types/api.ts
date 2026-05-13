@@ -4,6 +4,9 @@ export interface Document {
   id: string;
   title: string;
   content: string;
+  tags?: string[];
+  createdDate?: string;
+  modifiedDate?: string;
 }
 
 export interface QueueStats {

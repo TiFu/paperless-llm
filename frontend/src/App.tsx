@@ -9,7 +9,6 @@ import {
   createTheme,
 } from '@mui/material';
 import { DocumentsPage } from './pages/DocumentsPage';
-import { AutomatedStepsPage } from './pages/AutomatedStepsPage';
 import { JobsPage } from './pages/JobsPage';
 import { JobDetailsPage } from './pages/JobDetailsPage';
 import { ApprovalsPage } from './pages/ApprovalsPage';import { FalloutsPage } from './pages/FalloutsPage';import { PromptsPage } from './pages/PromptsPage';
