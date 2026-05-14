@@ -1,10 +1,11 @@
 import pino from 'pino';
 import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { createChildLogger } from '../utils/logger.js';
-import { AutomatedStep } from '../domain/steps/automated/AutomatedStep.js';
+import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
 import { Transition } from '../domain/workflows/Transition.js';
 import { WorkflowOrchestratorService } from './WorkflowOrchestratorService.js';
 import { AuditLogApplicationService } from './AuditLogApplicationService.js';
+import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 
 /**
  * StepCancelApplicationService - handles manual cancellation of steps in fallout or retry state.
@@ -15,7 +16,6 @@ export class StepCancelApplicationService {
 
   constructor(
     private readonly txManager: TransactionManager,
-    private readonly workflowOrchestrator: WorkflowOrchestratorService,
     private readonly auditLogService: AuditLogApplicationService
   ) {
     this.logger = createChildLogger({ service: 'StepCancelApplicationService' });
@@ -29,7 +29,7 @@ export class StepCancelApplicationService {
    */
   async cancelStep(stepId: string): Promise<void> {
     await using context = await this.txManager.createContext();
-
+    let jobId = null;
     try {
       await context.start();
       const repos = context.getRepositoryRegistry();
@@ -46,7 +46,7 @@ export class StepCancelApplicationService {
       );
 
       // Verify it's an automated step (user interaction steps can't be cancelled this way)
-      if (!(step instanceof AutomatedStep)) {
+      if (!(step instanceof ExecutableStep)) {
         throw new Error(
           `Step ${stepId} (${step.getStepType()}) is not an automated step and cannot be manually cancelled`
         );
@@ -66,6 +66,8 @@ export class StepCancelApplicationService {
         throw new Error(`Job ${step.getJobId()} not found for step ${stepId}`);
       }
 
+      jobId = job.id
+
       // Mark step as failed using domain logic
       step.moveToFailed();
 
@@ -73,11 +75,10 @@ export class StepCancelApplicationService {
       await repos.getSteps().update(step);
 
       // Advance workflow with FAILURE transition (will move job to FAILED state)
-      await this.workflowOrchestrator.advanceToNextStep(
+      const workflowOrchestrator = new WorkflowOrchestratorService(this.auditLogService, context)
+      await workflowOrchestrator.advanceToNextStep(
         job, 
-        Transition.FAILURE, 
-        context,
-        stepId
+        Transition.FAILURE
       );
 
       await context.commit();
@@ -90,6 +91,8 @@ export class StepCancelApplicationService {
     } catch (error) {
       this.logger.error({ error, stepId }, 'Failed to cancel step');
       await context.rollback();
+      const entry = AuditLogEntry.createError(jobId as string, stepId, { message: "" + error })
+      this.auditLogService.createEntry(entry)
       throw error;
     }
   }

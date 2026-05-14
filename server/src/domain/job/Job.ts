@@ -7,6 +7,7 @@ import { AutomatedWorkflow } from '../workflows/AutomatedWorkflow.js';
 import { ApprovalWorkflow } from '../workflows/ApprovalWorkflow.js';
 import { error } from 'console';
 import { Transition } from '../workflows/Transition.js';
+import { DocumentField } from '../steps/StepFactory.js';
 
 /**
  * Job entity - stateful entity representing a workflow instance
@@ -20,6 +21,7 @@ export class Job {
     public readonly jobType: WorkflowType,
     public state: JobState,
     public documentActions: DocumentAction[],
+    public readonly fields: DocumentField[],
     public errorMessage: string | undefined,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
@@ -60,13 +62,14 @@ export class Job {
         return new AutomatedWorkflow(this)
     }
   }
-  public static fromDb(row: Record<string, unknown>, actions: DocumentAction[] = []): Job {
+  public static fromDb(row: Record<string, unknown>, fields: DocumentField[], actions: DocumentAction[] = []): Job {
     return new Job(
       row.id as string,
       row.document_id as string,
       row.job_type as WorkflowType,
       row.state as JobState,
       actions,
+      fields,
       row.error_message as string | undefined,
       new Date(row.created_at as string),
       new Date(row.updated_at as string),

@@ -5,7 +5,8 @@ import { Transition } from '../../workflows/Transition.js';
  * Abstract base class for automated steps that execute without user interaction
  * Automated steps directly return actions and a transition result
  */
-export abstract class AutomatedStep extends IStep {
+export abstract class ExecutableStep extends IStep {
+  kind = "executable" as const
   
   public constructor(
     stepId: string | null, 
@@ -29,6 +30,15 @@ export abstract class AutomatedStep extends IStep {
   protected abstract doExecute(
     context: StepExecutionContext,
   ): Promise<StepResult>;
+
+  /**
+   * Override this method to indicate if the step requires a prompt for execution
+   * @returns true if step needs a prompt, false otherwise
+   */
+  public needsPrompt(): boolean {
+    return false;
+  }
+
 
   /**
    * Execute the step (implements IStep interface)
@@ -55,7 +65,8 @@ export abstract class AutomatedStep extends IStep {
       console.error(`Automated step execution failed:`, error);
       return {
         actions: [],
-        transition: Transition.NONE,
+        transition: Transition.NONE, // No transition out of this step - we either retry or go into fallout
+        message: "Step execution failed with error " + error
       };
     }
   }

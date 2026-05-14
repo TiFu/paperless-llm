@@ -5,6 +5,7 @@ import { JobState } from '../../domain/job/JobState.js';
 import { Job } from '../../domain/job/Job.js';
 import { DocumentAction } from '../../domain/actions/DocumentAction.js';
 import { DocumentActionFactory } from '../../domain/actions/DocumentActionFactory.js';
+import { DocumentField } from '../../domain/steps/StepFactory.js';
 
 export class PostgreSQLJobRepository implements IJobRepository {
   constructor(
@@ -59,6 +60,7 @@ export class PostgreSQLJobRepository implements IJobRepository {
   async create(
     documentId: string,
     jobType: WorkflowType,
+    fields: DocumentField[]
   ): Promise<Job> {
     const query = `
       INSERT INTO jobs (document_id, job_type, state)
@@ -112,7 +114,32 @@ export class PostgreSQLJobRepository implements IJobRepository {
     }
 
     const actions = await this.loadActions(id);
-    return Job.fromDb(result.rows[0], actions);
+    const fields = await this.loadFields(id);
+    return Job.fromDb(result.rows[0], fields, actions);
+  }
+
+  private async saveFields(jobId: string, fields: DocumentField[]): Promise<void> {
+
+    // Prepare bulk insert
+    const values = fields.map((field, idx) => `($1, $${idx + 2})`).join(', ');
+    const params = [jobId, ...fields];
+
+    const query = `
+      INSERT INTO job_fields (job_id, field)
+      VALUES ${values}
+      ON CONFLICT (job_id, field) DO NOTHING
+    `;
+
+    await this.getClient().query(query, params);
+  }
+
+  private async loadFields(jobId: string): Promise<DocumentField[]> {
+    const query = `SELECT * FROM job_fields WHERE job_id = $1`;
+    const result = await this.getClient().query(query, [jobId]);
+
+    const output = result.rows.map((v) => v.field as DocumentField);
+    return output
+
   }
 
   async update(job: Job): Promise<void> {
@@ -133,6 +160,7 @@ export class PostgreSQLJobRepository implements IJobRepository {
 
     // Save actions to document_actions table
     await this.saveActions(job.id, job.documentActions);
+    await this.saveFields(job.id, job.fields)
   }
 
   async updateState(job: Job): Promise<void> {
@@ -187,7 +215,8 @@ export class PostgreSQLJobRepository implements IJobRepository {
     const items = await Promise.all(
       result.rows.map(async (row) => {
         const actions = await this.loadActions(row.id as string);
-        return Job.fromDb(row, actions);
+        const fields = await this.loadFields(row.id);
+        return Job.fromDb(row, fields, actions);
       }),
     );
     const nextCursor = items.length === limit ? items[items.length - 1].id : null;
@@ -206,7 +235,8 @@ export class PostgreSQLJobRepository implements IJobRepository {
     return Promise.all(
       result.rows.map(async (row) => {
         const actions = await this.loadActions(row.id as string);
-        return Job.fromDb(row, actions);
+        const fields = await this.loadFields(row.id as string);
+        return Job.fromDb(row, fields, actions);
       }),
     );
   }

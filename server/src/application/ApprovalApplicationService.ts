@@ -1,4 +1,4 @@
-import { UserInteractionStep } from "../domain/steps/userinteraction/UserInteractionStep.js";
+import { ManualStep } from "../domain/steps/userinteraction/ManualStep.js";
 import { TransactionManager } from "../infrastructure/TransactionManager.js";
 
 import { DocumentAction } from "../domain/actions/DocumentAction.js";
@@ -6,6 +6,7 @@ import { Cursor, encodeCursor } from "../domain/common/Cursor.js";
 import { getLogger } from "../utils/logger.js";
 import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService.js";
 import { AuditLogApplicationService } from "./AuditLogApplicationService.js";
+import { AuditLogEntry } from "../domain/audit/AuditLogEntry.js";
 
 /**
  * Enriched approval item with full context for UI display
@@ -39,7 +40,6 @@ export interface ApprovalStats {
 export class ApprovalApplicationService {
   constructor(
     private readonly txManager: TransactionManager,
-    private readonly workflowOrchestratorService: WorkflowOrchestratorService,
     private readonly paperlessBaseUrl: string,
     private readonly auditLogService: AuditLogApplicationService
   ) {}
@@ -146,7 +146,7 @@ export class ApprovalApplicationService {
   async processApprovalDecision(stepId: string, decision: string): Promise<void> {
     const logger = getLogger();
     const context = await this.txManager.createContext();
-    
+    let jobId = null;
     try {
       await context.start();
       const repos = context.getRepositoryRegistry();
@@ -162,6 +162,7 @@ export class ApprovalApplicationService {
       if (!job) {
         throw new Error(`Job ${step.getJobId()} not found`);
       }
+      jobId = job.id
 
       logger.info(
         {
@@ -173,47 +174,30 @@ export class ApprovalApplicationService {
       );
 
       // Verify it's a user interaction step
-      if (!(step instanceof UserInteractionStep)) {
+      if (!(step instanceof ManualStep)) {
         throw new Error(
           `Step ${stepId} (${step.getStepType()}) is not a user interaction step`,
         );
       }
-
       // Process user decision (domain logic)
       const result = await step.processUserDecision(decision);
       job.addDocumentActions(result.actions);
 
-      await this.workflowOrchestratorService.advanceToNextStep(
+      const workflowOrchestratorService = new WorkflowOrchestratorService(this.auditLogService, context)
+      await workflowOrchestratorService.advanceToNextStep(
         job, 
-        result.transition, 
-        context,
-        stepId
+        result.transition
       );
-      
-      // Log approval decision
-      if (decision.toUpperCase() === 'APPROVED') {
-        await this.auditLogService.logApprovalApproved(
-          context,
-          job.id,
-          stepId,
-          decision,
-          job.documentActions
-        );
-      } else {
-        await this.auditLogService.logApprovalRejected(
-          context,
-          job.id,
-          stepId,
-          decision,
-          job.documentActions
-        );
-      }
       
       // Persist changes
       await repos.getJobs().update(job);
       await repos.getSteps().update(step);
 
       await context.commit();
+
+      // Now that decision has been processed, we can log the event
+      const entry = AuditLogEntry.createDecisionEntry(step, { decision: decision}, new Date())
+      this.auditLogService.createEntry(entry)
 
       logger.info(
         {
@@ -227,6 +211,8 @@ export class ApprovalApplicationService {
     } catch (error) {
       logger.error({ error, stepId, decision }, 'Failed to process approval');
       await context.rollback();
+      const entry = AuditLogEntry.createError(jobId as any, stepId, { message: "" + error})
+      this.auditLogService.createEntry(entry)
       throw error;
     } finally {
       await context.dispose();

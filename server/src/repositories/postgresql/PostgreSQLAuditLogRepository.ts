@@ -56,6 +56,49 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
     return this.mapRowToEntity(result.rows[0]);
   }
 
+  /**
+   * Batch create multiple AuditLogEntry objects.
+   */
+  async createAll(entries: AuditLogEntry[]): Promise<AuditLogEntry[]> {
+    if (entries.length === 0) return [];
+
+    const values: any[] = [];
+    const valuePlaceholders: string[] = [];
+    let paramIndex = 1;
+
+    for (const entry of entries) {
+      valuePlaceholders.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7})`);
+      values.push(
+        entry.id,
+        entry.jobId,
+        entry.stepId,
+        entry.eventType,
+        entry.eventTimestamp,
+        entry.processingStartTime,
+        entry.processingEndTime,
+        entry.metadata ? JSON.stringify(entry.metadata) : null
+      );
+      paramIndex += 8;
+    }
+
+    const query = `
+      INSERT INTO audit_log (
+        id,
+        job_id,
+        step_id,
+        event_type,
+        event_timestamp,
+        processing_start_time,
+        processing_end_time,
+        metadata
+      ) VALUES ${valuePlaceholders.join(",\n      ")}
+      RETURNING *
+    `;
+
+    const result = await this.pool.query(query, values);
+    return result.rows.map(row => this.mapRowToEntity(row));
+  }
+
   async getByJobId(jobId: string): Promise<AuditLogEntry[]> {
     const query = `
       SELECT * FROM audit_log

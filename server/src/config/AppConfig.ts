@@ -4,6 +4,7 @@ import * as yaml from 'js-yaml';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { WorkflowType } from '../domain/workflows/WorkflowType.js';
+import { DocumentField } from '../domain/steps/StepFactory.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -93,6 +94,7 @@ export interface AutoQueueConfig {
   readonly pollIntervalMs: number;
   readonly workflowType: WorkflowType;
   readonly tag: string;
+  readonly fields: DocumentField[]
 }
 
 /**
@@ -128,6 +130,7 @@ interface RawConfig {
     pollIntervalMs?: number;
     workflowType?: string;
     tag?: string;
+    fields?: DocumentField[]
   };
 }
 
@@ -183,6 +186,7 @@ export class AppConfig {
       pollIntervalMs: rawConfig.autoQueue?.pollIntervalMs ?? 60000, // Default: 60 seconds
       workflowType: this.parseWorkflowType(rawConfig.autoQueue?.workflowType) ?? WorkflowType.AUTOMATED, // Default: AUTOMATED
       tag: rawConfig.autoQueue?.tag ?? 'llm-auto-process', // Default: llm-auto-process
+      fields: rawConfig.autoQueue?.fields ?? [ 'title' ]
     };
 
     this.validate();

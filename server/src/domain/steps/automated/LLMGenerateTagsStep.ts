@@ -1,4 +1,4 @@
-import { AutomatedStep } from './AutomatedStep.js';
+import { ExecutableStep } from './ExecutableStep.js';
 import { StepExecutionContext, StepResult, StepStatus, StepType } from '../IStep.js';
 import { TagUpdateAction } from '../../actions/TagUpdateAction.js';
 import { Transition } from '../../workflows/Transition.js';
@@ -7,7 +7,7 @@ import { Transition } from '../../workflows/Transition.js';
  * Step: Generate tags using LLM
  * Returns: TagUpdateAction with proposed tags and SUCCESS transition
  */
-export class LLMGenerateTagsStep extends AutomatedStep {
+export class LLMGenerateTagsStep extends ExecutableStep {
   constructor(
     stepId: string | null,
     jobId: string,
@@ -80,6 +80,7 @@ export class LLMGenerateTagsStep extends AutomatedStep {
     return {
       actions: [action],
       transition: Transition.SUCCESS,
+      message: "Generated tags: " + action.newValue
     };
   }
 

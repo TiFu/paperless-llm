@@ -1,4 +1,4 @@
-import { AutomatedStep } from './AutomatedStep.js';
+import { ExecutableStep } from './ExecutableStep.js';
 import { StepExecutionContext, StepResult, StepStatus } from '../IStep.js';
 import { Transition } from '../../workflows/Transition.js';
 import { StepType } from '../IStep.js';
@@ -8,7 +8,7 @@ import { StepType } from '../IStep.js';
  * Reads document actions from job context and executes them
  * Returns: SUCCESS transition if update succeeds, FAILURE on error
  */
-export class UpdateDocumentStep extends AutomatedStep {
+export class UpdateDocumentStep extends ExecutableStep {
   constructor(
     stepId: string | null, 
     jobId: string, 
@@ -41,6 +41,7 @@ export class UpdateDocumentStep extends AutomatedStep {
     return {
       actions: [],
       transition: Transition.SUCCESS,
+      message: "Updated document " + document.id + " with updates: " + updates
     };
   }
 }

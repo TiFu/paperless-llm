@@ -118,6 +118,11 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
   const [retrySuccess, setRetrySuccess] = useState<string | null>(null);
   const { adjustQueueStats } = useStats();
 
+  // Optionally, fetch audit log entries for richer step info (if available)
+  // This is a placeholder for future integration if you want to show outcome/messages from audit log
+  // const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  // useEffect(() => { ... }, [jobId]);
+
   const handleRetry = async (stepId: string) => {
     setRetryingStepId(stepId);
     setRetryError(null);
@@ -239,6 +244,17 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
                       1000
                     ).toFixed(2)}
                     s
+                  </Typography>
+                )}
+                {/* Display outcome/message if present (future: from audit log metadata) */}
+                {step.outcome && (
+                  <Typography variant="body2" color="info.main">
+                    <strong>Outcome:</strong> {step.outcome}
+                  </Typography>
+                )}
+                {step.errorMessage && (
+                  <Typography variant="body2" color="error.main">
+                    <strong>Error:</strong> {step.errorMessage}
                   </Typography>
                 )}
                 {step.stepStatus === StepStatus.RETRYING && step.retryAfter && (

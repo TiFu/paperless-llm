@@ -1,4 +1,4 @@
-import { AutomatedStep } from './AutomatedStep.js';
+import { ExecutableStep } from './ExecutableStep.js';
 import { StepExecutionContext, StepResult, StepStatus, StepType } from '../IStep.js';
 import { DocumentTypeUpdateAction } from '../../actions/DocumentTypeUpdateAction.js';
 import { Transition } from '../../workflows/Transition.js';
@@ -7,7 +7,7 @@ import { Transition } from '../../workflows/Transition.js';
  * Step: Generate document type using LLM
  * Returns: DocumentTypeUpdateAction with proposed document type and SUCCESS transition
  */
-export class LLMGenerateDocumentTypeStep extends AutomatedStep {
+export class LLMGenerateDocumentTypeStep extends ExecutableStep {
   constructor(
     stepId: string | null,
     jobId: string,
@@ -76,6 +76,7 @@ export class LLMGenerateDocumentTypeStep extends AutomatedStep {
     return {
       actions: [action],
       transition: Transition.SUCCESS,
+      message: "Document type: " + action.newValue
     };
   }
 

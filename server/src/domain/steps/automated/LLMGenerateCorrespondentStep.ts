@@ -1,4 +1,4 @@
-import { AutomatedStep } from './AutomatedStep.js';
+import { ExecutableStep } from './ExecutableStep.js';
 import { StepExecutionContext, StepResult, StepStatus, StepType } from '../IStep.js';
 import { CorrespondentUpdateAction } from '../../actions/CorrespondentUpdateAction.js';
 import { Transition } from '../../workflows/Transition.js';
@@ -7,7 +7,7 @@ import { Transition } from '../../workflows/Transition.js';
  * Step: Generate correspondent using LLM
  * Returns: CorrespondentUpdateAction with proposed correspondent and SUCCESS transition
  */
-export class LLMGenerateCorrespondentStep extends AutomatedStep {
+export class LLMGenerateCorrespondentStep extends ExecutableStep {
   constructor(
     stepId: string | null,
     jobId: string,
@@ -76,6 +76,7 @@ export class LLMGenerateCorrespondentStep extends AutomatedStep {
     return {
       actions: [action],
       transition: Transition.SUCCESS,
+      message: "Correspondent: " + action.newValue
     };
   }
 

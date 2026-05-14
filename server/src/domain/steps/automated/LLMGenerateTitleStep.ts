@@ -1,4 +1,4 @@
-import { AutomatedStep } from './AutomatedStep.js';
+import { ExecutableStep } from './ExecutableStep.js';
 import { StepExecutionContext, StepResult, StepStatus, StepType} from '../IStep.js';
 import { IDocumentManagementSystem } from '../../document/IDocumentManagementSystem.js';
 import { OllamaService } from '../../../services/OllamaService.js';
@@ -11,7 +11,7 @@ import { WorkflowType } from '../../workflows/WorkflowType.js';
  * Step: Generate title using LLM
  * Returns: TitleUpdateAction with proposed title and SUCCESS transition
  */
-export class LLMGenerateTitleStep extends AutomatedStep {
+export class LLMGenerateTitleStep extends ExecutableStep {
   constructor(
     stepId: string | null, 
     jobId: string, 
@@ -62,6 +62,7 @@ export class LLMGenerateTitleStep extends AutomatedStep {
     return {
       actions: [action],
       transition: Transition.SUCCESS,
+      message: "Generated title: " + action.newValue
     };
   }
 

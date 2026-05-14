@@ -1,4 +1,4 @@
-import { AutomatedStep } from './AutomatedStep.js';
+import { ExecutableStep } from './ExecutableStep.js';
 import { StepExecutionContext, StepResult, StepStatus, StepType } from '../IStep.js';
 import { CreatedDateUpdateAction } from '../../actions/CreatedDateUpdateAction.js';
 import { Transition } from '../../workflows/Transition.js';
@@ -7,7 +7,7 @@ import { Transition } from '../../workflows/Transition.js';
  * Step: Generate created date using LLM
  * Returns: CreatedDateUpdateAction with proposed date and SUCCESS transition
  */
-export class LLMGenerateCreatedDateStep extends AutomatedStep {
+export class LLMGenerateCreatedDateStep extends ExecutableStep {
   constructor(
     stepId: string | null,
     jobId: string,
@@ -66,6 +66,7 @@ export class LLMGenerateCreatedDateStep extends AutomatedStep {
     return {
       actions: [action],
       transition: Transition.SUCCESS,
+      message: "Date generated: " + action.newValue
     };
   }
 

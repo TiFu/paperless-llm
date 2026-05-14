@@ -6,7 +6,9 @@ import { Transition } from "../../workflows/Transition.js";
  * Abstract base class for steps that require user interaction
  * These steps coordinate external input and process user decisions
  */
-export abstract class UserInteractionStep extends IStep  {
+export class ManualStep extends IStep  {
+  kind = "manual" as const
+
   /**
    * Possible transitions for this step based on user input
    * e.g., [SUCCESS (approve), FAILURE (reject)]
@@ -47,12 +49,38 @@ export abstract class UserInteractionStep extends IStep  {
    * @param decision User's decision data
    * @returns Document actions and transition based on decision
    */
-  abstract processUserDecision(
+  processUserDecision(
     decision: string,
-  ): Promise<StepResult>;
+  ): Promise<StepResult> {
+      if (this.possibleDecisions.indexOf(decision) == -1) {
+        console.log("Invalid decision " + decision + " for ApprovalInteractionStep");
+        this.moveToFailed();
+        return Promise.resolve({
+          actions: [],
+          transition: Transition.FAILURE, 
+          message: "User decision " + decision + " unknown for " + this
+        })
+      }
+
+      const transition = this.decisionToTransitionMap[decision]
+      switch (transition) {
+        case Transition.FAILURE:
+          this.moveToFailed();
+          break;
+        case Transition.SUCCESS:
+          this.moveToCompleted();
+          break;
+      }
+
+      return Promise.resolve({
+        actions: [],
+        transition: transition,
+        message: "User decision " + decision + ", transition " + transition
+      })
+  }
 }
 
-export class ApprovalInteractionStep extends UserInteractionStep {
+export class ApprovalInteractionStep extends ManualStep {
 
   constructor(
     stepId: string | null, 
@@ -70,29 +98,4 @@ export class ApprovalInteractionStep extends UserInteractionStep {
     super(stepId, StepType.REQUIRE_APPROVAL, jobId, stepState, possibleDecisions, decisionToTransitionMap, retryCount, retryAfter)
   }
 
-  public processUserDecision(decision: string): Promise<StepResult> {
-      if (this.possibleDecisions.indexOf(decision) == -1) {
-        console.log("Invalid decision " + decision + " for ApprovalInteractionStep");
-        this.moveToFailed();
-        return Promise.resolve({
-          actions: [],
-          transition: Transition.FAILURE
-        })
-      }
-
-      const transition = this.decisionToTransitionMap[decision]
-      switch (transition) {
-        case Transition.FAILURE:
-          this.moveToFailed();
-          break;
-        case Transition.SUCCESS:
-          this.moveToCompleted();
-          break;
-      }
-
-      return Promise.resolve({
-        actions: [],
-        transition: transition
-      })
-  }
 }

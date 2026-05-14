@@ -1,15 +1,45 @@
+
 import { Pool, PoolClient } from 'pg';
 import { AutomatedStepStatistics, IStepRepository, StepWithJob } from '../../domain/steps/IStepRepository.js';
 import { IStep, StepStatus, StepType } from '../../domain/steps/IStep.js';
 import { StepFactory } from '../../domain/steps/StepFactory.js';
-import { AutomatedStep } from '../../domain/steps/automated/AutomatedStep.js';
-import { UserInteractionStep } from '../../domain/steps/userinteraction/UserInteractionStep.js';
+import { ExecutableStep } from '../../domain/steps/automated/ExecutableStep.js';
+import { ManualStep } from '../../domain/steps/userinteraction/ManualStep.js';
 import { Cursor } from '../../domain/common/Cursor.js';
+import { CompositeStep } from '../../domain/steps/automated/CompositeStep.js';
+
 export class PostgreSQLStepRepository implements IStepRepository {
   constructor(private readonly client: PoolClient) {}
 
   private getClient(): Pool | PoolClient {
     return this.client;
+  }
+
+  /**
+   * Get a composite step by ID, including its child step IDs.
+   */
+  async getCompositeStep(id: string): Promise<CompositeStep> {
+    // Load the composite step
+    const stepResult = await this.getClient().query('SELECT * FROM steps WHERE id = $1', [id]);
+    if (stepResult.rows.length === 0) {
+      throw new Error("Unknown step " + id)
+    }
+    const stepRow = stepResult.rows[0];
+
+    // Load child step IDs
+    const childrenResult = await this.getClient().query('SELECT id FROM steps WHERE parent_step_id = $1 ORDER BY created_at ASC', [id]);
+    const childIds = childrenResult.rows.map((row: any) => row.id as string);
+
+    if (childIds.length == 0) {
+      throw new Error("No children found - step is not a valid composite step")
+    }
+
+    // Use StepFactory to construct the composite step
+    const step = StepFactory.compositeStepFromDb(stepRow, childIds) as CompositeStep;
+    if (!step.isCompositeStep()) {
+      throw new Error("Loaded step is not a composite step")
+    }
+    return step
   }
 
   async create(step: IStep): Promise<IStep> {
@@ -57,48 +87,6 @@ export class PostgreSQLStepRepository implements IStepRepository {
     return StepFactory.fromDb(result.rows[0]);
   }
 
-  async getPending(limit: number): Promise<IStep[]> {
-    const query = `
-      SELECT * FROM steps
-      WHERE status = $1
-      ORDER BY created_at ASC
-      LIMIT $2
-    `;
-
-    const result = await this.getClient().query(query, [StepStatus.WAITING, limit]);
-    return result.rows.map((row) => StepFactory.fromDb(row));
-  }
-
-  async markInProgress(id: string): Promise<void> {
-    const query = `
-      UPDATE steps
-      SET status = $1, started_at = NOW()
-      WHERE id = $2
-    `;
-
-    await this.getClient().query(query, [StepStatus.IN_PROGRESS, id]);
-  }
-
-  async markCompleted(id: string): Promise<void> {
-    const query = `
-      UPDATE steps
-      SET status = $1, completed_at = NOW()
-      WHERE id = $2
-    `;
-
-    await this.getClient().query(query, [StepStatus.COMPLETED, id]);
-  }
-
-  async markFailed(id: string): Promise<void> {
-    const query = `
-      UPDATE steps
-      SET status = $1, completed_at = NOW()
-      WHERE id = $2
-    `;
-
-    await this.getClient().query(query, [StepStatus.FAILED, id]);
-  }
-
   async getByJobId(jobId: string): Promise<IStep[]> {
     const query = `
       SELECT * FROM steps
@@ -110,7 +98,7 @@ export class PostgreSQLStepRepository implements IStepRepository {
     return result.rows.map((row) => StepFactory.fromDb(row));
   }
 
-  async getPendignAutomatedSteps(limit: number): Promise<AutomatedStep[]> {
+  async getPendignAutomatedSteps(limit: number): Promise<ExecutableStep[]> {
     const query = `
       SELECT * FROM steps
       WHERE status = $1 AND type != $2
@@ -123,10 +111,10 @@ export class PostgreSQLStepRepository implements IStepRepository {
       StepType.REQUIRE_APPROVAL,
       limit
     ]);
-    return result.rows.map((row) => StepFactory.fromDb(row)) as AutomatedStep[];
+    return result.rows.map((row) => StepFactory.fromDb(row)) as ExecutableStep[];
   }
 
-  async getPendingUserInteractionSteps(limit: number, cursor?: Cursor): Promise<UserInteractionStep[]> {
+  async getPendingUserInteractionSteps(limit: number, cursor?: Cursor): Promise<ManualStep[]> {
     let query: string;
     let params: any[];
 
@@ -151,7 +139,7 @@ export class PostgreSQLStepRepository implements IStepRepository {
     }
 
     const result = await this.getClient().query(query, params);
-    return result.rows.map((row) => StepFactory.fromDb(row)) as UserInteractionStep[];
+    return result.rows.map((row) => StepFactory.fromDb(row)) as ManualStep[];
   }
 
   async update(step: IStep): Promise<void> {
@@ -356,7 +344,7 @@ export class PostgreSQLStepRepository implements IStepRepository {
    * @param limit Maximum number of steps to return
    * @returns Array of automated steps ready for retry
    */
-  async getPendingRetries(now: Date, limit: number): Promise<AutomatedStep[]> {
+  async getPendingRetries(now: Date, limit: number): Promise<ExecutableStep[]> {
     const query = `
       SELECT * FROM steps
       WHERE status = $1 
@@ -374,7 +362,7 @@ export class PostgreSQLStepRepository implements IStepRepository {
       limit
     ]);
 
-    return result.rows.map((row) => StepFactory.fromDb(row)) as AutomatedStep[];
+    return result.rows.map((row) => StepFactory.fromDb(row)) as ExecutableStep[];
   }
 
   async getStepsByJobIdWithTimestamps(jobId: string): Promise<Array<{

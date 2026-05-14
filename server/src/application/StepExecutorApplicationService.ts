@@ -6,8 +6,9 @@ import { WorkflowOrchestratorService } from './WorkflowOrchestratorService.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { createChildLogger } from '../utils/logger.js';
-import { AutomatedStep } from '../domain/steps/automated/AutomatedStep.js';
+import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
 import { AuditLogApplicationService } from './AuditLogApplicationService.js';
+import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 
 /**
  * StepExecutorApplicationService - executes steps and manages workflow progression.
@@ -18,7 +19,6 @@ export class StepExecutorApplicationService {
 
   constructor(
     private readonly txManager: TransactionManager,
-    private readonly workflowOrchestratorService: WorkflowOrchestratorService,
     private readonly dmsService: IDocumentManagementSystem,
     private readonly llmService: ILLMService,
     private readonly retryConfig: RetryConfig,
@@ -31,7 +31,7 @@ export class StepExecutorApplicationService {
    * Execute a step by ID.
    * Implements idempotency and workflow progression.
    */
-  private async executeStep(step: AutomatedStep): Promise<void> {
+  private async executeStep(step: ExecutableStep): Promise<void> {
     const stepLogger = this.logger.child({ name: 'Step ' + step.getStepId() });
 
     // Check if already completed (idempotency)
@@ -50,112 +50,54 @@ export class StepExecutorApplicationService {
     let endTime: Date | null = null;
     try {
         await context.start();
-        const repos = context.getRepositoryRegistry();
-        const job = await repos.getJobs().getById(step.getJobId());
+
+        const job = await context.getRepositoryRegistry().getJobs().getById(step.getJobId());
         if (!job) {
-            throw new Error('Unknown job in step execution!');
+          throw new Error("Unknown job for step " +step.getStepId() + " with job id " + step.getJobId())
         }
 
-        let prompt = null;
-        if (step.needsPrompt()) {
-            prompt = await repos.getPrompts().getByStepType(step.getStepType());
-            if (!prompt) {
-                throw new Error(`No prompt found for step type: ${step.getStepType()}`);
-            }
-        }
+        const domainServices = new DomainServices(context, this.dmsService, this.llmService)
+        const executionService = domainServices.stepExecution
 
-        const domainServices = new DomainServices(context)
-
-        // Create execution context with domain services
-        const executionContext: StepExecutionContext = {
-        job: job,
-        stepId: step.getStepId() as string,
-        prompt: prompt,
-        services: {
-            dms: this.dmsService,
-            llm: this.llmService,
-            promptDomainService: domainServices.prompt,
-        },
-        };
-    
         stepLogger.info({ type: step.getStepType(), id: step.getStepId() }, 'Executing step');
+        const {result, auditEntries} = await executionService.executeAndUpdateHierarchy(step, this.retryConfig)
 
-            // Execute step (may involve external calls)
-        const result = await step.execute(executionContext, this.retryConfig);
-        endTime = new Date();
-        
-        job.addDocumentActions(result.actions);
-        // Advance workflow (separate transaction) - pass step ID for parent completion check
-        await this.workflowOrchestratorService.advanceToNextStep(
-          job, 
-          result.transition, 
-          context,
-          step.getStepId() as string
+        await this.auditLogService.createAllEntries(auditEntries);
+        // Now advance workflow (may create/log next step)
+        const workflowOrchestratorService = new WorkflowOrchestratorService(this.auditLogService, context)
+        await workflowOrchestratorService.advanceToNextStep(
+          job,
+          result.transition
         );
-
-        await repos.getJobs().update(job);
-        await repos.getSteps().update(step);
-        
-        // Log STEP_COMPLETED event
-        const stepId = step.getStepId();
-        if (stepId) {
-          await this.auditLogService.logStepCompleted(
-            context,
-            job.id,
-            stepId,
-            startTime,
-            endTime,
-            step.getRetryCount()
-          );
-        }
 
         await context.commit();
     } catch (error) {
       endTime = new Date();
       stepLogger.error({ error }, 'Failed to execute step');
       
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      // Log STEP_FAILED event
-      const stepId = step.getStepId();
-      if (stepId) {
-        await this.auditLogService.logStepFailed(
-          context,
-          step.getJobId(),
-          stepId,
-          startTime,
-          endTime,
-          step.getRetryCount(),
-          errorMessage
-        );
-      }
-      
-      const previousStatus = step.getStepStatus();
-      step.markExecutionFailed(this.retryConfig)
-      const newStatus = step.getStepStatus();
-      
-      // Log state transition event
-      const retryAfter = step.getRetryAfter();
-      if (stepId && newStatus === StepStatus.RETRYING && retryAfter) {
-        await this.auditLogService.logStepMovedToRetrying(
-          context,
-          step.getJobId(),
-          stepId,
-          step.getRetryCount(),
-          errorMessage,
-          retryAfter
-        );
-      } else if (stepId && newStatus === StepStatus.IN_FALLOUT) {
-        await this.auditLogService.logStepMovedToFallout(
-          context,
-          step.getJobId(),
-          stepId,
-          step.getRetryCount(),
-          errorMessage
-        );
-      }
-      
+      // Rollback prior context
       await context.rollback();
+
+      const entry = AuditLogEntry.createStepExecuted(step, {
+        message: "Failed to execute step with error message: " + error,
+        success: false,
+        nextRetryTime: step.getRetryAfter(),
+        retryCount: step.getRetryCount()
+      }, new Date(), startTime, endTime)
+      this.auditLogService.createEntry(entry)
+        .catch((err) => { stepLogger.error(err, "Failed to save audit entries")})
+
+      // TODO: improvement -> re-use context!
+      const errorContext = await this.txManager.createContext();
+      try {
+        await errorContext.start();
+        step.markExecutionFailed(this.retryConfig)
+        errorContext.getRepositoryRegistry().getSteps().update(step);
+        await errorContext.commit();
+      } catch (error) {
+        stepLogger.error({ error }, "Failed to mark step execution as failed!")
+      }
+      
       throw error;
     } finally {
       await context.dispose();
@@ -175,7 +117,7 @@ export class StepExecutorApplicationService {
     // Fetch and mark steps as in-progress in a transaction
     await using context = await this.txManager.createContext();
 
-    let pendingSteps: AutomatedStep[];
+    let pendingSteps: ExecutableStep[];
     // 1) move Automated Steps to in progress
     try {
         await context.start();
@@ -192,12 +134,12 @@ export class StepExecutorApplicationService {
 
     // 2) Process steps
     logger.info({ steps: pendingSteps.map((v) => v.getStepId())}, "Found " + pendingSteps.length + " steps")
-    const results: Array<[AutomatedStep, Boolean]> = []
+    const results: Array<[ExecutableStep, Boolean]> = []
     for (const step of pendingSteps) {
         const result = await this.executeStep(step).then(() => { return [step, true] }).catch((error) => {
             logger.error("Failed to process step "+ step.getStepId() + ": " + error)
             return [step, false]
-        }) as [AutomatedStep, Boolean];
+        }) as [ExecutableStep, Boolean];
         results.push(result)
     }
 
@@ -237,7 +179,7 @@ export class StepExecutorApplicationService {
     // Fetch steps ready for retry and mark them as in-progress in a transaction
     await using context = await this.txManager.createContext();
 
-    let retrySteps: AutomatedStep[];
+    let retrySteps: ExecutableStep[];
     try {
         await context.start();
         const repos = context.getRepositoryRegistry();
@@ -259,12 +201,12 @@ export class StepExecutorApplicationService {
 
     logger.info({ steps: retrySteps.map((v) => v.getStepId())}, "Found " + retrySteps.length + " steps ready for retry")
     
-    const results: Array<[AutomatedStep, Boolean]> = []
+    const results: Array<[ExecutableStep, Boolean]> = []
     for (const step of retrySteps) {
         const result = await this.executeStep(step).then(() => { return [step, true] }).catch((error) => {
             logger.error("Failed to process retry step "+ step.getStepId() + ": " + error)
             return [step, false]
-        }) as [AutomatedStep, Boolean];
+        }) as [ExecutableStep, Boolean];
         results.push(result)
     }
 

@@ -1,9 +1,10 @@
-import { AutomatedStep } from "./automated/AutomatedStep.js";
-import { UserInteractionStep } from "./userinteraction/UserInteractionStep.js";
+import { ExecutableStep } from "./automated/ExecutableStep.js";
+import { ManualStep } from "./userinteraction/ManualStep.js";
 import { IStep, StepStatus, StepType } from "./IStep.js";
 import { WorkflowType } from "../workflows/WorkflowType.js";
 import { JobState } from "../job/JobState.js";
 import { Cursor } from "../common/Cursor.js";
+import { CompositeStep } from "./automated/CompositeStep.js";
 
 /**
  * Statistics for automated steps aggregated by status
@@ -51,17 +52,18 @@ export interface IStepRepository {
    */
   createAll(steps: IStep[]): Promise<IStep[]>;
 
+  getCompositeStep(parentId: string): Promise<CompositeStep>;
   /**
    * Get pending automated steps for execution
    */
-  getPendignAutomatedSteps(limit: number): Promise<AutomatedStep[]>;
+  getPendignAutomatedSteps(limit: number): Promise<ExecutableStep[]>;
 
   /**
    * Get pending user interaction steps (awaiting decisions)
    * @param limit Maximum number of steps to return
    * @param cursor Optional cursor for pagination (fetch steps after this cursor)
    */
-  getPendingUserInteractionSteps(limit: number, cursor?: Cursor): Promise<UserInteractionStep[]>;
+  getPendingUserInteractionSteps(limit: number, cursor?: Cursor): Promise<ManualStep[]>;
 
   /**
    * Get step by ID
@@ -113,7 +115,7 @@ export interface IStepRepository {
    * @param limit Maximum number of steps to return
    * @returns Array of automated steps ready for retry
    */
-  getPendingRetries(now: Date, limit: number): Promise<AutomatedStep[]>;
+  getPendingRetries(now: Date, limit: number): Promise<ExecutableStep[]>;
 
   /**
    * Reset a step back to WAITING status for retry

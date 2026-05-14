@@ -1,4 +1,5 @@
 import { DocumentAction } from '../actions/DocumentAction.js';
+import { AuditLogEntry } from '../audit/AuditLogEntry.js';
 import { IDocumentManagementSystem } from '../document/IDocumentManagementSystem.js';
 import { Job } from '../job/Job.js';
 import { ILLMService } from '../llm/ILLMService.js';
@@ -35,11 +36,12 @@ export enum StepStatus {
 
 /**
  * New-style automated step result
- * Contains document actions and transition result
+ * Contains document actions, transition result, and audit log metadata
  */
 export interface StepResult {
   actions: DocumentAction[];
   transition: Transition;
+  message: string
 }
 
 
@@ -65,8 +67,10 @@ export interface RetryConfig {
 }
 
 export abstract class IStep {
+  public abstract kind: "composite" | "manual" | "executable"
 
   constructor(
+
     protected stepId: string | null, 
     protected stepType: StepType, 
     protected jobId: string, 
@@ -77,6 +81,10 @@ export abstract class IStep {
     protected parentStepId: string | null = null,
     protected configuration: Record<string, any> | null = null
   ) {
+  }
+
+  public setStepState(state: StepStatus) {
+    this.stepState = state;
   }
 
   public updateId(stepId: string) {
@@ -200,13 +208,7 @@ export abstract class IStep {
     return this.configuration
   }
 
-  /**
-   * Override this method to indicate if the step requires a prompt for execution
-   * @returns true if step needs a prompt, false otherwise
-   */
-  public needsPrompt(): boolean {
-    return false;
-  }
+
 
   /**
    * Override this method to indicate if this is a composite step that spawns child steps

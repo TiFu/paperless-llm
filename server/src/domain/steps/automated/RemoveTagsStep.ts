@@ -1,4 +1,4 @@
-import { AutomatedStep } from './AutomatedStep.js';
+import { ExecutableStep } from './ExecutableStep.js';
 import { StepExecutionContext, StepResult, StepStatus } from '../IStep.js';
 import { Transition } from '../../workflows/Transition.js';
 import { StepType } from '../IStep.js';
@@ -8,7 +8,7 @@ import { StepType } from '../IStep.js';
  * Removes the configured processing tag from the document in the DMS
  * Returns: SUCCESS transition if removal succeeds, FAILURE on error
  */
-export class RemoveTagsStep extends AutomatedStep {
+export class RemoveTagsStep extends ExecutableStep {
   constructor(
     stepId: string | null, 
     jobId: string, 
@@ -31,12 +31,18 @@ export class RemoveTagsStep extends AutomatedStep {
     } catch (error) {
       // Log warning but don't fail the job - tag removal is cleanup
       console.warn(`Failed to remove processing tag from document ${documentId}:`, error);
+      return {
+        actions: [],
+        transition: Transition.FAILURE,
+        message: "Failed to clean up tags: " + error
+      }
     }
 
     // Return SUCCESS transition
     return {
       actions: [],
       transition: Transition.SUCCESS,
+        message: "Tags cleaned up"
     };
   }
 }

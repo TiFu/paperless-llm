@@ -2,12 +2,29 @@ import { IPromptDomainService } from './IPromptDomainService.js';
 import { IDocument } from '../document/IDocument.js';
 import { Job } from '../job/Job.js';
 import { Prompt } from './Prompt.js';
+import { TransactionContext } from '../../infrastructure/TransactionManager.js';
+import { IStep } from '../steps/IStep.js';
+import { ExecutableStep } from '../steps/automated/ExecutableStep.js';
 
 /**
  * PromptDomainService - handles prompt rendering with document and job context.
  * Pure domain logic with no infrastructure dependencies.
  */
-export class PromptDomainService implements IPromptDomainService {
+export class PromptService implements IPromptDomainService {
+
+  public constructor(private context: TransactionContext) {
+
+  }
+
+  async loadPrompt(step: ExecutableStep): Promise<Prompt | null> {
+    if (!step.needsPrompt()) { 
+      return null
+    }
+
+    const promptRepo = this.context.getRepositoryRegistry().getPrompts();
+    const prompt = promptRepo.getByStepType(step.getStepType());
+    return prompt
+  }
   /**
    * Render a prompt template with document and job context.
    * @param prompt The prompt template to render

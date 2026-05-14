@@ -1,8 +1,9 @@
 import pino from 'pino';
 import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { createChildLogger } from '../utils/logger.js';
-import { AutomatedStep } from '../domain/steps/automated/AutomatedStep.js';
+import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
 import { AuditLogApplicationService } from './AuditLogApplicationService.js';
+import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 
 /**
  * StepRetryApplicationService - handles manual retry of steps in fallout or retry state.
@@ -43,7 +44,7 @@ export class StepRetryApplicationService {
       );
 
       // Verify it's an automated step (user interaction steps can't be retried this way)
-      if (!(step instanceof AutomatedStep)) {
+      if (!(step instanceof ExecutableStep)) {
         throw new Error(
           `Step ${stepId} (${step.getStepType()}) is not an automated step and cannot be manually retried`
         );
@@ -58,16 +59,11 @@ export class StepRetryApplicationService {
       }
 
       // Reset step using domain logic
-      const previousRetryCount = step.getRetryCount();
+      const state = step.getStepStatus();
       step.resetForManualRetry();
       
-      // Log manual retry event
-      await this.auditLogService.logStepManuallyRetried(
-        context,
-        step.getJobId(),
-        stepId,
-        previousRetryCount
-      );
+      const entry = AuditLogEntry.createStepManuallyRetried(step, {previousStatus: state }, new Date())
+      this.auditLogService.createEntry(entry)
 
       // Persist changes
       await repos.getSteps().update(step);

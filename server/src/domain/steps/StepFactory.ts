@@ -1,6 +1,5 @@
 import { IStep, StepStatus, StepType } from './IStep.js';
 import { LLMGenerateTitleStep } from './automated/LLMGenerateTitleStep.js';
-import { LLMGenerateFieldsStep } from './automated/LLMGenerateFieldsStep.js';
 import { LLMGenerateTagsStep } from './automated/LLMGenerateTagsStep.js';
 import { LLMGenerateCorrespondentStep } from './automated/LLMGenerateCorrespondentStep.js';
 import { LLMGenerateDocumentTypeStep } from './automated/LLMGenerateDocumentTypeStep.js';
@@ -10,7 +9,9 @@ import { RemoveTagsStep } from './automated/RemoveTagsStep.js';
 import { IDocumentManagementSystem } from '../document/IDocumentManagementSystem.js';
 import { OllamaService } from '../../services/OllamaService.js';
 import { IPromptsRepository } from '../prompt/IPromptsRepository.js';
-import { ApprovalInteractionStep } from './userinteraction/UserInteractionStep.js';
+import { ApprovalInteractionStep, ManualStep } from './userinteraction/ManualStep.js';
+import { CompositeStep } from './automated/CompositeStep.js';
+import { ExecutableStep } from './automated/ExecutableStep.js';
 
 /**
  * Type-safe dependency interfaces for each step type
@@ -21,31 +22,46 @@ export interface WorkflowContext {
   promptsRepo: IPromptsRepository;
 }
 
+export const DOCUMENT_FIELDS = [ "title", "tags", "correspondent", "document_type", "created_date"] as const;
+export type DocumentFieldTuple = typeof DOCUMENT_FIELDS
+export type DocumentField = DocumentFieldTuple[number]
 /**
  * Factory for creating step implementations with type-safe dependencies
  */
 export class StepFactory {
+  private readonly FIELD_TO_STEP_TYPE_MAP: Record<string, StepType> = {
+    'title': StepType.LLM_GENERATE_TITLE,
+    'tags': StepType.LLM_GENERATE_TAGS,
+    'correspondent': StepType.LLM_GENERATE_CORRESPONDENT,
+    'document_type': StepType.LLM_GENERATE_DOCUMENT_TYPE,
+    'created_date': StepType.LLM_GENERATE_CREATED_DATE,
+  };
+
+
   /**
    * Generic create method that routes to specific factory methods
    * Used by StepExecutorApplicationService
    */
-  static create(
+  create(
     stepId: string | null,
     jobId: string,
     type: StepType, 
     stepState: StepStatus, 
+    childSteps: Array<string>,
     retryCount: number = 0,
     retryAfter: Date | null = null,
     startedAt: Date | null = null,
     parentStepId: string | null = null,
     configuration: Record<string, any> | null = null
   ): IStep {
+    // If no stepId provided, generate one app side
+    stepId = stepId ? stepId : crypto.randomUUID();
     switch (type) {
       case StepType.LLM_GENERATE_TITLE:
         return new LLMGenerateTitleStep(stepId, jobId, stepState, retryCount, retryAfter, startedAt, parentStepId, configuration);
 
       case StepType.LLM_GENERATE_FIELDS:
-        return new LLMGenerateFieldsStep(stepId, jobId, stepState, retryCount, retryAfter, startedAt, parentStepId, configuration);
+        return new CompositeStep(stepId, StepType.LLM_GENERATE_FIELDS, jobId, stepState, retryCount, childSteps, retryAfter, startedAt, parentStepId, configuration);
 
       case StepType.LLM_GENERATE_TAGS:
         return new LLMGenerateTagsStep(stepId, jobId, stepState, retryCount, retryAfter, startedAt, parentStepId, configuration);
@@ -73,47 +89,85 @@ export class StepFactory {
     }
   }
 
+ private generateChildStepsForLLMGenerateFieldsStep(jobId: string, parentStepId: string, config: Record<string, any>) {
+    if (!config || !Array.isArray(config.fields)) {
+      throw new Error('LLMGenerateFieldsStep requires configuration with "fields" array');
+    }
+    const childSteps: IStep[] = [];
+
+    for (const fieldName of config.fields) {
+      const stepType = this.FIELD_TO_STEP_TYPE_MAP[fieldName];
+      if (!stepType) {
+        throw new Error(`Unknown field name: ${fieldName}. Supported: ${Object.keys(this.FIELD_TO_STEP_TYPE_MAP).join(', ')}`);
+      }
+
+      // Create child step with parent reference
+      const childStep = this.create(
+        crypto.randomUUID(), // No ID yet, will be assigned on insert
+        jobId,
+        stepType,
+        StepStatus.WAITING,
+        [],
+        0, // No retries yet
+        null, // No retry timer
+        null, // No started at
+        parentStepId, // Injected later
+        null // No configuration
+      );
+
+      childSteps.push(childStep);
+    }
+
+    return childSteps;  
+ }
+
   /**
    * Shorthand: Create a new LLM Generate Fields step (composite, not yet persisted)
    */
-  static newLLMGenerateFieldsStep(jobId: string, fields: string[]): IStep {
+  newLLMGenerateFieldsStep(jobId: string, fields: DocumentField[]): CompositeStep {
     const configuration = { fields };
-    return new LLMGenerateFieldsStep(null, jobId, StepStatus.WAITING, 0, null, null, null, configuration);
+    const parentId = crypto.randomUUID();
+    const children = this.generateChildStepsForLLMGenerateFieldsStep(jobId, parentId, configuration)
+    const childIds = children.map(c => c.getStepId());
+    return new CompositeStep(parentId, StepType.LLM_GENERATE_FIELDS, jobId, StepStatus.WAITING, 0, childIds, null, null, null, configuration)
   }
 
   /**
    * Shorthand: Create a new LLM Generate Title step (not yet persisted)
    */
-  static newLLMGenerateTitleStep(jobId: string): IStep {
+  newLLMGenerateTitleStep(jobId: string): ExecutableStep {
     return new LLMGenerateTitleStep(null, jobId, StepStatus.WAITING);
   }
 
   /**
    * Shorthand: Create a new Require Approval step (not yet persisted)
    */
-  static newRequireApprovalStep(jobId: string): IStep {
+  newRequireApprovalStep(jobId: string): ManualStep {
     return new ApprovalInteractionStep(null, jobId, StepStatus.WAITING);
   }
 
   /**
    * Shorthand: Create a new Update Document step (not yet persisted)
    */
-  static newUpdateDocumentStep(jobId: string): IStep {
+  newUpdateDocumentStep(jobId: string): ExecutableStep {
     return new UpdateDocumentStep(null, jobId, StepStatus.WAITING);
   }
 
   /**
    * Shorthand: Create a new Remove Tags step (not yet persisted)
    */
-  static newRemoveTagsStep(jobId: string): IStep {
+  newRemoveTagsStep(jobId: string): ExecutableStep {
     return new RemoveTagsStep(null, jobId, StepStatus.WAITING);
   }
 
+  static fromDb(row: any): IStep {
+    return this.compositeStepFromDb(row, [])
+  }
   /**
    * Create a step instance from a database row
    * Maps snake_case column names to the appropriate IStep subclass
    */
-  static fromDb(row: any): IStep {
+  static compositeStepFromDb(row: any, children: string[]): IStep {
     const stepId = row.id;
     const jobId = row.job_id;
     const type = row.type as StepType;
@@ -124,6 +178,7 @@ export class StepFactory {
     const parentStepId = row.parent_step_id || null;
     const configuration = row.configuration || null;
 
-    return StepFactory.create(stepId, jobId, type, status, retryCount, retryAfter, startedAt, parentStepId, configuration);
+    const factory = new StepFactory()
+    return factory.create(stepId, jobId, type, status, children, retryCount, retryAfter, startedAt, parentStepId, configuration);
   }
 }

@@ -3,6 +3,7 @@ import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { createChildLogger } from '../utils/logger.js';
 import { RetryConfig } from '../domain/steps/IStep.js';
 import { AuditLogApplicationService } from './AuditLogApplicationService.js';
+import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 
 /**
  * StuckStepResetApplicationService - resets steps stuck in IN_PROGRESS state.
@@ -52,21 +53,10 @@ export class StuckStepResetApplicationService {
       let resetCount = 0;
       let falloutCount = 0;
 
-      // Log stuck step reset events for each step
-      for (const step of stuckSteps) {
-        const stepId = step.getStepId();
-        if (stepId) {
-          const startedAt = (step as any).startedAt || new Date();
-          const stuckDurationMs = Date.now() - startedAt.getTime();
-          await this.auditLogService.logStuckStepReset(
-            context,
-            step.getJobId(),
-            stepId,
-            stuckDurationMs,
-            startedAt
-          );
-        }
-      }
+      const entries = stuckSteps.map((s) => {
+        return AuditLogEntry.createStuckStepReset(s, { previousStartedAt: new Date(), stuckDurationMs: 0  })
+    })
+    this.auditLogService.createAllEntries(entries)
 
       stuckSteps.forEach(a => a.markExecutionFailed(this.retryConfig))
       await repos.getSteps().updateAll(stuckSteps);

@@ -6,6 +6,8 @@ import { TransactionManager } from "../infrastructure/TransactionManager.js";
 import { getLogger } from "../utils/logger.js";
 import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService.js";
 import { AuditLogApplicationService } from "./AuditLogApplicationService.js";
+import { DocumentField } from "../domain/steps/StepFactory.js";
+import { AuditLogEntry } from "../domain/audit/AuditLogEntry.js";
 
 /**
  * Statistics for jobs grouped by state
@@ -75,6 +77,7 @@ export class JobApplicationService {
    */
   async create(
     documentId: string,
+    fields: DocumentField[],
     jobType: WorkflowType,
   ): Promise<Job> {
     const logger = getLogger();
@@ -86,19 +89,14 @@ export class JobApplicationService {
 
       logger.info({ documentId, jobType }, 'Creating new job');
 
-      const job = await repos.getJobs().create(documentId, jobType);
+      const job = await repos.getJobs().create(documentId, jobType, fields);
       
-      // Log JOB_CREATED event
-      await this.auditLogService.logJobCreated(
-        context,
-        job.id,
-        documentId,
-        jobType
-      );
+      const entry = AuditLogEntry.createJobCreated(job)
+      this.auditLogService.createEntry(entry)
       
-      // Start job with first transition
-      const orchestrator = new WorkflowOrchestratorService();
-      await orchestrator.startWorkflow(job, context);
+      // Start job with first transition, ensure orchestrator has auditLogService
+      const orchestrator = new WorkflowOrchestratorService(this.auditLogService, context);
+      await orchestrator.startWorkflow(job);
 
       logger.info({ jobId: job.id, state: job.state }, 'Job created');
 
@@ -120,7 +118,7 @@ export class JobApplicationService {
    * @returns Array of created jobs
    */
   async createBulk(
-    jobs: Array<{ documentId: string; jobType: WorkflowType }>
+    jobs: Array<{ documentId: string; jobType: WorkflowType, fields: DocumentField[] }>
   ): Promise<Job[]> {
     if (jobs.length === 0) {
       return [];
@@ -138,20 +136,15 @@ export class JobApplicationService {
       // Create all jobs in a single database operation
       const createdJobs = await repos.getJobs().createBulk(jobs);
       
-      // Log JOB_CREATED events for all jobs
-      for (const job of createdJobs) {
-        await this.auditLogService.logJobCreated(
-          context,
-          job.id,
-          job.documentId,
-          job.jobType
-        );
-      }
+      const entries = createdJobs.map(j => {
+        return AuditLogEntry.createJobCreated(j);
+      })
+      this.auditLogService.createAllEntries(entries)
       
       // Start workflow for each job (creates initial steps)
-      const orchestrator = new WorkflowOrchestratorService();
+      const orchestrator = new WorkflowOrchestratorService(this.auditLogService, context);
       for (const job of createdJobs) {
-        await orchestrator.startWorkflow(job, context);
+        await orchestrator.startWorkflow(job);
       }
 
       logger.info(

@@ -39,24 +39,15 @@ export class ApplicationServiceFactory {
     return new JobApplicationService(this.txManager, auditLogService);
   }
 
-  /**
-   * Create a new WorkflowApplicationService instance.
-   */
-  createWorkflowApplicationService(): WorkflowOrchestratorService {
-    const auditLogService = this.createAuditLogApplicationService();
-    return new WorkflowOrchestratorService(auditLogService);
-  }
 
   /**
    * Create a new StepExecutorApplicationService instance.
    */
   createStepExecutorApplicationService(): StepExecutorApplicationService {
-    const workflowAppService = this.createWorkflowApplicationService();
     const auditLogService = this.createAuditLogApplicationService();
 
     return new StepExecutorApplicationService(
       this.txManager,
-      workflowAppService,
       this.dmsService,
       this.llmService,
       this.retryConfig,
@@ -68,12 +59,10 @@ export class ApplicationServiceFactory {
    * Create a new ApprovalApplicationService instance.
    */
   createApprovalApplicationService(): ApprovalApplicationService {
-    const workflowAppService = this.createWorkflowApplicationService();
     const auditLogService = this.createAuditLogApplicationService();
     
     return new ApprovalApplicationService(
       this.txManager,
-      workflowAppService,
       this.paperlessBaseUrl,
       auditLogService
     );
@@ -128,9 +117,8 @@ export class ApplicationServiceFactory {
    * Used for manual cancellation of steps in fallout or retry state.
    */
   createStepCancelApplicationService(): StepCancelApplicationService {
-    const workflowAppService = this.createWorkflowApplicationService();
     const auditLogService = this.createAuditLogApplicationService();
-    return new StepCancelApplicationService(this.txManager, workflowAppService, auditLogService);
+    return new StepCancelApplicationService(this.txManager, auditLogService);
   }
 
   /**

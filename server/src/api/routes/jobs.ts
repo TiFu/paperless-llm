@@ -7,11 +7,13 @@ import { ApiError } from '../middleware/errorHandler.js';
 import { WorkflowType } from '../../domain/workflows/WorkflowType.js';
 import { JobState } from '../../domain/job/JobState.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { DOCUMENT_FIELDS, DocumentField } from '../../domain/steps/StepFactory.js';
 
 interface JobSubmission {
   documentId: string;
-  jobTypes: WorkflowType[];
+  jobType: WorkflowType;
   requiresApproval?: boolean;
+  fields: DocumentField[]
 }
 
 interface BatchJobRequest {
@@ -64,16 +66,19 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
         .isString()
         .notEmpty()
         .withMessage('documentId must be a non-empty string'),
-      body('documents.*.jobTypes')
-        .isArray({ min: 1 })
-        .withMessage('jobTypes must be a non-empty array'),
-      body('documents.*.jobTypes.*')
+      body('documents.*.jobType')
         .isIn(Object.values(WorkflowType))
         .withMessage(`jobType must be one of: ${Object.values(WorkflowType).join(', ')}`),
       body('documents.*.requiresApproval')
         .optional()
         .isBoolean()
         .withMessage('requiresApproval must be a boolean'),
+      body('documents.*.fields')
+        .isArray({ min: 1 })
+        .withMessage("Fields selection is required"),
+      body('documents.*.fields.*')
+        .isString()
+        .isIn(DOCUMENT_FIELDS)
     ],
     validateRequest,
     async (req: Request, res: Response, next: NextFunction) => {
@@ -88,16 +93,14 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
         // Create jobs and start workflows
         for (const doc of documents) {
           logger.debug({ msg: 'Processing doc', doc });
-          for (const jobType of doc.jobTypes) {
             // Create job with initial state and data
-            const job = await jobAppService.create(doc.documentId, jobType);
+            const job = await jobAppService.create(doc.documentId, doc.fields, doc.jobType);
 
             createdJobs.push({
               documentId: doc.documentId,
-              jobType,
+              jobType: doc.jobType,
               jobId: job.id,
             });
-          }
         }
 
         logger.info(

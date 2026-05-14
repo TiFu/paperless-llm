@@ -1,6 +1,7 @@
 import { Job } from "./Job.js";
 import { JobState } from "./JobState.js";
 import { WorkflowType } from "../workflows/WorkflowType.js";
+import { DocumentField } from "../steps/StepFactory.js";
 
 export interface IJobRepository {
   /**
@@ -12,7 +13,8 @@ export interface IJobRepository {
    */
   create(
     documentId: string,
-    jobType: WorkflowType
+    jobType: WorkflowType,
+    fields: DocumentField[]
   ): Promise<Job>;
 
   /**
@@ -21,7 +23,7 @@ export interface IJobRepository {
    * @returns Array of created jobs with empty documentActions arrays
    */
   createBulk(
-    jobs: Array<{ documentId: string; jobType: WorkflowType }>
+    jobs: Array<{ documentId: string; jobType: WorkflowType, fields: DocumentField[] }>
   ): Promise<Job[]>;
 
   /**

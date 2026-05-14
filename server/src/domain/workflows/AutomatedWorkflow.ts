@@ -46,18 +46,20 @@ export class AutomatedWorkflow extends BaseWorkflow {
    * Subclasses can override this for custom step logic
    */
   protected getStepForState(state: JobState, job: Job): IStep | null {
+    const factory = new StepFactory();
+
     switch (state) {
       case JobState.PENDING:
         return null; //this.getInitialStep(job);
 
       case JobState.LLM_PROCESSING:
-        return StepFactory.newLLMGenerateTitleStep(job.id)
+        return factory.newLLMGenerateFieldsStep(job.id, job.fields)
 
       case JobState.UPDATING_DOCUMENT:
-        return StepFactory.newUpdateDocumentStep(job.id)
+        return factory.newUpdateDocumentStep(job.id)
 
       case JobState.REMOVING_TAGS:
-        return StepFactory.newRemoveTagsStep(job.id)
+        return factory.newRemoveTagsStep(job.id)
 
       case JobState.COMPLETED:
       case JobState.FAILED:

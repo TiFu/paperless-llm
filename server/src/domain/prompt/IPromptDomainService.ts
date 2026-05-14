@@ -1,5 +1,6 @@
 import { IDocument } from '../document/IDocument.js';
 import { Job } from '../job/Job.js';
+import { ExecutableStep } from '../steps/automated/ExecutableStep.js';
 import { Prompt } from './Prompt.js';
 
 /**
@@ -15,4 +16,7 @@ export interface IPromptDomainService {
    * @returns Rendered prompt with variables substituted
    */
   renderPrompt(prompt: Prompt, document: IDocument, job: Job): string;
+
+  loadPrompt(step: ExecutableStep): Promise<Prompt | null>
+  
 }

@@ -108,6 +108,7 @@ export class DocumentAutoQueueApplicationService {
       const jobsToCreate = availableDocuments.map(doc => ({
         documentId: doc.id,
         jobType: this.config.workflowType,
+        fields: this.config.fields
       }));
 
       let createdJobs: Job[] = [];

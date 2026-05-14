@@ -91,6 +91,8 @@ const getEventLabel = (eventType: AuditEventType): string => {
   switch (eventType) {
     case AuditEventType.JOB_CREATED:
       return 'Job Created';
+    case AuditEventType.JOB_COMPLETED:
+      return 'Job Completed';
     case AuditEventType.STEP_CREATED:
       return 'Step Created';
     case AuditEventType.STEP_COMPLETED:
@@ -209,53 +211,92 @@ export const AuditLogTimeline: React.FC<AuditLogTimelineProps> = ({ entries }) =
         Audit Log
       </Typography>
       <Timeline position="right">
-        {entries.map((entry, index) => (
-          <TimelineItem key={entry.id}>
-            <TimelineOppositeContent color="text.secondary" sx={{ flex: 0.2, paddingLeft: 0 }}>
-              <Typography variant="caption">
-                {formatTime(entry.eventTimestamp)}
-              </Typography>
-              <Typography variant="caption" display="block">
-                {formatDate(entry.eventTimestamp)}
-              </Typography>
-            </TimelineOppositeContent>
-            <TimelineSeparator>
-              <TimelineDot color={getEventColor(entry.eventType)}>
-                {getEventIcon(entry.eventType)}
-              </TimelineDot>
-              {index < entries.length - 1 && <TimelineConnector />}
-            </TimelineSeparator>
-            <TimelineContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Typography variant="subtitle2">
-                  {getEventLabel(entry.eventType)}
+        {entries.map((entry, index) => {
+          const stepType = entry.metadata?.stepType ? String(entry.metadata.stepType) : undefined;
+          let description = '';
+          if (entry.eventType === AuditEventType.STEP_CREATED && stepType) {
+            description = `Step Type: ${stepType}`;
+          } else if ((entry.eventType === AuditEventType.STEP_COMPLETED || entry.eventType === AuditEventType.STEP_FAILED) && stepType) {
+            description = `Step Type: ${stepType}`;
+          }
+          // Show a message for completion/error events, but suppress misleading success if step is being retried
+          let message = '';
+          if (entry.eventType === AuditEventType.STEP_COMPLETED) {
+            // Find if a retry event for this step follows this entry
+            const retryEvent = entries.find(
+              (e, idx) =>
+                idx > index &&
+                e.stepId === entry.stepId &&
+                (e.eventType === AuditEventType.STEP_MOVED_TO_RETRYING || e.eventType === AuditEventType.STEP_MANUALLY_RETRIED)
+            );
+            if (!retryEvent) {
+              if (entry.metadata?.message) {
+                message = String(entry.metadata.message);
+              } else {
+                message = 'Step completed successfully.';
+              }
+            } // else: suppress misleading success message if retry event follows
+          } else if (entry.eventType === AuditEventType.STEP_FAILED) {
+            message = entry.metadata?.errorMessage ? `Error: ${entry.metadata.errorMessage}` : 'Step failed.';
+          }
+          if (entry.eventType === AuditEventType.JOB_COMPLETED) {
+            message = 'Job completed successfully.';
+          }
+          return (
+            <TimelineItem key={entry.id}>
+              <TimelineOppositeContent color="text.secondary" sx={{ flex: 0.2, paddingLeft: 0 }}>
+                <Typography variant="caption">
+                  {formatTime(entry.eventTimestamp)}
                 </Typography>
-                {entry.processingDurationMs !== null && (
-                  <Chip 
-                    label={formatDuration(entry.processingDurationMs)} 
-                    size="small" 
-                    variant="outlined"
-                  />
+                <Typography variant="caption" display="block">
+                  {formatDate(entry.eventTimestamp)}
+                </Typography>
+              </TimelineOppositeContent>
+              <TimelineSeparator>
+                <TimelineDot color={getEventColor(entry.eventType)}>
+                  {getEventIcon(entry.eventType)}
+                </TimelineDot>
+                {index < entries.length - 1 && <TimelineConnector />}
+              </TimelineSeparator>
+              <TimelineContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                  <Typography variant="subtitle2">
+                    {getEventLabel(entry.eventType)}
+                  </Typography>
+                  {entry.processingDurationMs !== null && (
+                    <Chip 
+                      label={formatDuration(entry.processingDurationMs)} 
+                      size="small" 
+                      variant="outlined"
+                    />
+                  )}
+                  {entry.metadata && Object.keys(entry.metadata).length > 0 && (
+                    <IconButton
+                      size="small"
+                      onClick={() => toggleExpand(entry.id)}
+                      sx={{
+                        transform: expandedEntry === entry.id ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.2s',
+                      }}
+                    >
+                      <ExpandMoreIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
+                {description && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{description}</Typography>
                 )}
-                {entry.metadata && Object.keys(entry.metadata).length > 0 && (
-                  <IconButton
-                    size="small"
-                    onClick={() => toggleExpand(entry.id)}
-                    sx={{
-                      transform: expandedEntry === entry.id ? 'rotate(180deg)' : 'rotate(0deg)',
-                      transition: 'transform 0.2s',
-                    }}
-                  >
-                    <ExpandMoreIcon fontSize="small" />
-                  </IconButton>
+                {/* Always show a message for completion/error/job events */}
+                {message && (
+                  <Typography variant="body2" color={entry.eventType === AuditEventType.STEP_FAILED ? 'error.main' : 'success.main'} sx={{ mb: 0.5 }}>{message}</Typography>
                 )}
-              </Box>
-              <Collapse in={expandedEntry === entry.id}>
-                <MetadataDisplay metadata={entry.metadata} />
-              </Collapse>
-            </TimelineContent>
-          </TimelineItem>
-        ))}
+                <Collapse in={expandedEntry === entry.id}>
+                  <MetadataDisplay metadata={entry.metadata} />
+                </Collapse>
+              </TimelineContent>
+            </TimelineItem>
+          );
+        })}
       </Timeline>
     </Paper>
   );

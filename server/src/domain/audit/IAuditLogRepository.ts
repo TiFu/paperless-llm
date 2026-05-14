@@ -11,6 +11,8 @@ export interface IAuditLogRepository {
    */
   create(entry: AuditLogEntry): Promise<AuditLogEntry>;
 
+  createAll(entry: AuditLogEntry[]): Promise<AuditLogEntry[]>;
+  
   /**
    * Get all audit log entries for a specific job
    * @param jobId The job ID to fetch audit logs for
