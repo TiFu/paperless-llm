@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../services/api';
-import { JobResponse, JobState, JobStats } from '../types/api';
+import { JobResponse, JobState } from '../types/api';
 
 const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
 
@@ -52,7 +52,6 @@ export const JobsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<JobResponse[]>([]);
-  const [stats, setStats] = useState<JobStats | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [stateFilter, setStateFilter] = useState<JobState | ''>('');
   const [hasLoadedMore, setHasLoadedMore] = useState(false);
@@ -61,10 +60,7 @@ export const JobsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [jobsResponse, statsResponse] = await Promise.all([
-        apiClient.fetchJobs(20, cursor, stateFilter || undefined),
-        cursor ? Promise.resolve(stats) : apiClient.fetchJobStats(),
-      ]);
+      const jobsResponse = await apiClient.fetchJobs(20, cursor, stateFilter || undefined);
 
       if (append) {
         setJobs((prev) => [...prev, ...jobsResponse.jobs]);
@@ -74,9 +70,6 @@ export const JobsPage: React.FC = () => {
       }
       setNextCursor(jobsResponse.nextCursor);
       
-      if (!cursor && statsResponse) {
-        setStats(statsResponse);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch jobs');
     } finally {

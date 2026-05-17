@@ -9,7 +9,7 @@ export abstract class ExecutableStep extends IStep {
   kind = "executable" as const
   
   public constructor(
-    stepId: string | null, 
+    stepId: string, 
     stepType: StepType, 
     jobId: string, 
     stepState: StepStatus, 

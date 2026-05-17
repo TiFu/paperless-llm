@@ -2,7 +2,6 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { body } from 'express-validator';
 import pino from 'pino';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
-import { validateRequest } from '../middleware/validation.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { StepType } from '../../domain/steps/IStep.js';
 import { createChildLogger } from '../../utils/logger.js';
@@ -47,7 +46,6 @@ export function createPromptsRouter(appFactory: ApplicationServiceFactory): Rout
         .notEmpty()
         .withMessage('template must be a non-empty string'),
     ],
-    validateRequest,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { stepType } = req.params;

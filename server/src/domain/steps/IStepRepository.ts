@@ -4,7 +4,6 @@ import { IStep, StepStatus, StepType } from "./IStep.js";
 import { WorkflowType } from "../workflows/WorkflowType.js";
 import { JobState } from "../job/JobState.js";
 import { Cursor } from "../common/Cursor.js";
-import { CompositeStep } from "./automated/CompositeStep.js";
 
 /**
  * Statistics for automated steps aggregated by status
@@ -43,40 +42,39 @@ export interface IStepRepository {
   /**
    * Create a new step
    */
-  create(step: IStep): Promise<IStep>;
+  create(step: IStep): Promise<void>;
 
   /**
    * Create multiple steps at once (for composite steps spawning children)
    * @param steps Array of steps to create
    * @returns Array of created steps with IDs assigned
    */
-  createAll(steps: IStep[]): Promise<IStep[]>;
+  createAll(steps: IStep[]): Promise<void>;
 
-  getCompositeStep(parentId: string): Promise<CompositeStep>;
   /**
    * Get pending automated steps for execution
    */
-  getPendignAutomatedSteps(limit: number): Promise<ExecutableStep[]>;
+  getPendingExecutableSteps(limit: number): Promise<ExecutableStep[]>;
 
   /**
    * Get pending user interaction steps (awaiting decisions)
    * @param limit Maximum number of steps to return
    * @param cursor Optional cursor for pagination (fetch steps after this cursor)
    */
-  getPendingUserInteractionSteps(limit: number, cursor?: Cursor): Promise<ManualStep[]>;
+  getPendingManualSteps(limit: number, cursor?: Cursor): Promise<ManualStep[]>;
 
   /**
    * Get step by ID
    */
   getById(id: string): Promise<IStep | null>;
-
-  update(step: IStep): Promise<void>;
-  // Execute update as a single query
-  updateAll(step: IStep[]): Promise<void>;
   /**
    * Get steps by job ID
    */
   getByJobId(jobId: string): Promise<IStep[]>;
+
+  update(step: IStep): Promise<void>;
+  // Execute update as a single query
+  updateAll(step: IStep[]): Promise<void>;
 
   /**
    * Get aggregated statistics for all automated steps (excluding REQUIRE_APPROVAL)
@@ -107,7 +105,7 @@ export interface IStepRepository {
    * @param limit Maximum number of steps to return
    * @returns Array of stuck steps
    */
-  getStuckInProgressSteps(olderThanMs: number, limit?: number): Promise<IStep[]>;
+  getStuckInProgressExecutableSteps(olderThanMs: number, limit?: number): Promise<IStep[]>;
 
   /**
    * Get steps in RETRYING status that are ready for retry (retry_after <= now)
@@ -146,25 +144,4 @@ export interface IStepRepository {
     retryCount: number;
     retryAfter: Date | null;
   }>>;
-
-  /**
-   * Get all child steps of a parent step
-   * @param parentStepId Parent step ID
-   * @returns Array of child steps
-   */
-  getChildSteps(parentStepId: string): Promise<IStep[]>;
-
-  /**
-   * Check if all child steps of a parent are in final states (COMPLETED, FAILED, IN_FALLOUT)
-   * @param parentStepId Parent step ID
-   * @returns true if all children are in final states, false otherwise
-   */
-  areAllChildStepsInFinalState(parentStepId: string): Promise<boolean>;
-
-  /**
-   * Check if any child steps have failed or are in fallout
-   * @param parentStepId Parent step ID
-   * @returns true if any children are FAILED or IN_FALLOUT, false otherwise
-   */
-  hasFailedChildSteps(parentStepId: string): Promise<boolean>;
 }

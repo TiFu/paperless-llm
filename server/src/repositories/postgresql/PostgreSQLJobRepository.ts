@@ -6,11 +6,17 @@ import { Job } from '../../domain/job/Job.js';
 import { DocumentAction } from '../../domain/actions/DocumentAction.js';
 import { DocumentActionFactory } from '../../domain/actions/DocumentActionFactory.js';
 import { DocumentField } from '../../domain/steps/StepFactory.js';
+import { createChildLogger } from '../../utils/logger.js';
+import pino from 'pino';
 
 export class PostgreSQLJobRepository implements IJobRepository {
+  private logger: pino.Logger
+
   constructor(
     private readonly pool: PoolClient
-  ) {}
+  ) {
+    this.logger = createChildLogger({ name: "PostgreSQLJobRepository"})
+  }
 
   private getClient(): Pool | PoolClient {
     return this.pool;
@@ -78,7 +84,7 @@ export class PostgreSQLJobRepository implements IJobRepository {
   }
 
   async createBulk(
-    jobs: Array<{ documentId: string; jobType: WorkflowType }>
+    jobs: Array<{ documentId: string; jobType: WorkflowType, fields: DocumentField[]}>
   ): Promise<Job[]> {
     if (jobs.length === 0) {
       return [];
@@ -101,8 +107,18 @@ export class PostgreSQLJobRepository implements IJobRepository {
       RETURNING *
     `;
 
+    this.logger.error({ query: query}, "Creating jobs in bulk")
     const result = await this.getClient().query(query, params);
-    return result.rows.map((row) => Job.fromDb(row, []));
+
+    const fields = result.rows.map((r, idx) => { 
+      return {
+        jobId: r.id,
+        fields: jobs[idx].fields
+      }
+    })
+    await this.saveFieldsBulk(fields)
+    
+    return result.rows.map((row, idx) => Job.fromDb(row, jobs[idx].fields));
   }
 
   async getById(id: string): Promise<Job | null> {
@@ -118,19 +134,42 @@ export class PostgreSQLJobRepository implements IJobRepository {
     return Job.fromDb(result.rows[0], fields, actions);
   }
 
+  private async saveFieldsBulk(fields: Array<{jobId: string, fields: DocumentField[]}>) {
+    const paramArray = fields.map((e) => {
+      return e.fields.map(f => [e.jobId, f]) as string[][];
+    }).flat(1);
+
+    const values = paramArray.map((e, idx) => `($${2*idx+1}, $${2*idx+2})`).join(', ')
+
+    const params = paramArray.flat()
+    const query = `INSERT INTO job_fields (job_id, field)
+      VALUES ${values}
+      ON CONFLICT (job_id, field) DO NOTHING`
+
+    this.logger.info({ query: query, params: params}, "Saving fields in bulk")
+    await this.getClient().query(query, params)
+  }
+
   private async saveFields(jobId: string, fields: DocumentField[]): Promise<void> {
+    if (fields.length == 0) {
+      const query = `DELETE FROM job_fields WHERE job_id = $1`
+      await this.getClient().query(query, [jobId])
+      return;
+    }
 
     // Prepare bulk insert
     const values = fields.map((field, idx) => `($1, $${idx + 2})`).join(', ');
     const params = [jobId, ...fields];
 
-    const query = `
+    let query = `
       INSERT INTO job_fields (job_id, field)
       VALUES ${values}
       ON CONFLICT (job_id, field) DO NOTHING
     `;
-
+    console.log("Save Fields: " + query)
     await this.getClient().query(query, params);
+
+
   }
 
   private async loadFields(jobId: string): Promise<DocumentField[]> {
@@ -157,7 +196,7 @@ export class PostgreSQLJobRepository implements IJobRepository {
       job.completedAt,
       job.id,
     ]);
-
+    this.logger.info({ job: job}, "Updating job")
     // Save actions to document_actions table
     await this.saveActions(job.id, job.documentActions);
     await this.saveFields(job.id, job.fields)

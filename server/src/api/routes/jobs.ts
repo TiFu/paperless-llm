@@ -2,17 +2,16 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { body, param, query } from 'express-validator';
 import pino from 'pino';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
-import { validateRequest } from '../middleware/validation.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { WorkflowType } from '../../domain/workflows/WorkflowType.js';
 import { JobState } from '../../domain/job/JobState.js';
 import { createChildLogger } from '../../utils/logger.js';
 import { DOCUMENT_FIELDS, DocumentField } from '../../domain/steps/StepFactory.js';
+import { DocumentAction } from '../../domain/actions/DocumentAction.js';
 
 interface JobSubmission {
   documentId: string;
   jobType: WorkflowType;
-  requiresApproval?: boolean;
   fields: DocumentField[]
 }
 
@@ -25,6 +24,16 @@ interface BatchJobRequest {
 export function createJobsRouter(appFactory: ApplicationServiceFactory): Router {
   const logger = createChildLogger({ name: "jobs-router"})
   const router = Router();
+
+  router.get('/fields', async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(DOCUMENT_FIELDS);
+    } catch (error) {
+      logger.error({ error }, 'Failed to get job stats');
+      next(error);
+    }
+  });
+
 
   /**
    * GET /api/jobs/stats
@@ -69,10 +78,6 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
       body('documents.*.jobType')
         .isIn(Object.values(WorkflowType))
         .withMessage(`jobType must be one of: ${Object.values(WorkflowType).join(', ')}`),
-      body('documents.*.requiresApproval')
-        .optional()
-        .isBoolean()
-        .withMessage('requiresApproval must be a boolean'),
       body('documents.*.fields')
         .isArray({ min: 1 })
         .withMessage("Fields selection is required"),
@@ -80,28 +85,13 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
         .isString()
         .isIn(DOCUMENT_FIELDS)
     ],
-    validateRequest,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { documents } = req.body as BatchJobRequest;
         
         // Create application services for this request
         const jobAppService = appFactory.createJobApplicationService();
-        
-        const createdJobs: { documentId: string; jobType: WorkflowType; jobId: string }[] = [];
-
-        // Create jobs and start workflows
-        for (const doc of documents) {
-          logger.debug({ msg: 'Processing doc', doc });
-            // Create job with initial state and data
-            const job = await jobAppService.create(doc.documentId, doc.fields, doc.jobType);
-
-            createdJobs.push({
-              documentId: doc.documentId,
-              jobType: doc.jobType,
-              jobId: job.id,
-            });
-        }
+        const createdJobs = await jobAppService.createBulk(documents)
 
         logger.info(
           {
@@ -143,7 +133,6 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
         .isIn(Object.values(JobState))
         .withMessage(`state must be one of: ${Object.values(JobState).join(', ')}`),
     ],
-    validateRequest,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const limit = (req.query.limit as number | undefined) || 20;
@@ -163,6 +152,7 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
             createdAt: job.createdAt,
             updatedAt: job.updatedAt,
             completedAt: job.completedAt,
+            documentActions: job.documentActions
           })),
           nextCursor: result.nextCursor,
         });
@@ -180,7 +170,6 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
   router.get(
     '/:id',
     [param('id').isString().notEmpty().withMessage('id must be a non-empty string')],
-    validateRequest,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const jobId = req.params.id;
@@ -196,22 +185,20 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
         }
 
         res.json({
-          job: {
-            id: job.id,
-            documentId: job.documentId,
-            jobType: job.jobType,
-            status: job.state,
-            errorMessage: job.errorMessage,
-            createdAt: job.createdAt,
-            updatedAt: job.updatedAt,
-            completedAt: job.completedAt,
-            documentActions: job.documentActions.map((action) => ({
-              id: action.id,
-              actionType: action.actionType,
-              oldValue: action.oldValue,
-              newValue: action.newValue,
-            })),
-          },
+          id: job.id,
+          documentId: job.documentId,
+          jobType: job.jobType,
+          status: job.state,
+          errorMessage: job.errorMessage,
+          createdAt: job.createdAt,
+          updatedAt: job.updatedAt,
+          completedAt: job.completedAt,
+          documentActions: job.documentActions.map((action) => ({
+            id: action.id,
+            actionType: action.actionType,
+            oldValue: action.oldValue,
+            newValue: action.newValue,
+          })),
         });
       } catch (error) {
         logger.error({ error, id: req.params.id }, 'Failed to get job status');
@@ -227,7 +214,6 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
   router.get(
     '/:id/steps',
     [param('id').isString().notEmpty().withMessage('id must be a non-empty string')],
-    validateRequest,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const jobId = req.params.id;
@@ -269,7 +255,6 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
   router.get(
     '/:id/audit-log',
     [param('id').isString().notEmpty().withMessage('id must be a non-empty string')],
-    validateRequest,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const jobId = req.params.id;

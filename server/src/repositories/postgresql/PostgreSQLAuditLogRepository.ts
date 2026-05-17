@@ -29,7 +29,6 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
   async create(entry: AuditLogEntry): Promise<AuditLogEntry> {
     const query = `
       INSERT INTO audit_log (
-        id,
         job_id,
         step_id,
         event_type,
@@ -38,12 +37,11 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
         processing_end_time,
         metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
 
     const result = await this.pool.query(query, [
-      entry.id,
       entry.jobId,
       entry.stepId,
       entry.eventType,
@@ -67,9 +65,8 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
     let paramIndex = 1;
 
     for (const entry of entries) {
-      valuePlaceholders.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7})`);
+      valuePlaceholders.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6})`);
       values.push(
-        entry.id,
         entry.jobId,
         entry.stepId,
         entry.eventType,
@@ -83,7 +80,6 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
 
     const query = `
       INSERT INTO audit_log (
-        id,
         job_id,
         step_id,
         event_type,

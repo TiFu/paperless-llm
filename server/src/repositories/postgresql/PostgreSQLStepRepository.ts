@@ -7,114 +7,123 @@ import { ExecutableStep } from '../../domain/steps/automated/ExecutableStep.js';
 import { ManualStep } from '../../domain/steps/userinteraction/ManualStep.js';
 import { Cursor } from '../../domain/common/Cursor.js';
 import { CompositeStep } from '../../domain/steps/automated/CompositeStep.js';
+import pino from 'pino';
+import { createChildLogger } from '../../utils/logger.js';
 
 export class PostgreSQLStepRepository implements IStepRepository {
-  constructor(private readonly client: PoolClient) {}
+  private logger: pino.Logger;
+  constructor(private readonly client: PoolClient) {
+    this.logger = createChildLogger( { name: "PostgreSQLStepRepository"})
+  }
 
   private getClient(): Pool | PoolClient {
     return this.client;
   }
 
-  /**
-   * Get a composite step by ID, including its child step IDs.
-   */
-  async getCompositeStep(id: string): Promise<CompositeStep> {
-    // Load the composite step
-    const stepResult = await this.getClient().query('SELECT * FROM steps WHERE id = $1', [id]);
-    if (stepResult.rows.length === 0) {
-      throw new Error("Unknown step " + id)
-    }
-    const stepRow = stepResult.rows[0];
+  // TODO: this needs to correctly handle recursive steps, i.e. create children
+  async create(step: IStep): Promise<void> {
+    await this.createAll([step])
+ }
 
-    // Load child step IDs
-    const childrenResult = await this.getClient().query('SELECT id FROM steps WHERE parent_step_id = $1 ORDER BY created_at ASC', [id]);
-    const childIds = childrenResult.rows.map((row: any) => row.id as string);
-
-    if (childIds.length == 0) {
-      throw new Error("No children found - step is not a valid composite step")
-    }
-
-    // Use StepFactory to construct the composite step
-    const step = StepFactory.compositeStepFromDb(stepRow, childIds) as CompositeStep;
-    if (!step.isCompositeStep()) {
-      throw new Error("Loaded step is not a composite step")
-    }
-    return step
-  }
-
-  async create(step: IStep): Promise<IStep> {
-    const query = `
-      INSERT INTO steps (job_id, type, status, parent_step_id, configuration)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-    `;
-
-    const result = await this.getClient().query(query, [
+  private getValuesAndParamsForStep(step: IStep, counter: number = 1): { values: string[], params: Array<any>, counter: number } {
+    const valueEntry = `($${counter}, $${counter+1}, $${counter+2}, $${counter+3}, $${counter+4}, $${counter+5}, $${counter+6})`
+    counter += 7
+    const params = [ step.getStepId(),
       step.getJobId(),
       step.getStepType(),
       step.getStepStatus(),
       step.getParentStepId(),
       step.getConfiguration() ? JSON.stringify(step.getConfiguration()) : null,
-    ]);
+      step.kind]
 
-    step.updateId(result.rows[0].id)
-    return step;
+    const values = [valueEntry]
+
+    this.logger.error({ hasChildren: step.hasChildren(), children: step.getChildren()}, "Creating step")
+    if (step.hasChildren()) {
+      for (let child of step.getChildren()) {
+        const result = this.getValuesAndParamsForStep(child, counter)
+        values.push(...result.values)
+        params.push(...result.params)
+        counter += result.counter - counter // only increment by the difference 
+      }
+
+    }
+      return {
+        values: values,
+        params: params,
+        counter: counter
+      }
   }
 
-  async createAll(steps: IStep[]): Promise<IStep[]> {
+  async createAll(steps: IStep[]): Promise<void> {
     if (steps.length === 0) {
-      return [];
+      return;
     }
 
-    // Create each step and collect results
-    const createdSteps: IStep[] = [];
-    for (const step of steps) {
-      const createdStep = await this.create(step);
-      createdSteps.push(createdStep);
+    const values = []
+    const params = []
+    let counter = 1;
+    for (let step of steps) {
+      const result = this.getValuesAndParamsForStep(step, counter)
+      values.push(...result.values)
+      params.push(...result.params)
+      counter += result.counter
     }
 
-    return createdSteps;
+    const query = `INSERT INTO steps (id, job_id, type, status, parent_id, configuration, kind)
+      VALUES ${values.join(",")}
+      RETURNING *`;
+
+    this.logger.error({ query: query, params: params}, "Creating steps recursively")
+    await this.getClient().query(query, params);
   }
 
   async getById(id: string): Promise<IStep | null> {
-    const query = `SELECT * FROM steps WHERE id = $1`;
-    const result = await this.getClient().query(query, [id]);
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    return StepFactory.fromDb(result.rows[0]);
+    return this.getStepByIdRecursive(id)
   }
 
   async getByJobId(jobId: string): Promise<IStep[]> {
     const query = `
-      SELECT * FROM steps
+      SELECT id FROM steps
       WHERE job_id = $1
       ORDER BY created_at ASC
     `;
 
-    const result = await this.getClient().query(query, [jobId]);
-    return result.rows.map((row) => StepFactory.fromDb(row));
+    const stepIds = await this.getClient().query(query, [jobId])
+
+    const steps = await Promise.all(stepIds.rows.map((r) => this.getStepByIdRecursive(r.id)))
+    return steps
   }
 
-  async getPendignAutomatedSteps(limit: number): Promise<ExecutableStep[]> {
+  private async getStepByIdRecursive(id: string): Promise<IStep> {
+    const mainQuery = `SELECT * FROM steps WHERE id = $1`;
+    const childQuery = `SELECT id FROM steps WHERE parent_id = $1`
+
+    const mainStepResult = await this.getClient().query(mainQuery, [id])
+
+
+    const childrenIdResult = await this.getClient().query(childQuery, [id])
+    const childSteps = await Promise.all(childrenIdResult.rows.map((r) => this.getStepByIdRecursive(r.id)))
+
+    return StepFactory.fromDb(mainStepResult.rows[0], childSteps)
+  }
+
+  async getPendingExecutableSteps(limit: number): Promise<ExecutableStep[]> {
     const query = `
       SELECT * FROM steps
-      WHERE status = $1 AND type != $2
+      WHERE status = $1 AND kind = 'executable'
       ORDER BY created_at ASC
-      LIMIT $3
+      LIMIT $2
     `;
 
     const result = await this.getClient().query(query, [
       StepStatus.WAITING,
-      StepType.REQUIRE_APPROVAL,
       limit
     ]);
-    return result.rows.map((row) => StepFactory.fromDb(row)) as ExecutableStep[];
+    return result.rows.map((row) => StepFactory.fromDb(row, [])) as ExecutableStep[];
   }
 
-  async getPendingUserInteractionSteps(limit: number, cursor?: Cursor): Promise<ManualStep[]> {
+  async getPendingManualSteps(limit: number, cursor?: Cursor): Promise<ManualStep[]> {
     let query: string;
     let params: any[];
 
@@ -139,7 +148,7 @@ export class PostgreSQLStepRepository implements IStepRepository {
     }
 
     const result = await this.getClient().query(query, params);
-    return result.rows.map((row) => StepFactory.fromDb(row)) as ManualStep[];
+    return result.rows.map((row) => StepFactory.fromDb(row, [])) as ManualStep[];
   }
 
   async update(step: IStep): Promise<void> {
@@ -295,12 +304,13 @@ export class PostgreSQLStepRepository implements IStepRepository {
     };
   }
 
-  async getStuckInProgressSteps(olderThanMs: number, limit?: number): Promise<IStep[]> {
+  async getStuckInProgressExecutableSteps(olderThanMs: number, limit?: number): Promise<IStep[]> {
     const query = `
-      SELECT * FROM steps
+      SELECT id FROM steps
       WHERE status = $1 
         AND started_at IS NOT NULL
         AND started_at < NOW() - INTERVAL '1 millisecond' * $2
+        AND kind = 'executable'
       ORDER BY started_at ASC
       ${limit ? `LIMIT $3` : ''}
     `;
@@ -311,7 +321,10 @@ export class PostgreSQLStepRepository implements IStepRepository {
     }
 
     const result = await this.getClient().query(query, params);
-    return result.rows.map((row) => StepFactory.fromDb(row));
+
+    const steps = await Promise.all(result.rows.map((r) => this.getStepByIdRecursive(r.id)))
+
+    return steps;
   }
 
   async resetStepToWaiting(stepId: string): Promise<void> {
@@ -346,23 +359,23 @@ export class PostgreSQLStepRepository implements IStepRepository {
    */
   async getPendingRetries(now: Date, limit: number): Promise<ExecutableStep[]> {
     const query = `
-      SELECT * FROM steps
+      SELECT id FROM steps
       WHERE status = $1 
         AND retry_after IS NOT NULL
         AND retry_after <= $2
-        AND type != $3
+        AND kind = 'executable'
       ORDER BY retry_after ASC, created_at ASC
-      LIMIT $4
+      LIMIT $3
     `;
 
     const result = await this.getClient().query(query, [
       StepStatus.RETRYING,
       now,
-      StepType.REQUIRE_APPROVAL,
       limit
     ]);
 
-    return result.rows.map((row) => StepFactory.fromDb(row)) as ExecutableStep[];
+    // Force type cast as we specifically look for executable steps
+    return Promise.all(result.rows.map((r) => this.getStepByIdRecursive(r.id))) as Promise<ExecutableStep[]>
   }
 
   async getStepsByJobIdWithTimestamps(jobId: string): Promise<Array<{
@@ -394,51 +407,5 @@ export class PostgreSQLStepRepository implements IStepRepository {
       retryCount: row.retry_count || 0,
       retryAfter: row.retry_after ? new Date(row.retry_after) : null,
     }));
-  }
-
-  async getChildSteps(parentStepId: string): Promise<IStep[]> {
-    const query = `
-      SELECT * FROM steps
-      WHERE parent_step_id = $1
-      ORDER BY created_at ASC
-    `;
-
-    const result = await this.getClient().query(query, [parentStepId]);
-    return result.rows.map((row) => StepFactory.fromDb(row));
-  }
-
-  async areAllChildStepsInFinalState(parentStepId: string): Promise<boolean> {
-    const query = `
-      SELECT COUNT(*) as count
-      FROM steps
-      WHERE parent_step_id = $1
-        AND status NOT IN ($2, $3, $4)
-    `;
-
-    const result = await this.getClient().query(query, [
-      parentStepId,
-      StepStatus.COMPLETED,
-      StepStatus.FAILED,
-      StepStatus.IN_FALLOUT
-    ]);
-
-    return parseInt(result.rows[0].count, 10) === 0;
-  }
-
-  async hasFailedChildSteps(parentStepId: string): Promise<boolean> {
-    const query = `
-      SELECT COUNT(*) as count
-      FROM steps
-      WHERE parent_step_id = $1
-        AND status IN ($2, $3)
-    `;
-
-    const result = await this.getClient().query(query, [
-      parentStepId,
-      StepStatus.FAILED,
-      StepStatus.IN_FALLOUT
-    ]);
-
-    return parseInt(result.rows[0].count, 10) > 0;
   }
 }

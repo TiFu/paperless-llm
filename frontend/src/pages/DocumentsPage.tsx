@@ -16,11 +16,13 @@ import {
   Card,
   CardContent,
   Link,
+  Checkbox,
 } from '@mui/material';
 import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
 import { apiClient } from '../services/api';
+import { fetchDocumentFields } from '../services/fields';
 import { Document, WorkflowType, JobSubmissionResponse } from '../types/api';
 
 const DEFAULT_TAG = 'llm-process';
@@ -37,6 +39,8 @@ export const DocumentsPage: React.FC = () => {
   const [availableJobTypes, setAvailableJobTypes] = useState<string[]>([]);
   const [selectedWorkflow, setSelectedWorkflow] = useState<string>('automated');
   const [submissionResult, setSubmissionResult] = useState<JobSubmissionResponse | null>(null);
+  const [availableFields, setAvailableFields] = useState<string[]>([ "title", "tags", "correspondent", "document_type", "created_date"]);
+  const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set<string>());
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -108,17 +112,16 @@ export const DocumentsPage: React.FC = () => {
 
   useEffect(() => {
     const urlCursor = searchParams.get('cursor');
-    
     if (urlCursor) {
-      // Restore pagination state from URL
-      // Fetch from start up to the cursor to rebuild full list
       restorePaginationState(urlCursor);
     } else {
-      // Normal initial load
       fetchDocuments();
     }
-    
     fetchJobTypes();
+    fetchDocumentFields().then((e) => {
+      setAvailableFields(e)
+      setSelectedFields(new Set<string>(e))
+    }).catch(() => setAvailableFields([]));
   }, []);
 
   const restorePaginationState = async (targetCursor: string) => {
@@ -161,26 +164,22 @@ export const DocumentsPage: React.FC = () => {
 
   const handleSubmitJobs = async () => {
     if (selectedIds.length === 0) return;
-
     setSubmitting(true);
     setSubmissionResult(null);
     try {
       const result = await apiClient.submitJobs({
         documents: selectedIds.map((documentId) => ({
           documentId,
-          jobTypes: [selectedWorkflow],
-          requiresApproval: selectedWorkflow === WorkflowType.APPROVAL,
+          jobType: selectedWorkflow,
+          fields: Array.from(selectedFields)
         })),
       });
-
       setSubmissionResult(result);
       setSnackbar({
         open: true,
         message: `Successfully submitted ${result.submitted} job(s) for ${selectedWorkflow} workflow`,
         severity: 'success',
       });
-
-      // Clear selection and refresh documents
       setSelectedIds([]);
       await fetchDocuments();
     } catch (error) {
@@ -236,45 +235,69 @@ export const DocumentsPage: React.FC = () => {
           <Typography variant="h6" gutterBottom>
             Workflow Selection
           </Typography>
-          <FormControl component="fieldset">
-          <FormLabel component="legend">Choose Workflow Type</FormLabel>
-          <RadioGroup
-            value={selectedWorkflow}
-            onChange={(e) => setSelectedWorkflow(e.target.value)}
-          >
-            {availableJobTypes.map((workflow) => (
-              <FormControlLabel
-                key={workflow}
-                value={workflow}
-                control={<Radio />}
-                label={
-                  <Box>
-                    <Typography variant="body1" fontWeight="medium">
-                      {getWorkflowLabel(workflow as WorkflowType)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {getWorkflowDescription(workflow as WorkflowType)}
-                    </Typography>
-                  </Box>
-                }
-              />
-            ))}
-          </RadioGroup>
-        </FormControl>
-        <Box sx={{ mt: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={submitting ? <CircularProgress size={16} /> : <PlayArrowIcon />}
-            onClick={handleSubmitJobs}
-            disabled={selectedIds.length === 0 || submitting}
-            size="large"
-          >
-            {submitting
-              ? 'Submitting...'
-              : `Submit ${selectedIds.length} Document${selectedIds.length !== 1 ? 's' : ''}`}
-          </Button>
-        </Box>
+          <FormControl component="fieldset" sx={{ mb: 2 }}>
+            <FormLabel component="legend">Choose Workflow Type</FormLabel>
+            <RadioGroup
+              value={selectedWorkflow}
+              onChange={(e) => setSelectedWorkflow(e.target.value)}
+            >
+              {availableJobTypes.map((workflow) => (
+                <FormControlLabel
+                  key={workflow}
+                  value={workflow}
+                  control={<Radio />}
+                  label={
+                    <Box>
+                      <Typography variant="body1" fontWeight="medium">
+                        {getWorkflowLabel(workflow as WorkflowType)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {getWorkflowDescription(workflow as WorkflowType)}
+                      </Typography>
+                    </Box>
+                  }
+                />
+              ))}
+            </RadioGroup>
+          </FormControl>
+          {/* Fields Selection */}
+          <FormControl component="fieldset" sx={{ mb: 2 }}>
+            <FormLabel component="legend">Select Fields</FormLabel>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+              {availableFields.map((field) => (
+                <FormControlLabel
+                  key={field}
+                  control={<Checkbox 
+                      checked={selectedFields.has(field)} 
+                      onChange={(prev) => {
+                        const updatedSet = new Set<string>(selectedFields)
+                        if (prev.target.checked) {
+                          updatedSet.add(field)
+                        } else {
+                          updatedSet.delete(field)
+                        }
+                        setSelectedFields(updatedSet)
+                      }} />
+                  }
+                  label={field}
+                />
+              ))}
+            </Box>
+          </FormControl>
+          <Box sx={{ mt: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={submitting ? <CircularProgress size={16} /> : <PlayArrowIcon />}
+              onClick={handleSubmitJobs}
+              disabled={selectedIds.length === 0 || submitting || selectedFields.size === 0}
+              size="large"
+            >
+              {submitting
+                ? 'Submitting...'
+                : `Submit ${selectedIds.length} Document${selectedIds.length !== 1 ? 's' : ''}`}
+            </Button>
+          </Box>
         </CardContent>
       </Card>
 
@@ -285,10 +308,10 @@ export const DocumentsPage: React.FC = () => {
             Successfully created {submissionResult.submitted} job(s):
           </Typography>
           <Box component="ul" sx={{ mt: 1, mb: 0 }}>
-            {submissionResult.jobs.map((job: { documentId: string; jobType: string; jobId: string }) => (
-              <li key={job.jobId}>
+            {submissionResult.jobs.map((job) => (
+              <li key={job.id}>
                 Document {job.documentId} - {job.jobType}:{' '}
-                <Link component={RouterLink} to={`/jobs/${job.jobId}`}>
+                <Link component={RouterLink} to={`/jobs/${job.id}`}>
                   View Job
                 </Link>
               </li>

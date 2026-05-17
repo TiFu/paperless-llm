@@ -71,7 +71,7 @@ export abstract class IStep {
 
   constructor(
 
-    protected stepId: string | null, 
+    protected stepId: string, 
     protected stepType: StepType, 
     protected jobId: string, 
     protected stepState: StepStatus,
@@ -81,6 +81,18 @@ export abstract class IStep {
     protected parentStepId: string | null = null,
     protected configuration: Record<string, any> | null = null
   ) {
+  }
+
+  public setParentId(id: string): void {
+    this.parentStepId = id
+  }
+
+  public hasChildren(): boolean {
+    return false;
+  }
+
+  public getChildren(): Array<IStep> {
+    return []
   }
 
   public setStepState(state: StepStatus) {

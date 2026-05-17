@@ -34,7 +34,7 @@ export class StuckStepResetApplicationService {
       const repos = context.getRepositoryRegistry();
 
       // Find stuck steps
-      const stuckSteps = await repos.getSteps().getStuckInProgressSteps(this.timeoutMs);
+      const stuckSteps = await repos.getSteps().getStuckInProgressExecutableSteps(this.timeoutMs);
 
       if (stuckSteps.length === 0) {
         this.logger.debug('No stuck steps found');

@@ -47,7 +47,8 @@ export interface AuditEntry {
 export interface JobSubmission {
   documents: Array<{
     documentId: string;
-    jobTypes: string[];
+    jobType: string;
+    fields: string[];
   }>;
 }
 
@@ -56,7 +57,7 @@ export interface JobSubmissionResponse {
   jobs: Array<{
     documentId: string;
     jobType: string;
-    jobId: string;
+    id: string;
   }>;
 }
 

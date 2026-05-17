@@ -87,6 +87,7 @@ async function main(): Promise<void> {
     {
       port: config.api.port,
       corsOrigins: config.api.corsOrigins,
+      apiSpec: 'docs/openapi.yaml'
     },
     applicationServiceFactory,
     txManager,

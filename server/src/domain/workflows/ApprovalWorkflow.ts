@@ -60,7 +60,7 @@ export class ApprovalWorkflow extends BaseWorkflow {
         return null
 
       case JobState.LLM_PROCESSING:
-        return factory.newLLMGenerateTitleStep(job.id)
+        return factory.newLLMGenerateFieldsStep(job.id, job.fields)
 
       case JobState.PENDING_APPROVAL:
         return factory.newRequireApprovalStep(job.id)

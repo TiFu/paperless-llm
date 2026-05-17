@@ -44,7 +44,7 @@ export class AuditLogApplicationService {
   async createAllEntries(entries: AuditLogEntry[]): Promise<void> {
     const context = await this.txManager.createContext();
     try {
-      context.start();
+      await context.start();
 
       const auditLog = context.getRepositoryRegistry().getAuditLog();
       await auditLog.createAll(entries)

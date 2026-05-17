@@ -122,7 +122,7 @@ export class StepExecutorApplicationService {
     try {
         await context.start();
         const repos = context.getRepositoryRegistry();
-        pendingSteps = await repos.getSteps().getPendignAutomatedSteps(batchSize);
+        pendingSteps = await repos.getSteps().getPendingExecutableSteps(batchSize);
         pendingSteps.forEach((s) => s.moveToInProgress());
         await repos.getSteps().updateAll(pendingSteps);
         await context.commit();

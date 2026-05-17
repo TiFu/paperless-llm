@@ -9,7 +9,7 @@ import { Transition } from '../../workflows/Transition.js';
  */
 export class LLMGenerateTagsStep extends ExecutableStep {
   constructor(
-    stepId: string | null,
+    stepId: string,
     jobId: string,
     stepState: StepStatus,
     retryCount: number = 0,

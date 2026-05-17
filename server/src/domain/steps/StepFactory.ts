@@ -1,4 +1,5 @@
 import { IStep, StepStatus, StepType } from './IStep.js';
+import crypto from 'node:crypto';
 import { LLMGenerateTitleStep } from './automated/LLMGenerateTitleStep.js';
 import { LLMGenerateTagsStep } from './automated/LLMGenerateTagsStep.js';
 import { LLMGenerateCorrespondentStep } from './automated/LLMGenerateCorrespondentStep.js';
@@ -47,7 +48,7 @@ export class StepFactory {
     jobId: string,
     type: StepType, 
     stepState: StepStatus, 
-    childSteps: Array<string>,
+    childSteps: Array<IStep>,
     retryCount: number = 0,
     retryAfter: Date | null = null,
     startedAt: Date | null = null,
@@ -128,46 +129,42 @@ export class StepFactory {
     const configuration = { fields };
     const parentId = crypto.randomUUID();
     const children = this.generateChildStepsForLLMGenerateFieldsStep(jobId, parentId, configuration)
-    const childIds = children.map(c => c.getStepId());
-    return new CompositeStep(parentId, StepType.LLM_GENERATE_FIELDS, jobId, StepStatus.WAITING, 0, childIds, null, null, null, configuration)
+    return new CompositeStep(parentId, StepType.LLM_GENERATE_FIELDS, jobId, StepStatus.WAITING, 0, children, null, null, null, configuration)
   }
 
   /**
    * Shorthand: Create a new LLM Generate Title step (not yet persisted)
    */
   newLLMGenerateTitleStep(jobId: string): ExecutableStep {
-    return new LLMGenerateTitleStep(null, jobId, StepStatus.WAITING);
+    return new LLMGenerateTitleStep(crypto.randomUUID(), jobId, StepStatus.WAITING);
   }
 
   /**
    * Shorthand: Create a new Require Approval step (not yet persisted)
    */
   newRequireApprovalStep(jobId: string): ManualStep {
-    return new ApprovalInteractionStep(null, jobId, StepStatus.WAITING);
+    return new ApprovalInteractionStep(crypto.randomUUID(), jobId, StepStatus.WAITING);
   }
 
   /**
    * Shorthand: Create a new Update Document step (not yet persisted)
    */
   newUpdateDocumentStep(jobId: string): ExecutableStep {
-    return new UpdateDocumentStep(null, jobId, StepStatus.WAITING);
+    return new UpdateDocumentStep(crypto.randomUUID(), jobId, StepStatus.WAITING);
   }
 
   /**
    * Shorthand: Create a new Remove Tags step (not yet persisted)
    */
   newRemoveTagsStep(jobId: string): ExecutableStep {
-    return new RemoveTagsStep(null, jobId, StepStatus.WAITING);
+    return new RemoveTagsStep(crypto.randomUUID(), jobId, StepStatus.WAITING);
   }
 
-  static fromDb(row: any): IStep {
-    return this.compositeStepFromDb(row, [])
-  }
   /**
    * Create a step instance from a database row
    * Maps snake_case column names to the appropriate IStep subclass
    */
-  static compositeStepFromDb(row: any, children: string[]): IStep {
+  static fromDb(row: any, children: IStep[]): IStep {
     const stepId = row.id;
     const jobId = row.job_id;
     const type = row.type as StepType;
@@ -175,7 +172,7 @@ export class StepFactory {
     const retryCount = row.retry_count || 0;
     const retryAfter = row.retry_after ? new Date(row.retry_after) : null;
     const startedAt = row.started_at ? new Date(row.started_at) : null;
-    const parentStepId = row.parent_step_id || null;
+    const parentStepId = row.parent_id || null;
     const configuration = row.configuration || null;
 
     const factory = new StepFactory()

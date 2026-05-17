@@ -18,7 +18,6 @@ import {
   PromptResponse,
   SystemHealthResponse,
   ApprovalStats,
-  JobStats,
   DashboardStats,
 } from '../types/api';
 
@@ -96,8 +95,8 @@ class ApiClient {
   }
 
   async fetchJobById(id: string): Promise<JobResponse> {
-    const response = await this.client.get<{ job: JobResponse }>(`/api/jobs/${id}`);
-    return response.data.job;
+    const response = await this.client.get<JobResponse>(`/api/jobs/${id}`);
+    return response.data;
   }
 
   async fetchJobSteps(jobId: string): Promise<JobStepsResponse> {
@@ -107,11 +106,6 @@ class ApiClient {
 
   async fetchJobAuditLog(jobId: string): Promise<JobAuditLogResponse> {
     const response = await this.client.get<JobAuditLogResponse>(`/api/jobs/${jobId}/audit-log`);
-    return response.data;
-  }
-
-  async fetchJobStats(): Promise<JobStats> {
-    const response = await this.client.get<JobStats>('/api/jobs/stats');
     return response.data;
   }
 

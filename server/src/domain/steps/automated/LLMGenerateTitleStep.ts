@@ -13,7 +13,7 @@ import { WorkflowType } from '../../workflows/WorkflowType.js';
  */
 export class LLMGenerateTitleStep extends ExecutableStep {
   constructor(
-    stepId: string | null, 
+    stepId: string, 
     jobId: string, 
     stepState: StepStatus, 
     retryCount: number = 0,

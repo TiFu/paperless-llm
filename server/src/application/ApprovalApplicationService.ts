@@ -87,7 +87,7 @@ export class ApprovalApplicationService {
       const repos = context.getRepositoryRegistry();
 
       // Get pending user interaction steps with cursor support
-      const steps = await repos.getSteps().getPendingUserInteractionSteps(limit, cursor);
+      const steps = await repos.getSteps().getPendingManualSteps(limit, cursor);
 
       // Load jobs for all steps
       const jobPromises = steps.map((step) => repos.getJobs().getById(step.getJobId()));

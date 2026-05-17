@@ -8,6 +8,8 @@ import { IPromptDomainService } from '../prompt/IPromptDomainService.js';
 import { CompositeStep } from '../steps/automated/CompositeStep.js';
 import { Transition } from '../workflows/Transition.js';
 import { AuditLogEntry, StepCompletedMetadata, StepExecutionMetadata } from '../audit/AuditLogEntry.js';
+import pino from 'pino';
+import { createChildLogger } from '../../utils/logger.js';
 
 export interface StepExecutionResult {
     result: StepResult,
@@ -68,13 +70,15 @@ export class StepExecutorService {
             [StepStatus.FAILED]: StepStatus.IN_PROGRESS,
         }
     }
+
+  private logger: pino.Logger
   public constructor(
       private transactionContext: TransactionContext,
       private dms: IDocumentManagementSystem,
       private llm: ILLMService,
       private promptDomainService: IPromptDomainService
     ) {
-    
+    this.logger = createChildLogger({ name: "StepExecutorService"})
   }
   /**
    * Executes a step, updates parent hierarchy, and returns all updated steps and root transition.
@@ -125,14 +129,15 @@ export class StepExecutorService {
     const auditEntries: AuditLogEntry[] =[
     ];
 
+    this.logger.info({ step: step.getStepId() }, "Calculating step updates")
     // Determine final transition based on top-most job
     const modifiedSteps = await this.updateState(step.getParentStepId(), step, auditEntries)
     const parentMostStep = modifiedSteps[modifiedSteps.length - 1]
     const parentStatus = parentMostStep.getStepStatus();
     result.transition = this.getTransitionForParentStatus(parentStatus);
+    this.logger.info({ step: step.getStepId(), parentMostStep: parentMostStep.getStepId(), parentStatus: parentStatus, transition: result.transition }, "Calculating step updates")
 
     stepRepo.updateAll(modifiedSteps)
-
 
     // Create final Audit Log Entry for this execution
     const endDate = new Date();
@@ -164,12 +169,13 @@ export class StepExecutorService {
             case StepStatus.RETRYING:
             case StepStatus.WAITING:
                 return Transition.NONE;
-
         }
     }
 
   private async updateState(parentStepId: string | null, mainStep: ExecutableStep, auditEntries: AuditLogEntry[]): Promise<IStep[]> {
     const priorSteps: Array<IStep> = [mainStep];
+
+    this.logger.info({ parentStepId: parentStepId, mainStep: mainStep.getStepId()}, "Updating state")
 
     if (parentStepId == null) {
         return priorSteps
@@ -179,14 +185,17 @@ export class StepExecutorService {
     let parentId: string | null = parentStepId
     while (parentId != null) {
         // (1) Load the parent step
-        const parentStep = await stepRepo.getCompositeStep(parentId)
-        const childSteps = await stepRepo.getChildSteps(parentId);
-
+        const parentStep = await stepRepo.getById(parentId)
+        if (!parentStep) {
+            throw new Error("Invalid parent id")
+        }
+        priorSteps.push(parentStep)
+        const childSteps = parentStep.getChildren()
+        this.logger.info({childSteps: childSteps}, "Child steps for parent")
         // (2) If no child steps, return completed. Just in case
         if (childSteps.length == 0) {
-            parentStep.setStepState(StepStatus.COMPLETED)
-            priorSteps.push(parentStep)
-            return priorSteps;
+            this.logger.error("Composite Step " + parentId + " has no children.")
+            throw new Error("Composite step " + parentId +" has no children.")
         }
 
         // Map
@@ -194,7 +203,10 @@ export class StepExecutorService {
                 (output: StepStatus, current) => {
                     return this.compositeStepStatusMapping[output][current];
                 }, childSteps[0].getStepStatus());
-        
+        this.logger.info({
+            childStatuses: childSteps.map((s) => s.getStepStatus()),
+            parentStatus: resultState
+        }, "Mapped child state to parent state")
         parentStep.setStepState(resultState)
 
         if (resultState == StepStatus.COMPLETED || resultState == StepStatus.FAILED) {
@@ -208,7 +220,6 @@ export class StepExecutorService {
             auditEntries.push(completedEntry)
         }
         parentId = parentStep.getParentStepId();
-        
     }
 
     return priorSteps

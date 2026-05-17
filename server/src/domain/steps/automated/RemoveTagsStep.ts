@@ -10,7 +10,7 @@ import { StepType } from '../IStep.js';
  */
 export class RemoveTagsStep extends ExecutableStep {
   constructor(
-    stepId: string | null, 
+    stepId: string, 
     jobId: string, 
     stepState: StepStatus, 
     retryCount: number = 0,

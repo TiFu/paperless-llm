@@ -2,7 +2,6 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { body, param } from 'express-validator';
 import pino from 'pino';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
-import { validateRequest } from '../middleware/validation.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { decodeCursor } from '../../domain/common/Cursor.js';
 import { createChildLogger } from '../../utils/logger.js';
@@ -73,7 +72,6 @@ export function createApprovalsRouter(
       param('stepId').isUUID().withMessage('stepId must be a valid UUID'),
       body('decision').isString().notEmpty().withMessage('decision is required'),
     ],
-    validateRequest,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { stepId } = req.params;

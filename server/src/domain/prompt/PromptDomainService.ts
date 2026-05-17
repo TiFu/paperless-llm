@@ -5,18 +5,21 @@ import { Prompt } from './Prompt.js';
 import { TransactionContext } from '../../infrastructure/TransactionManager.js';
 import { IStep } from '../steps/IStep.js';
 import { ExecutableStep } from '../steps/automated/ExecutableStep.js';
+import pino from 'pino';
+import { createChildLogger } from '../../utils/logger.js';
 
 /**
  * PromptDomainService - handles prompt rendering with document and job context.
  * Pure domain logic with no infrastructure dependencies.
  */
 export class PromptService implements IPromptDomainService {
-
+  private readonly logger: pino.Logger
   public constructor(private context: TransactionContext) {
-
+    this.logger = createChildLogger({ name: "PromptService"})
   }
 
   async loadPrompt(step: ExecutableStep): Promise<Prompt | null> {
+    this.logger.info({ step: step, msg: "Loading prompt"})
     if (!step.needsPrompt()) { 
       return null
     }

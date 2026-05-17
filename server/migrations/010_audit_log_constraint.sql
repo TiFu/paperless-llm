@@ -1,0 +1,1 @@
+ALTER TABLE audit_log DROP CONSTRAINT IF EXISTS chk_audit_log_step_metadata;

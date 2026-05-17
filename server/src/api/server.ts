@@ -19,6 +19,7 @@ import { createDocumentsRouter } from './routes/documents.js';
 import { createApprovalsRouter } from './routes/approvals.js';
 import { createStepsRouter } from './routes/steps.js';
 import { createStatsRouter } from './routes/stats.js';
+import * as OpenAPIValidator from 'express-openapi-validator';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +29,7 @@ const redoc = require('redoc-express');
 export interface ApiServerConfig {
   port: number;
   corsOrigins: string[];
+  apiSpec: string
 }
 
 export function createApiServer(
@@ -38,6 +40,7 @@ export function createApiServer(
   llmService: ILLMService,
   logger: pino.Logger,
 ): Express {
+  const apiSpec = config.apiSpec
   const app = express();
 
   // Middleware
@@ -69,6 +72,13 @@ export function createApiServer(
       },
     }),
   );
+
+  app.use(OpenAPIValidator.middleware({
+    apiSpec,
+    validateRequests: true,
+    validateResponses: true,
+    validateFormats: true
+  }))
 
   // Health check (outside /api prefix)
   app.use('/', createHealthRouter(txManager, paperlessService, llmService, logger));
@@ -104,7 +114,7 @@ export function createApiServer(
     '/api/docs',
     redoc({
       title: 'Paperless-LLM API Documentation',
-      specUrl: '/api/openapi.yaml',
+      specUrl: '/api/docs/openapi.yaml',
       redocOptions: {
         theme: {
           colors: {
@@ -123,6 +133,8 @@ export function createApiServer(
       },
     }),
   );
+
+  app.use("/api/docs", express.static("./docs/"))
 
   // 404 handler
   app.use((_req: Request, res: Response) => {

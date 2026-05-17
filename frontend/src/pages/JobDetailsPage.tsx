@@ -351,7 +351,6 @@ export const JobDetailsPage: React.FC = () => {
                       <TableCell sx={{ fontWeight: 'bold' }}>Action Type</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>Old Value</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>New Value</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Created At</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -363,9 +362,6 @@ export const JobDetailsPage: React.FC = () => {
                         <TableCell>{action.oldValue || '-'}</TableCell>
                         <TableCell sx={{ fontWeight: 'medium' }}>
                           {action.newValue || '-'}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(action.createdAt).toLocaleString()}
                         </TableCell>
                       </TableRow>
                     ))}

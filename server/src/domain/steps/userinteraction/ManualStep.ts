@@ -17,7 +17,7 @@ export class ManualStep extends IStep  {
   protected readonly decisionToTransitionMap: Record<string, Transition>;
 
   constructor(
-    stepId: string | null, 
+    stepId: string, 
     stepType: StepType, 
     jobId: string, 
     stepState: StepStatus,
@@ -83,7 +83,7 @@ export class ManualStep extends IStep  {
 export class ApprovalInteractionStep extends ManualStep {
 
   constructor(
-    stepId: string | null, 
+    stepId: string, 
     jobId: string, 
     stepState: StepStatus, 
     retryCount: number = 0,

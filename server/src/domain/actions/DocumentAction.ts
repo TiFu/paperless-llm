@@ -6,12 +6,14 @@ import { IDocument } from '../document/IDocument.js';
  * Handles common properties and DB serialization
  */
 export abstract class DocumentAction {
+  
   constructor(
     public readonly id: string | null,
     public readonly actionType: DocumentActionType,
     public readonly jobId: string,
     public readonly oldValue: string,
     public readonly newValue: string,
+    public readonly createdAt: Date = new Date()
   ) {}
 
   /**
