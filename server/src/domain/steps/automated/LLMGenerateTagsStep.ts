@@ -56,29 +56,21 @@ export class LLMGenerateTagsStep extends ExecutableStep {
     // Parse the tags from the LLM response
     const proposedTagNames = this.parseTags(generatedResponse);
 
-    // Resolve tag names to IDs (create if missing)
-    const proposedTagIds: number[] = [];
-    for (const tagName of proposedTagNames) {
-      const tagId = await context.services.dms.resolveTagId(tagName, true);
-      if (tagId !== null) {
-        proposedTagIds.push(tagId);
-      }
-    }
-
     // Get current tag IDs from document metadata (metadata contains the original Paperless document)
-    const currentTagIds: number[] = Array.isArray(document.metadata?.tags)
-      ? (document.metadata.tags as number[])
+    const currentTagIds: string[] = Array.isArray(document.tags)
+      ? (document.tags)
       : [];
 
     // Create TagUpdateAction
     const action = TagUpdateAction.create(
       context.job.id,
-      proposedTagIds,
+      proposedTagNames,
       currentTagIds
     );
 
     return {
       actions: [action],
+      success: true,
       transition: Transition.SUCCESS,
       message: "Generated tags: " + action.newValue
     };

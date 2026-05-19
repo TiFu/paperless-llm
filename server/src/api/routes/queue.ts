@@ -51,6 +51,8 @@ export function createQueueRouter(appFactory: ApplicationServiceFactory): Router
         return;
       }
 
+      logger.info({ limit, cursor, status}, "Requesting queue items")
+
       const queueAppService = appFactory.createQueueApplicationService();
       const result = await queueAppService.getQueueItems(limit, cursor, status);
 

@@ -333,7 +333,12 @@ export const JobDetailsPage: React.FC = () => {
 
         {/* Workflow Steps */}
         <Grid item xs={12}>
-          <JobStepsTimeline steps={steps} />
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Workflow Steps
+            </Typography>  
+            <JobStepsTimeline showStepsAsActive={true} steps={steps} />
+          </Paper>
         </Grid>
 
         {/* Document Actions */}

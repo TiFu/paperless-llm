@@ -1,11 +1,8 @@
 import pino from 'pino';
-import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { createChildLogger } from '../utils/logger.js';
 import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
-import { Transition } from '../domain/workflows/Transition.js';
-import { WorkflowOrchestratorService } from './WorkflowOrchestratorService.js';
-import { AuditLogApplicationService } from './AuditLogApplicationService.js';
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
+import { UoWFactory } from '../infrastructure/UoW.js';
 
 /**
  * StepCancelApplicationService - handles manual cancellation of steps in fallout or retry state.
@@ -15,8 +12,7 @@ export class StepCancelApplicationService {
   private readonly logger: pino.Logger;
 
   constructor(
-    private readonly txManager: TransactionManager,
-    private readonly auditLogService: AuditLogApplicationService
+    private readonly uowFactory: UoWFactory
   ) {
     this.logger = createChildLogger({ service: 'StepCancelApplicationService' });
   }
@@ -28,16 +24,23 @@ export class StepCancelApplicationService {
    * @throws Error if step not found or not eligible for cancellation
    */
   async cancelStep(stepId: string): Promise<void> {
-    await using context = await this.txManager.createContext();
     let jobId = null;
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
-
+      const steps = context.getSteps();
+      
       // Load step
-      const step = await repos.getSteps().getById(stepId);
+      const step = await steps.getById(stepId);
       if (!step) {
         throw new Error(`Step ${stepId} not found`);
+      }
+      jobId = step.getJobId();
+      // Verify it's an automated step (user interaction steps can't be cancelled this way)
+      if (!(step instanceof ExecutableStep)) {
+        throw new Error(
+          `Step ${step.getStepId()} (${step.getStepType()}) is not an automated step and cannot be manually cancelled`
+        );
       }
 
       this.logger.info(
@@ -45,54 +48,32 @@ export class StepCancelApplicationService {
         'Processing manual cancel request'
       );
 
-      // Verify it's an automated step (user interaction steps can't be cancelled this way)
-      if (!(step instanceof ExecutableStep)) {
-        throw new Error(
-          `Step ${stepId} (${step.getStepType()}) is not an automated step and cannot be manually cancelled`
-        );
-      }
+      const workflowOrchestrator = context.getWorkflowOrchestratorDomainService();
+      workflowOrchestrator.processStepCancellation(step);
 
-      // Verify step is eligible for cancellation (same as retry eligibility)
-      if (!step.isEligibleForRetry()) {
-        throw new Error(
-          `Step ${stepId} is in ${step.getStepStatus()} status and is not eligible for cancellation. ` +
-          `Only steps in RETRYING or IN_FALLOUT status can be manually cancelled.`
-        );
-      }
-
-      // Load the job to advance workflow
-      const job = await repos.getJobs().getById(step.getJobId());
-      if (!job) {
-        throw new Error(`Job ${step.getJobId()} not found for step ${stepId}`);
-      }
-
-      jobId = job.id
-
-      // Mark step as failed using domain logic
-      step.moveToFailed();
-
-      // Persist step changes
-      await repos.getSteps().update(step);
-
-      // Advance workflow with FAILURE transition (will move job to FAILED state)
-      const workflowOrchestrator = new WorkflowOrchestratorService(this.auditLogService, context)
-      await workflowOrchestrator.advanceToNextStep(
-        job, 
-        Transition.FAILURE
-      );
-
+      await context.save();
       await context.commit();
 
       this.logger.info(
-        { stepId, jobId: job.id, stepStatus: step.getStepStatus(), jobState: job.state },
+        { stepId, jobId: step.getJobId(), stepStatus: step.getStepStatus()},
         'Step successfully cancelled and job failed'
       );
 
     } catch (error) {
       this.logger.error({ error, stepId }, 'Failed to cancel step');
-      await context.rollback();
-      const entry = AuditLogEntry.createError(jobId as string, stepId, { message: "" + error })
-      this.auditLogService.createEntry(entry)
+      if (!jobId)
+          throw error;
+
+      try {
+        await using uow = await this.uowFactory.createUoW();
+        const entry = AuditLogEntry.createError(jobId, stepId, { message: "" + error })
+        uow.getAuditCollector().record(entry)
+        uow.save();
+        uow.commit();
+      } catch(err) {
+        this.logger.error({err: err}, "Failed to store aduit error event")
+      }
+
       throw error;
     }
   }

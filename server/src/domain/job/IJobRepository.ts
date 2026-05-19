@@ -23,7 +23,7 @@ export interface IJobRepository {
    * @returns Array of created jobs with empty documentActions arrays
    */
   createBulk(
-    jobs: Array<{ documentId: string; jobType: WorkflowType, fields: DocumentField[] }>
+    jobs: Array<{ documentId: number; jobType: WorkflowType, fields: DocumentField[] }>
   ): Promise<Job[]>;
 
   /**
@@ -31,7 +31,7 @@ export interface IJobRepository {
    * @param id Job ID
    * @returns Job with documentActions loaded, or null if not found
    */
-  getById(id: string): Promise<Job | null>;
+  getById(id: string): Promise<Job>;
 
   /**
    * Update job (state, data, and documentActions)
@@ -75,5 +75,5 @@ export interface IJobRepository {
    * @param documentIds Array of document IDs to check
    * @returns Array of document IDs that have jobs in progress
    */
-  filterInProgressDocuments(documentIds: string[]): Promise<string[]>;
+  filterInProgressDocuments(documentIds: number[]): Promise<number[]>;
 }

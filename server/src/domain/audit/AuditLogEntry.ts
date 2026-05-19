@@ -1,5 +1,5 @@
 import { postMessageToThread } from "worker_threads";
-import { IStep } from "../steps/IStep.js";
+import { IStep, StepType } from "../steps/IStep.js";
 import { Job } from "../job/Job.js";
 
 /**
@@ -47,20 +47,24 @@ export interface JobCompleted {
  * These are stored as JSONB in the database
  */
 export interface JobCreatedMetadata {
-  documentId: string;
+  documentId: number;
   jobType: string;
+  message: string | undefined
 }
 
 export interface StepCreatedMetadata {
+  stepType: StepType
 }
 
 export interface StepCompletedMetadata {
   message: string
   success: boolean
+  stepType: StepType
 }
 
 export interface StepExecutionMetadata {
   message: string
+  stepType: StepType
   success: boolean
   retryCount: number;
   nextRetryTime: Date | null;
@@ -68,19 +72,23 @@ export interface StepExecutionMetadata {
 
 export interface ManualStepDecisionMetadata {
   decision: string;
+  stepType: StepType
 }
 
 export interface StepManuallyRetriedMetadata {
   previousRetryCount: number;
+  stepType: StepType
 }
 
 export interface StepCancelledMetadata {
   previousStatus: string;
+  stepType: StepType
 }
 
 export interface StuckStepResetMetadata {
   stuckDurationMs: number;
   previousStartedAt: Date;
+  stepType: StepType
 }
 
 /**

@@ -1,6 +1,7 @@
 import { PoolClient } from 'pg';
 import { IAuditLogRepository } from '../../domain/audit/IAuditLogRepository.js';
 import { AuditLogEntry, AuditEventType, AuditLogMetadata } from '../../domain/audit/AuditLogEntry.js';
+import { Saveable, UoW } from '../../infrastructure/UoW.js';
 
 /**
  * PostgreSQL implementation of the audit log repository
@@ -26,7 +27,7 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
     );
   }
 
-  async create(entry: AuditLogEntry): Promise<AuditLogEntry> {
+  async create(entry: AuditLogEntry): Promise<void> {
     const query = `
       INSERT INTO audit_log (
         job_id,
@@ -38,10 +39,9 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
         metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
     `;
 
-    const result = await this.pool.query(query, [
+    await this.pool.query(query, [
       entry.jobId,
       entry.stepId,
       entry.eventType,
@@ -50,15 +50,13 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
       entry.processingEndTime,
       entry.metadata ? JSON.stringify(entry.metadata) : null,
     ]);
-
-    return this.mapRowToEntity(result.rows[0]);
   }
 
   /**
    * Batch create multiple AuditLogEntry objects.
    */
-  async createAll(entries: AuditLogEntry[]): Promise<AuditLogEntry[]> {
-    if (entries.length === 0) return [];
+  async createAll(entries: AuditLogEntry[]): Promise<void> {
+    if (entries.length === 0) return;
 
     const values: any[] = [];
     const valuePlaceholders: string[] = [];
@@ -75,7 +73,7 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
         entry.processingEndTime,
         entry.metadata ? JSON.stringify(entry.metadata) : null
       );
-      paramIndex += 8;
+      paramIndex += 7;
     }
 
     const query = `
@@ -88,11 +86,9 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
         processing_end_time,
         metadata
       ) VALUES ${valuePlaceholders.join(",\n      ")}
-      RETURNING *
     `;
 
-    const result = await this.pool.query(query, values);
-    return result.rows.map(row => this.mapRowToEntity(row));
+    await this.pool.query(query, values)
   }
 
   async getByJobId(jobId: string): Promise<AuditLogEntry[]> {

@@ -66,7 +66,7 @@ export interface IStepRepository {
   /**
    * Get step by ID
    */
-  getById(id: string): Promise<IStep | null>;
+  getById(id: string): Promise<IStep>;
   /**
    * Get steps by job ID
    */
@@ -115,33 +115,11 @@ export interface IStepRepository {
    */
   getPendingRetries(now: Date, limit: number): Promise<ExecutableStep[]>;
 
-  /**
-   * Reset a step back to WAITING status for retry
-   * Increments retry_count and clears started_at timestamp
-   * @param stepId ID of the step to reset
-   */
-  resetStepToWaiting(stepId: string): Promise<void>;
-
-  /**
-   * Mark a step as FAILED with an error message
-   * @param stepId ID of the step to mark as failed
-   * @param errorMessage Error message describing why the step failed
-   */
-  markStepAsFailed(stepId: string, errorMessage: string): Promise<void>;
 
   /**
    * Get steps by job ID with timestamp information for API display
    * @param jobId Job ID
    * @returns Array of step data with timestamps and retry information
    */
-  getStepsByJobIdWithTimestamps(jobId: string): Promise<Array<{
-    stepId: string;
-    stepType: StepType;
-    stepStatus: StepStatus;
-    createdAt: Date;
-    startedAt: Date | null;
-    completedAt: Date | null;
-    retryCount: number;
-    retryAfter: Date | null;
-  }>>;
+  getStepsByJob(jobId: string): Promise<Array<IStep>>;
 }

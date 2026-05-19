@@ -1,14 +1,12 @@
 import pino from 'pino';
-import { TransactionManager } from '../infrastructure/TransactionManager.js';
-import { DomainServices } from '../domain/services/DomainServices.js';
-import { IStep, RetryConfig, StepExecutionContext, StepStatus } from '../domain/steps/IStep.js';
-import { WorkflowOrchestratorService } from './WorkflowOrchestratorService.js';
+import { RetryConfig, StepExecutionContext } from '../domain/steps/IStep.js';
+import { WorkflowOrchestratorDomainService } from '../domain/services/WorkflowOrchestratorService.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { createChildLogger } from '../utils/logger.js';
 import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
-import { AuditLogApplicationService } from './AuditLogApplicationService.js';
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
+import { UoWFactory } from '../infrastructure/UoW.js';
 
 /**
  * StepExecutorApplicationService - executes steps and manages workflow progression.
@@ -18,11 +16,10 @@ export class StepExecutorApplicationService {
   private readonly logger: pino.Logger;
 
   constructor(
-    private readonly txManager: TransactionManager,
+    private readonly uowFactory: UoWFactory,
     private readonly dmsService: IDocumentManagementSystem,
     private readonly llmService: ILLMService,
     private readonly retryConfig: RetryConfig,
-    private readonly auditLogService: AuditLogApplicationService
   ) {
     this.logger = createChildLogger({ service: 'StepExecutorApplicationService' });
   }
@@ -45,64 +42,68 @@ export class StepExecutorApplicationService {
       return;
     }
 
-    await using context = await this.txManager.createContext()
-    const startTime = new Date();
-    let endTime: Date | null = null;
+    const start = new Date();
     try {
-        await context.start();
+      // (1) Load execution context
+      await using uow = await this.uowFactory.createUoW();
+      await uow.start();
+      const stepExecutor = uow.getStepExecutorDomainService();
+      const job = await uow.getJobs().getById(step.getJobId())
+      const prompt = await uow.getPromptDomainService().loadPrompt(step)
+      const stepContext: StepExecutionContext = {
+              job: job,
+              prompt: prompt,
+              services: {
+                  dms: this.dmsService,
+                  llm: this.llmService,
+                  promptDomainService: uow.getPromptDomainService()
+              }
 
-        const job = await context.getRepositoryRegistry().getJobs().getById(step.getJobId());
-        if (!job) {
-          throw new Error("Unknown job for step " +step.getStepId() + " with job id " + step.getJobId())
-        }
+          }
+      await uow.save();
+      await uow.commit();
+      await uow.dispose();
 
-        const domainServices = new DomainServices(context, this.dmsService, this.llmService)
-        const executionService = domainServices.stepExecution
+      // (2) Execute outside transaction boundary!
+      const result = await stepExecutor.executeStep(step, stepContext, this.retryConfig)
 
-        stepLogger.info({ type: step.getStepType(), id: step.getStepId() }, 'Executing step');
-        const {result, auditEntries} = await executionService.executeAndUpdateHierarchy(step, this.retryConfig)
+      // This all also applies for result failed --> 
+      // (3) Execute uow updates
+      await using uow2 = await this.uowFactory.createUoW();
+      await uow2.start();
+      // update state for executed step -- before anything else
+      await uow2.getSteps().update(step) 
+      const workflowOrchestrator = uow2.getWorkflowOrchestratorDomainService();
+      const output = await workflowOrchestrator.processStepExecutionResult(step, result);
+      if (output.jobAdvancement.step)
+        await uow2.getSteps().create(output.jobAdvancement.step)
+      await uow2.save();
+      await uow2.commit();
+      await uow2.dispose();
 
-        await this.auditLogService.createAllEntries(auditEntries);
-        // Now advance workflow (may create/log next step)
-        const workflowOrchestratorService = new WorkflowOrchestratorService(this.auditLogService, context)
-        await workflowOrchestratorService.advanceToNextStep(
-          job,
-          result.transition
-        );
-
-        await context.commit();
     } catch (error) {
-      endTime = new Date();
-      stepLogger.error({ error }, 'Failed to execute step');
-      
-      // Rollback prior context
-      await context.rollback();
-
-      const entry = AuditLogEntry.createStepExecuted(step, {
-        message: "Failed to execute step with error message: " + error,
-        success: false,
-        nextRetryTime: step.getRetryAfter(),
-        retryCount: step.getRetryCount()
-      }, new Date(), startTime, endTime)
-      this.auditLogService.createEntry(entry)
-        .catch((err) => { stepLogger.error(err, "Failed to save audit entries")})
-
-      // TODO: improvement -> re-use context!
-      const errorContext = await this.txManager.createContext();
+      // Try marking as failed -- if it fails, so be it
       try {
-        await errorContext.start();
+        await using uow3 = await this.uowFactory.createUoW();
+        await uow3.start();
         step.markExecutionFailed(this.retryConfig)
-        errorContext.getRepositoryRegistry().getSteps().update(step);
-        await errorContext.commit();
+        uow3.getSteps().update(step)
+        const entry = AuditLogEntry.createStepExecuted(step, {
+          message: "Failed to execute step with error message: " + error,
+          success: false,
+          nextRetryTime: step.getRetryAfter(),
+          retryCount: step.getRetryCount(),
+          stepType: step.getStepType()
+        }, new Date(), start, new Date())
+        uow3.getAuditCollector().record(entry)
+        await uow3.save();
+        await uow3.commit();
       } catch (error) {
         stepLogger.error({ error }, "Failed to mark step execution as failed!")
       }
-      
-      throw error;
-    } finally {
-      await context.dispose();
-    }
 
+      throw error;
+    }
   }
 
   /**
@@ -115,16 +116,16 @@ export class StepExecutorApplicationService {
     const logger = this.logger.child({ name: "StepExecutiorApplicationService.processPendingSteps" });
 
     // Fetch and mark steps as in-progress in a transaction
-    await using context = await this.txManager.createContext();
+    await using context = await this.uowFactory.createUoW();
 
     let pendingSteps: ExecutableStep[];
     // 1) move Automated Steps to in progress
     try {
         await context.start();
-        const repos = context.getRepositoryRegistry();
-        pendingSteps = await repos.getSteps().getPendingExecutableSteps(batchSize);
+        const stepRepo= context.getSteps();
+        pendingSteps = await stepRepo.getPendingExecutableSteps(batchSize);
         pendingSteps.forEach((s) => s.moveToInProgress());
-        await repos.getSteps().updateAll(pendingSteps);
+        await context.save()
         await context.commit();
     } catch (error) {
         logger.error({ error }, 'Failed to load pending steps');
@@ -143,20 +144,6 @@ export class StepExecutorApplicationService {
         results.push(result)
     }
 
-    logger.info("Updating step status!")
-    // 3) Save updated steps (i.e. with incremented retry count or updated status)
-    try {
-        await using context = await this.txManager.createContext();
-        await context.start();
-        const steps = results.map((a) => a[0]);
-        const loggableSteps = steps.map((s) => { return { step: s}});
-        logger.info({ steps: loggableSteps}, "Updating step statuses")
-        context.getRepositoryRegistry().getSteps().updateAll(steps)
-        context.commit()
-    } catch (error) {
-        logger.error({error}, "Failed to update step status");
-    }
-
     const processed = results.reduce((prev, current) => {
         if (current[1]) {
             return prev + 1
@@ -173,63 +160,22 @@ export class StepExecutorApplicationService {
    * @param batchSize Maximum number of steps to process
    * @returns Number of steps successfully processed
    */
-  async processRetryQueue(batchSize: number = 10): Promise<number> {
+  async processRetryQueue(batchSize: number = 10): Promise<void> {
     const logger = this.logger.child({ name: "StepExecutorApplicationService.processRetryQueue" });
 
-    // Fetch steps ready for retry and mark them as in-progress in a transaction
-    await using context = await this.txManager.createContext();
-
+    // Fetch steps ready for retry and mark them as waiting -> picked up again
     let retrySteps: ExecutableStep[];
     try {
+        await using context = await this.uowFactory.createUoW();
         await context.start();
-        const repos = context.getRepositoryRegistry();
+        const steps = context.getSteps();
         const now = new Date();
-        retrySteps = await repos.getSteps().getPendingRetries(now, batchSize);
-        retrySteps.forEach((s) => s.moveToInProgress());
-        await repos.getSteps().updateAll(retrySteps);
+        retrySteps = await steps.getPendingRetries(now, batchSize);
+        retrySteps.forEach((s) => s.moveToWaiting());
+        await context.save();
         await context.commit();
     } catch (error) {
         logger.error({ error }, 'Failed to load retry steps');
-        context.rollback();
-        return 0;
     }
-
-    if (retrySteps.length === 0) {
-        logger.debug('No steps ready for retry');
-        return 0;
-    }
-
-    logger.info({ steps: retrySteps.map((v) => v.getStepId())}, "Found " + retrySteps.length + " steps ready for retry")
-    
-    const results: Array<[ExecutableStep, Boolean]> = []
-    for (const step of retrySteps) {
-        const result = await this.executeStep(step).then(() => { return [step, true] }).catch((error) => {
-            logger.error("Failed to process retry step "+ step.getStepId() + ": " + error)
-            return [step, false]
-        }) as [ExecutableStep, Boolean];
-        results.push(result)
-    }
-
-    logger.info("Updating retry step status!")
-    try {
-        await using context = await this.txManager.createContext();
-        await context.start();
-        const steps = results.map((a) => a[0]);
-        const loggableSteps = steps.map((s) => { return {id: s.getStepId(), status: s.getStepStatus()}});
-        logger.info({ steps: loggableSteps}, "Updating retry step statuses")
-        context.getRepositoryRegistry().getSteps().updateAll(steps)
-        context.commit()
-    } catch (error) {
-        logger.error({error}, "Failed to update retry step status");
-    }
-
-    const processed = results.reduce((prev, current) => {
-        if (current[1]) {
-            return prev + 1
-        } else {
-            return prev;
-        }
-    }, 0);
-    return processed;
   }
 }

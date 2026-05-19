@@ -5,6 +5,7 @@ import { IWorkflow } from './IWorkflow.js';
 import { IStep } from '../steps/IStep.js';
 import { JobState } from '../job/JobState.js';
 import { Job } from '../job/Job.js';
+import { AuditLogEntry } from '../audit/AuditLogEntry.js';
 
 /**
  * Result of getNextStep including the step instance, next state, and payload
@@ -81,7 +82,7 @@ export abstract class BaseWorkflow implements IWorkflow {
       // State has no associated step - workflow is complete
       return { step: null, nextState, errorMessage: "No step for state " + nextState, isTerminalState: true};
     }
-
+    
     return {
       step: step,
       nextState,

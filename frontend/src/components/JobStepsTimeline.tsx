@@ -26,6 +26,7 @@ import { useStats } from '../contexts/StatsContext';
 
 interface JobStepsTimelineProps {
   steps: JobStep[];
+  showStepsAsActive: boolean
 }
 
 const getStepStatusIcon = (status: StepStatus) => {
@@ -110,7 +111,7 @@ const formatRetryTimer = (retryAfter: string | null): string => {
   }
 };
 
-export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => {
+export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps, showStepsAsActive }) => {
   const activeStep = getActiveStep(steps);
   const [retryingStepId, setRetryingStepId] = useState<string | null>(null);
   const [cancelingStepId, setCancelingStepId] = useState<string | null>(null);
@@ -176,11 +177,7 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
   }
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Workflow Steps
-      </Typography>
-      
+    <div>      
       {retryError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setRetryError(null)}>
           {retryError}
@@ -195,7 +192,7 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
       
       <Stepper activeStep={activeStep} orientation="vertical">
         {steps.map((step) => (
-          <Step key={step.stepId} completed={step.stepStatus === StepStatus.COMPLETED}>
+          <Step key={step.stepId} active={showStepsAsActive} completed={step.stepStatus === StepStatus.COMPLETED}>
             <StepLabel
               icon={getStepStatusIcon(step.stepStatus)}
               error={step.stepStatus === StepStatus.FAILED || step.stepStatus === StepStatus.IN_FALLOUT}
@@ -219,44 +216,6 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
             </StepLabel>
             <StepContent>
               <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Created:</strong>{' '}
-                  {new Date(step.createdAt).toLocaleString()}
-                </Typography>
-                {step.startedAt && (
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Started:</strong>{' '}
-                    {new Date(step.startedAt).toLocaleString()}
-                  </Typography>
-                )}
-                {step.completedAt && (
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Completed:</strong>{' '}
-                    {new Date(step.completedAt).toLocaleString()}
-                  </Typography>
-                )}
-                {step.startedAt && step.completedAt && (
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Duration:</strong>{' '}
-                    {(
-                      (new Date(step.completedAt).getTime() -
-                        new Date(step.startedAt).getTime()) /
-                      1000
-                    ).toFixed(2)}
-                    s
-                  </Typography>
-                )}
-                {/* Display outcome/message if present (future: from audit log metadata) */}
-                {step.outcome && (
-                  <Typography variant="body2" color="info.main">
-                    <strong>Outcome:</strong> {step.outcome}
-                  </Typography>
-                )}
-                {step.errorMessage && (
-                  <Typography variant="body2" color="error.main">
-                    <strong>Error:</strong> {step.errorMessage}
-                  </Typography>
-                )}
                 {step.stepStatus === StepStatus.RETRYING && step.retryAfter && (
                   <Typography variant="body2" color="warning.main">
                     <strong>Retry scheduled:</strong>{' '}
@@ -293,10 +252,15 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps }) => 
                   </Box>
                 )}
               </Box>
+              <Box>
+                {step.children != null &&
+                <JobStepsTimeline showStepsAsActive={false} steps={step.children} />
+                }
+              </Box>
             </StepContent>
           </Step>
         ))}
       </Stepper>
-    </Paper>
+    </div>
   );
 };

@@ -29,24 +29,21 @@ export class DocumentTypeUpdateAction extends DocumentAction {
    */
   static create(
     jobId: string,
-    newDocumentTypeId: number | null,
-    oldDocumentTypeId: number | null,
+    newDocumentTypeId: string,
+    oldDocumentTypeId: string,
   ): DocumentTypeUpdateAction {
     return new DocumentTypeUpdateAction(
       null, // id - will be assigned by database
       jobId,
-      oldDocumentTypeId !== null ? String(oldDocumentTypeId) : "",
-      newDocumentTypeId !== null ? String(newDocumentTypeId) : "",
+      oldDocumentTypeId,
+      newDocumentTypeId
     );
   }
 
   apply(document: IDocument): Partial<IDocument> {
     const documentTypeId = this.newValue ? parseInt(this.newValue, 10) : null;
     return {
-      metadata: {
-        ...document.metadata,
-        document_type: documentTypeId
-      }
+      documentType: this.newValue
     };
   }
 }

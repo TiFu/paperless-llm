@@ -1,9 +1,8 @@
 import pino from 'pino';
-import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { createChildLogger } from '../utils/logger.js';
-import { RetryConfig } from '../domain/steps/IStep.js';
-import { AuditLogApplicationService } from './AuditLogApplicationService.js';
+import { RetryConfig, StepStatus } from '../domain/steps/IStep.js';
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
+import { UoWFactory } from '../infrastructure/UoW.js';
 
 /**
  * StuckStepResetApplicationService - resets steps stuck in IN_PROGRESS state.
@@ -13,10 +12,9 @@ export class StuckStepResetApplicationService {
   private readonly logger: pino.Logger;
 
   constructor(
-    private readonly txManager: TransactionManager,
+    private readonly uowFactoyr: UoWFactory,
     private readonly timeoutMs: number,
     private readonly retryConfig: RetryConfig,
-    private readonly auditLogService: AuditLogApplicationService
   ) {
     this.logger = createChildLogger({ service: 'StuckStepResetApplicationService' });
   }
@@ -27,14 +25,13 @@ export class StuckStepResetApplicationService {
    * @returns Object with counts of reset and fallout steps
    */
   async resetStuckSteps(): Promise<{ reset: number; fallout: number }> {
-    await using context = await this.txManager.createContext();
 
     try {
+      await using context = await this.uowFactoyr.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
 
       // Find stuck steps
-      const stuckSteps = await repos.getSteps().getStuckInProgressExecutableSteps(this.timeoutMs);
+      const stuckSteps = await context.getSteps().getStuckInProgressExecutableSteps(this.timeoutMs);
 
       if (stuckSteps.length === 0) {
         this.logger.debug('No stuck steps found');
@@ -50,27 +47,30 @@ export class StuckStepResetApplicationService {
         'Found stuck steps'
       );
 
-      let resetCount = 0;
+      let retryCount = 0;
       let falloutCount = 0;
-
-      const entries = stuckSteps.map((s) => {
-        return AuditLogEntry.createStuckStepReset(s, { previousStartedAt: new Date(), stuckDurationMs: 0  })
-    })
-    this.auditLogService.createAllEntries(entries)
-
-      stuckSteps.forEach(a => a.markExecutionFailed(this.retryConfig))
-      await repos.getSteps().updateAll(stuckSteps);
+      const workflowOrchestrator = context.getWorkflowOrchestratorDomainService();
+      const steps = workflowOrchestrator.resetStuckSteps(stuckSteps, this.retryConfig)
+      steps.forEach((s) => {
+        if (s.getStepStatus() == StepStatus.RETRYING) {
+          retryCount++;
+        } else if (s.getStepStatus() == StepStatus.IN_FALLOUT) {
+          falloutCount++;
+        }
+      })
+      await context.save();
+      //await context.getSteps().updateAll(stuckSteps);
       await context.commit();
 
+
       this.logger.info(
-        { reset: resetCount, fallout: falloutCount, total: stuckSteps.length },
+        { reset: retryCount, fallout: falloutCount, total: stuckSteps.length },
         'Completed stuck step reset operation'
       );
 
-      return { reset: resetCount, fallout: falloutCount };
+      return { reset: retryCount, fallout: falloutCount };
     } catch (error) {
       this.logger.error({ error }, 'Failed to reset stuck steps');
-      await context.rollback();
       throw error;
     }
   }

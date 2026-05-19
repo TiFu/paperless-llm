@@ -29,8 +29,8 @@ export class TagUpdateAction extends DocumentAction {
    */
   static create(
     jobId: string,
-    newTags: number[],
-    oldTags: number[] | null,
+    newTags: string[],
+    oldTags: string[] | null,
   ): TagUpdateAction {
     return new TagUpdateAction(
       null, // id - will be assigned by database
@@ -41,13 +41,9 @@ export class TagUpdateAction extends DocumentAction {
   }
 
   apply(document: IDocument): Partial<IDocument> {
-    const tagIds = JSON.parse(this.newValue) as number[];
+    const tagIds = JSON.parse(this.newValue) as string[];
     return {
-      tags: tagIds.map(id => String(id)), // IDocument expects string[] for display
-      metadata: {
-        ...document.metadata,
-        tags: tagIds // Paperless expects number[] in metadata
-      }
+      tags: tagIds 
     };
   }
 }

@@ -22,7 +22,7 @@ export interface QueueStats {
 export interface QueueItem {
   id: string;
   jobId: string;
-  documentId: string;
+  documentId: number;
   stepType: string;
   jobType: string;
   status: WorkItemStatus;
@@ -37,7 +37,7 @@ export interface QueueItem {
 
 export interface AuditEntry {
   id: string;
-  documentId: string;
+  documentId: number;
   documentSystem: string;
   action: string;
   details: Record<string, unknown>;
@@ -46,7 +46,7 @@ export interface AuditEntry {
 
 export interface JobSubmission {
   documents: Array<{
-    documentId: string;
+    documentId: number;
     jobType: string;
     fields: string[];
   }>;
@@ -55,7 +55,7 @@ export interface JobSubmission {
 export interface JobSubmissionResponse {
   submitted: number;
   jobs: Array<{
-    documentId: string;
+    documentId: number;
     jobType: string;
     id: string;
   }>;
@@ -138,7 +138,7 @@ export interface DocumentAction {
 
 export interface JobResponse {
   id: string;
-  documentId: string;
+  documentId: number;
   jobType: WorkflowType;
   status: JobState;
   errorMessage?: string;
@@ -152,6 +152,7 @@ export interface JobStep {
   stepId: string;
   stepType: StepType;
   stepStatus: StepStatus;
+  children: JobStep[] | null;
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
@@ -173,6 +174,7 @@ export enum AuditEventType {
   STEP_CREATED = 'STEP_CREATED',
   STEP_COMPLETED = 'STEP_COMPLETED',
   STEP_FAILED = 'STEP_FAILED',
+  STEP_EXECUTED = 'STEP_EXECUTED',
   STEP_MOVED_TO_RETRYING = 'STEP_MOVED_TO_RETRYING',
   STEP_MOVED_TO_FALLOUT = 'STEP_MOVED_TO_FALLOUT',
   APPROVAL_REQUESTED = 'APPROVAL_REQUESTED',
@@ -226,7 +228,7 @@ export interface DashboardStats {
 export interface ApprovalItem {
   stepId: string;
   jobId: string;
-  documentId: string;
+  documentId: number;
   paperlessUrl: string;
   jobType: string;
   proposedActions: Array<{

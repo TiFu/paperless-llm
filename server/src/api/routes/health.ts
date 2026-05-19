@@ -1,11 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import pino from 'pino';
-import { TransactionManager } from '../../infrastructure/TransactionManager.js';
 import { IDocumentManagementSystem } from '../../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../../domain/llm/ILLMService.js';
+import { UoW, UoWFactory } from '../../infrastructure/UoW.js';
 
 export function createHealthRouter(
-  txManager: TransactionManager,
+  uowFactory: UoWFactory,
   paperlessService: IDocumentManagementSystem,
   llmService: ILLMService,
   logger: pino.Logger,
@@ -31,7 +31,7 @@ export function createHealthRouter(
     try {
       // Run all health checks in parallel
       const [dbHealthy, paperlessHealthy, llmHealthy] = await Promise.all([
-        checkDatabaseHealth(txManager, logger),
+        checkDatabaseHealth(uowFactory, logger),
         checkPaperlessHealth(paperlessService, logger),
         checkLLMHealth(llmService, logger),
       ]);
@@ -66,17 +66,16 @@ export function createHealthRouter(
 }
 
 async function checkDatabaseHealth(
-  txManager: TransactionManager,
+  uowFactory: UoWFactory,
   logger: pino.Logger,
 ): Promise<boolean> {
-  await using context = await txManager.createContext();
   try {
+    await using context = await uowFactory.createUoW();
     await context.start();
-    await context.getRepositoryRegistry().getJobs().list(1);
+    await context.getJobs().list(1);
     await context.rollback();
     return true;
   } catch (error) {
-    await context.rollback();
     return false;
   }
 }

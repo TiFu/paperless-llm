@@ -1,5 +1,5 @@
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
-import { TransactionManager } from '../infrastructure/TransactionManager.js';
+import { UoWFactory } from '../infrastructure/UoW.js';
 import { createChildLogger } from '../utils/logger.js';
 import pino from 'pino';
 
@@ -21,39 +21,19 @@ export interface JobTransition {
 export class AuditLogApplicationService {
   private readonly logger: pino.Logger;
 
-  constructor(private readonly txManager: TransactionManager) {
+  constructor(private readonly uowFactory: UoWFactory) {
     this.logger = createChildLogger({ service: "AuditLogApplicationService" })
   }
 
   async getAuditLogForJobById(jobId: string): Promise<AuditLogEntry[]> {
     try {
-      const context = await this.txManager.createContext();
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const result = await context.getRepositoryRegistry().getAuditLog().getByJobId(jobId);
+      const result = await context.getAuditLog().getByJobId(jobId);
       return result
     } catch (error) {
       this.logger.error({ error}, "Failed to fetch audit log items")
       throw error
     }
   }
-
-  async createEntry(entry: AuditLogEntry): Promise<void> {
-    return this.createAllEntries([entry])
-  }
-
-  async createAllEntries(entries: AuditLogEntry[]): Promise<void> {
-    const context = await this.txManager.createContext();
-    try {
-      await context.start();
-
-      const auditLog = context.getRepositoryRegistry().getAuditLog();
-      await auditLog.createAll(entries)
-
-      context.commit();
-    } catch (error) {
-      this.logger.error({ error: error, auditEntries: entries }, "Failed to create audit logs")
-      return;
-    }
-  }
-
 }

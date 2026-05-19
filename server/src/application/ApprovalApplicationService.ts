@@ -1,12 +1,10 @@
 import { ManualStep } from "../domain/steps/userinteraction/ManualStep.js";
-import { TransactionManager } from "../infrastructure/TransactionManager.js";
 
-import { DocumentAction } from "../domain/actions/DocumentAction.js";
 import { Cursor, encodeCursor } from "../domain/common/Cursor.js";
-import { getLogger } from "../utils/logger.js";
-import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService.js";
-import { AuditLogApplicationService } from "./AuditLogApplicationService.js";
+import { createChildLogger } from "../utils/logger.js";
 import { AuditLogEntry } from "../domain/audit/AuditLogEntry.js";
+import { UoWFactory } from "../infrastructure/UoW.js";
+import pino from "pino";
 
 /**
  * Enriched approval item with full context for UI display
@@ -14,7 +12,7 @@ import { AuditLogEntry } from "../domain/audit/AuditLogEntry.js";
 export interface ApprovalItem {
   stepId: string;
   jobId: string;
-  documentId: string;
+  documentId: number;
   paperlessUrl: string;
   jobType: string;
   proposedActions: Array<{
@@ -37,36 +35,34 @@ export interface ApprovalStats {
  * ApprovalApplicationService - handles user approval/rejection of interactive steps.
  * Application service that orchestrates approval processing with transaction management.
  */
-export class ApprovalApplicationService {
+export class ManualStepApplicationService {
+  private logger: pino.Logger    
+
   constructor(
-    private readonly txManager: TransactionManager,
+    private readonly uowFactory: UoWFactory,
     private readonly paperlessBaseUrl: string,
-    private readonly auditLogService: AuditLogApplicationService
-  ) {}
+  ) {
+    this.logger = createChildLogger({name: "ManualStepApplicationService"})
+  }
 
   /**
    * Get statistics for pending approvals.
    * @returns Object with count of pending approvals
    */
   async getApprovalStats(): Promise<ApprovalStats> {
-    const logger = getLogger();
-    await using context = await this.txManager.createContext();
     
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
       
-      const pendingCount = await repos.getSteps().countPendingUserInteractionSteps();
+      const pendingCount = await context.getSteps().countPendingUserInteractionSteps();
       
       await context.commit();
       
       return { pendingCount };
     } catch (error) {
-      logger.error({ error }, 'Failed to get approval stats');
-      await context.rollback();
+      this.logger.error({ error }, 'Failed to get approval stats');
       throw error;
-    } finally {
-      await context.dispose();
     }
   }
 
@@ -80,19 +76,19 @@ export class ApprovalApplicationService {
   async listPendingApprovals(
     limit: number = 50, 
     cursor?: Cursor
-  ): Promise<{ items: ApprovalItem[]; nextCursor: string | null }> {    const logger = getLogger();    await using context = await this.txManager.createContext();
+  ): Promise<{ items: ApprovalItem[]; nextCursor: string | null }> {  
     
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
 
       // Get pending user interaction steps with cursor support
-      const steps = await repos.getSteps().getPendingManualSteps(limit, cursor);
+      const steps = await context.getSteps().getPendingManualSteps(limit, cursor);
 
       // Load jobs for all steps
-      const jobPromises = steps.map((step) => repos.getJobs().getById(step.getJobId()));
+      const jobPromises = steps.map((step) => context.getJobs().getById(step.getJobId()));
       const jobs = await Promise.all(jobPromises);
-
+      await context.save();
       await context.commit();
 
       // Build enriched approval items
@@ -102,7 +98,7 @@ export class ApprovalApplicationService {
         const job = jobs[i];
 
         if (!job) {
-          logger.warn({ stepId: step.getStepId() }, 'Skipping approval item - missing job');
+          this.logger.warn({ stepId: step.getStepId() }, 'Skipping approval item - missing job');
           continue;
         }
 
@@ -130,11 +126,8 @@ export class ApprovalApplicationService {
       return { items: approvalItems, nextCursor };
 
     } catch (error) {
-      logger.error({ error }, 'Failed to list pending approvals');
-      await context.rollback();
+      this.logger.error({ error }, 'Failed to list pending approvals');
       throw error;
-    } finally {
-      await context.dispose();
     }
   }
 
@@ -144,33 +137,32 @@ export class ApprovalApplicationService {
    * @param decision User's decision data (e.g., "APPROVED" or "REJECTED")
    */
   async processApprovalDecision(stepId: string, decision: string): Promise<void> {
-    const logger = getLogger();
-    const context = await this.txManager.createContext();
     let jobId = null;
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
-
+      const stepRepo = context.getSteps();
+      const jobsRepo = context.getJobs();
       // Load step
-      const step = await repos.getSteps().getById(stepId);
+      const step = await stepRepo.getById(stepId);
       if (!step) {
         throw new Error(`Step ${stepId} not found`);
       }
 
       // Load job
-      const job = await repos.getJobs().getById(step.getJobId());
+      const job = await jobsRepo.getById(step.getJobId());
       if (!job) {
         throw new Error(`Job ${step.getJobId()} not found`);
       }
       jobId = job.id
 
-      logger.info(
+      this.logger.info(
         {
           stepId,
           stepType: step.getStepType(),
           decision,
         },
-        'Processing approval decision',
+        'Processing decision',
       );
 
       // Verify it's a user interaction step
@@ -179,43 +171,29 @@ export class ApprovalApplicationService {
           `Step ${stepId} (${step.getStepType()}) is not a user interaction step`,
         );
       }
-      // Process user decision (domain logic)
-      const result = await step.processUserDecision(decision);
-      job.addDocumentActions(result.actions);
 
-      const workflowOrchestratorService = new WorkflowOrchestratorService(this.auditLogService, context)
-      await workflowOrchestratorService.advanceToNextStep(
-        job, 
-        result.transition
-      );
-      
-      // Persist changes
-      await repos.getJobs().update(job);
-      await repos.getSteps().update(step);
+      const nextStepResult = await context.getWorkflowOrchestratorDomainService().processUserDecision(step, decision)
 
+      if (nextStepResult.step) {
+        stepRepo.create(nextStepResult.step)
+      }
+
+      await context.save();
       await context.commit();
 
-      // Now that decision has been processed, we can log the event
-      const entry = AuditLogEntry.createDecisionEntry(step, { decision: decision}, new Date())
-      this.auditLogService.createEntry(entry)
-
-      logger.info(
-        {
-          stepId,
-          transition: result.transition,
-          actionsCount: result.actions.length,
-        },
-        'Approval processed',
-      );
-
     } catch (error) {
-      logger.error({ error, stepId, decision }, 'Failed to process approval');
-      await context.rollback();
-      const entry = AuditLogEntry.createError(jobId as any, stepId, { message: "" + error})
-      this.auditLogService.createEntry(entry)
+      this.logger.error({ error, stepId, decision }, 'Failed to process approval');
+      try {
+        const uow = await this.uowFactory.createUoW();
+        await uow.start();
+        const entry = AuditLogEntry.createError(jobId as any, stepId, { message: "" + error})
+        uow.getAuditCollector().record(entry)
+        await uow.save();
+        await uow.commit();
+      } catch (err) {
+        this,this.logger.error({ error: err}, "Failed saving audit entry")
+      }
       throw error;
-    } finally {
-      await context.dispose();
     }
   }
 }

@@ -1,6 +1,12 @@
 import { IStep, RetryConfig, StepExecutionContext, StepResult, StepStatus, StepType } from '../IStep.js';
 import { Transition } from '../../workflows/Transition.js';
+import { AuditLogEntry } from '../../audit/AuditLogEntry.js';
 
+
+export interface StepResultWithAuditEntries {
+  audit: AuditLogEntry[],
+  stepResult: StepResult
+}
 /**
  * Abstract base class for automated steps that execute without user interaction
  * Automated steps directly return actions and a transition result
@@ -49,25 +55,25 @@ export abstract class ExecutableStep extends IStep {
     if (this.getStepStatus() === StepStatus.RETRYING) {
       throw new Error(`Cannot execute step ${this.getStepId()} in RETRYING state. Wait for retry timer.`);
     }
-
     try {
       this.moveToInProgress();
       const result = await this.doExecute(context);
       if (result.transition == Transition.SUCCESS)  {
         this.moveToCompleted()
       } else {
-        this.moveToFailed()
+        this.markExecutionFailed(retryConfig)
       }
-      return result;
+      return result
     } catch (error) {
       this.markExecutionFailed(retryConfig)
       // On error, return failure transition with no actions
       console.error(`Automated step execution failed:`, error);
       return {
-        actions: [],
-        transition: Transition.NONE, // No transition out of this step - we either retry or go into fallout
-        message: "Step execution failed with error " + error
-      };
+          actions: [],
+          success: false,
+          transition: Transition.NONE, // No transition out of this step - we either retry or go into fallout
+          message: "Step execution failed with error " + error
+        }
     }
   }
 }

@@ -2,12 +2,10 @@ import { Job } from "../domain/job/Job.js";
 import { JobState } from "../domain/job/JobState.js";
 import { IStep } from "../domain/steps/IStep.js";
 import { WorkflowType } from "../domain/workflows/WorkflowType.js";
-import { TransactionManager } from "../infrastructure/TransactionManager.js";
 import { getLogger } from "../utils/logger.js";
-import { WorkflowOrchestratorService } from "./WorkflowOrchestratorService.js";
-import { AuditLogApplicationService } from "./AuditLogApplicationService.js";
 import { DocumentField } from "../domain/steps/StepFactory.js";
 import { AuditLogEntry } from "../domain/audit/AuditLogEntry.js";
+import { UoWFactory } from "../infrastructure/UoW.js";
 
 /**
  * Statistics for jobs grouped by state
@@ -29,8 +27,7 @@ export interface JobStats {
  */
 export class JobApplicationService {
   constructor(
-    private readonly txManager: TransactionManager,
-    private readonly auditLogService: AuditLogApplicationService
+    private readonly uowFactory: UoWFactory
   ) {}
 
   /**
@@ -39,14 +36,14 @@ export class JobApplicationService {
    */
   async getJobStats(): Promise<JobStats> {
     const logger = getLogger();
-    const context = await this.txManager.createContext();
     
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
+      const jobs = context.getJobs();
 
-      const countsByState = await repos.getJobs().getJobCountsByState();
-
+      const countsByState = await jobs.getJobCountsByState();
+      await context.save();
       await context.commit();
       
       return {
@@ -61,10 +58,7 @@ export class JobApplicationService {
       };
     } catch (error) {
       logger.error({ error }, 'Failed to get job stats');
-      await context.rollback();
       throw error;
-    } finally {
-      await context.dispose();
     }
   }
 
@@ -76,39 +70,11 @@ export class JobApplicationService {
    * @returns The created job
    */
   async create(
-    documentId: string,
+    documentId: number,
     fields: DocumentField[],
     jobType: WorkflowType,
   ): Promise<Job> {
-    const logger = getLogger();
-    const context = await this.txManager.createContext();
-    
-    try {
-      await context.start();
-      const repos = context.getRepositoryRegistry();
-
-      logger.info({ documentId, jobType }, 'Creating new job');
-
-      const job = await repos.getJobs().create(documentId, jobType, fields);
-      
-      const entry = AuditLogEntry.createJobCreated(job)
-      this.auditLogService.createEntry(entry)
-      
-      // Start job with first transition, ensure orchestrator has auditLogService
-      const orchestrator = new WorkflowOrchestratorService(this.auditLogService, context);
-      await orchestrator.startWorkflow(job);
-
-      logger.info({ jobId: job.id, state: job.state }, 'Job created');
-
-      await context.commit();
-      return job;
-    } catch (error) {
-      logger.error({ error, documentId, jobType }, 'Failed to create job');
-      await context.rollback();
-      throw error;
-    } finally {
-      await context.dispose();
-    }
+    return this.createBulk([{ documentId, fields, jobType}]).then((v) => v[0])
   }
 
   /**
@@ -118,48 +84,45 @@ export class JobApplicationService {
    * @returns Array of created jobs
    */
   async createBulk(
-    jobs: Array<{ documentId: string; jobType: WorkflowType, fields: DocumentField[] }>
+    jobs: Array<{ documentId: number; jobType: WorkflowType, fields: DocumentField[] }>
   ): Promise<Job[]> {
     if (jobs.length === 0) {
       return [];
     }
 
     const logger = getLogger();
-    const context = await this.txManager.createContext();
     
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
+      const jobRepo = context.getJobs();
 
       logger.info({ count: jobs.length }, 'Creating jobs in bulk');
 
+      // TODO: this may need some optimization, i.e. a JobDomainService that handles creation & start of a job
       // Create all jobs in a single database operation
-      const createdJobs = await repos.getJobs().createBulk(jobs);
-      
+      const createdJobs = await jobRepo.createBulk(jobs);
       const entries = createdJobs.map(j => {
         return AuditLogEntry.createJobCreated(j);
       })
-      this.auditLogService.createAllEntries(entries)
-      
-      // Start workflow for each job (creates initial steps)
-      const orchestrator = new WorkflowOrchestratorService(this.auditLogService, context);
-      for (const job of createdJobs) {
-        await orchestrator.startWorkflow(job);
-      }
+      context.getAuditCollector().recordAll(entries)
 
-      logger.info(
-        { count: createdJobs.length, jobIds: createdJobs.map(j => j.id) },
-        'Jobs created in bulk'
-      );
+      // Start all jobs
+      const workflowOrchestrator = context.getWorkflowOrchestratorDomainService();
+      await Promise.all(createdJobs.map((j) => workflowOrchestrator.startJob(j)).map((r) => {
+        if (r.step)
+          return context.getSteps().create(r.step)
+        else
+          return Promise.resolve()
+      }))
 
+      await context.save();
       await context.commit();
+
       return createdJobs;
     } catch (error) {
       logger.error({ error, count: jobs.length }, 'Failed to create jobs in bulk');
-      await context.rollback();
       throw error;
-    } finally {
-      await context.dispose();
     }
   }
 
@@ -170,22 +133,19 @@ export class JobApplicationService {
    */
   async getById(id: string): Promise<Job | null> {
     const logger = getLogger();
-    const context = await this.txManager.createContext();
     
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
 
-      const job = await repos.getJobs().getById(id);
+      const job = await context.getJobs().getById(id);
 
+      await context.save();
       await context.commit();
       return job;
     } catch (error) {
       logger.error({ error, id }, 'Failed to get job by ID');
-      await context.rollback();
       throw error;
-    } finally {
-      await context.dispose();
     }
   }
 
@@ -196,22 +156,18 @@ export class JobApplicationService {
    */
   async getByDocumentId(documentId: string): Promise<Job[]> {
     const logger = getLogger();
-    const context = await this.txManager.createContext();
     
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
 
-      const jobs = await repos.getJobs().getByDocumentId(documentId);
-
+      const jobs = await context.getJobs().getByDocumentId(documentId);
+      await context.save();
       await context.commit();
       return jobs;
     } catch (error) {
       logger.error({ error, documentId }, 'Failed to get jobs by document ID');
-      await context.rollback();
       throw error;
-    } finally {
-      await context.dispose();
     }
   }
 
@@ -228,22 +184,18 @@ export class JobApplicationService {
     state?: JobState,
   ): Promise<{ items: Job[]; nextCursor: string | null }> {
     const logger = getLogger();
-    const context = await this.txManager.createContext();
     
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
 
-      const result = await repos.getJobs().list(limit, cursor, state);
+      const result = await context.getJobs().list(limit, cursor, state);
 
       await context.commit();
       return result;
     } catch (error) {
       logger.error({ error, limit, cursor, state }, 'Failed to list jobs');
-      await context.rollback();
       throw error;
-    } finally {
-      await context.dispose();
     }
   }
 
@@ -252,33 +204,20 @@ export class JobApplicationService {
    * @param jobId Job ID
    * @returns Array of step data with timestamps and retry information
    */
-  async getStepsByJobId(jobId: string): Promise<Array<{
-    stepId: string;
-    stepType: string;
-    stepStatus: string;
-    createdAt: Date;
-    startedAt: Date | null;
-    completedAt: Date | null;
-    retryCount: number;
-    retryAfter: Date | null;
-  }>> {
+  async getStepsByJobId(jobId: string): Promise<Array<IStep>> {
     const logger = getLogger();
-    const context = await this.txManager.createContext();
     
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
 
-      const steps = await repos.getSteps().getStepsByJobIdWithTimestamps(jobId);
-
+      const steps = await context.getSteps().getStepsByJob(jobId);
+      await context.save();
       await context.commit();
       return steps;
     } catch (error) {
       logger.error({ error, jobId }, 'Failed to get steps by job ID');
-      await context.rollback();
       throw error;
-    } finally {
-      await context.dispose();
     }
   }
 }

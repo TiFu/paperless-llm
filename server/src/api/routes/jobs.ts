@@ -8,9 +8,10 @@ import { JobState } from '../../domain/job/JobState.js';
 import { createChildLogger } from '../../utils/logger.js';
 import { DOCUMENT_FIELDS, DocumentField } from '../../domain/steps/StepFactory.js';
 import { DocumentAction } from '../../domain/actions/DocumentAction.js';
+import { IStep } from '../../domain/steps/IStep.js';
 
 interface JobSubmission {
-  documentId: string;
+  documentId: number;
   jobType: WorkflowType;
   fields: DocumentField[]
 }
@@ -72,7 +73,7 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
         .isArray({ min: 1 })
         .withMessage('documents must be a non-empty array'),
       body('documents.*.documentId')
-        .isString()
+        .isNumeric()
         .notEmpty()
         .withMessage('documentId must be a non-empty string'),
       body('documents.*.jobType')
@@ -141,7 +142,7 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
 
         const jobAppService = appFactory.createJobApplicationService();
         const result = await jobAppService.list(limit, cursor, state);
-
+        logger.info({ jobs: result.items}, "Job Items")
         res.json({
           jobs: result.items.map((job) => ({
             id: job.id,
@@ -229,17 +230,23 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
         // Get steps for the job
         const steps = await jobAppService.getStepsByJobId(jobId);
 
+        const mapFunc: (step: IStep) => any = (step: IStep) => {
+          return {
+            stepId: step.getStepId(),
+            stepType: step.getStepType(),
+            stepStatus: step.getStepStatus(),
+            children: step.hasChildren() ? step.getChildren().map(mapFunc) : null,
+            startedAt: step.getStartedAt(),
+            retryCount: step.getRetryCount(),
+            retryAfter: step.getRetryAfter()
+          }
+        };
+
+
+        const output = steps.map(mapFunc)
+        logger.info({output}, "Output of steps")
         res.json({
-          steps: steps.map((step) => ({
-            stepId: step.stepId,
-            stepType: step.stepType,
-            stepStatus: step.stepStatus,
-            createdAt: step.createdAt,
-            startedAt: step.startedAt,
-            completedAt: step.completedAt,
-            retryCount: step.retryCount,
-            retryAfter: step.retryAfter,
-          })),
+          steps: steps.map(mapFunc),
         });
       } catch (error) {
         logger.error({ error, id: req.params.id }, 'Failed to get job steps');

@@ -8,6 +8,7 @@ import { ApprovalWorkflow } from '../workflows/ApprovalWorkflow.js';
 import { error } from 'console';
 import { Transition } from '../workflows/Transition.js';
 import { DocumentField } from '../steps/StepFactory.js';
+import { AuditLogEntry } from '../audit/AuditLogEntry.js';
 
 /**
  * Job entity - stateful entity representing a workflow instance
@@ -17,7 +18,7 @@ export class Job {
   
   constructor(
     public readonly id: string,
-    public readonly documentId: string,
+    public readonly documentId: number,
     public readonly jobType: WorkflowType,
     public state: JobState,
     public documentActions: DocumentAction[],
@@ -65,7 +66,7 @@ export class Job {
   public static fromDb(row: Record<string, unknown>, fields: DocumentField[], actions: DocumentAction[] = []): Job {
     return new Job(
       row.id as string,
-      row.document_id as string,
+      row.document_id as number,
       row.job_type as WorkflowType,
       row.state as JobState,
       actions,

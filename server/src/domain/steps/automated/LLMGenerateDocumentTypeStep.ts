@@ -56,25 +56,20 @@ export class LLMGenerateDocumentTypeStep extends ExecutableStep {
     // Clean the document type name
     const proposedDocumentTypeName = this.cleanDocumentType(generatedResponse);
 
-    // Resolve document type name to ID (create if missing)
-    const proposedDocumentTypeId = await context.services.dms.resolveDocumentTypeId(
-      proposedDocumentTypeName,
-      true
-    );
-
     // Get current document type from document metadata
-    const currentDocumentTypeId: number | null = 
-      document.metadata?.document_type ? Number(document.metadata.document_type) : null;
+    const currentDocumentTypeString: string = 
+      document.documentType || "";
 
     // Create DocumentTypeUpdateAction
     const action = DocumentTypeUpdateAction.create(
       context.job.id,
-      proposedDocumentTypeId,
-      currentDocumentTypeId
+      proposedDocumentTypeName,
+      currentDocumentTypeString
     );
 
     return {
       actions: [action],
+      success: true,
       transition: Transition.SUCCESS,
       message: "Document type: " + action.newValue
     };

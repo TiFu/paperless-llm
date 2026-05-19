@@ -25,22 +25,13 @@ export class RemoveTagsStep extends ExecutableStep {
   protected async doExecute(context: StepExecutionContext): Promise<StepResult> {
     const documentId = context.job.documentId;
 
-    try {
-      // Remove the processing tag from the document
-      await context.services.dms.removeProcessingTag(documentId);
-    } catch (error) {
-      // Log warning but don't fail the job - tag removal is cleanup
-      console.warn(`Failed to remove processing tag from document ${documentId}:`, error);
-      return {
-        actions: [],
-        transition: Transition.FAILURE,
-        message: "Failed to clean up tags: " + error
-      }
-    }
+    // Remove the processing tag from the document
+    await context.services.dms.removeProcessingTag(documentId);
 
     // Return SUCCESS transition
     return {
       actions: [],
+      success: false,
       transition: Transition.SUCCESS,
         message: "Tags cleaned up"
     };

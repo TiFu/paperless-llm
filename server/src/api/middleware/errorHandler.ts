@@ -32,6 +32,8 @@ export function errorHandler(logger: pino.Logger) {
         error: err,
         path: req.path,
         method: req.method,
+        body: req.body,
+        response: res.json
       },
       'API error occurred',
     );

@@ -9,11 +9,21 @@ import { Cursor } from '../../domain/common/Cursor.js';
 import { CompositeStep } from '../../domain/steps/automated/CompositeStep.js';
 import pino from 'pino';
 import { createChildLogger } from '../../utils/logger.js';
+import { Saveable, UoW } from '../../infrastructure/UoW.js';
 
-export class PostgreSQLStepRepository implements IStepRepository {
+export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep> {
   private logger: pino.Logger;
-  constructor(private readonly client: PoolClient) {
+  constructor(private readonly client: PoolClient, private readonly uow: UoW) {
     this.logger = createChildLogger( { name: "PostgreSQLStepRepository"})
+  }
+
+
+  save(object: IStep): Promise<void> {
+      return this.update(object)
+  }
+
+  saveAll(objects: IStep[]): Promise<void> {
+      return this.updateAll(objects)
   }
 
   private getClient(): Pool | PoolClient {
@@ -22,7 +32,7 @@ export class PostgreSQLStepRepository implements IStepRepository {
 
   // TODO: this needs to correctly handle recursive steps, i.e. create children
   async create(step: IStep): Promise<void> {
-    await this.createAll([step])
+    return this.createAll([step])
  }
 
   private getValuesAndParamsForStep(step: IStep, counter: number = 1): { values: string[], params: Array<any>, counter: number } {
@@ -38,7 +48,7 @@ export class PostgreSQLStepRepository implements IStepRepository {
 
     const values = [valueEntry]
 
-    this.logger.error({ hasChildren: step.hasChildren(), children: step.getChildren()}, "Creating step")
+    this.logger.debug({ hasChildren: step.hasChildren(), children: step.getChildren()}, "Creating step")
     if (step.hasChildren()) {
       for (let child of step.getChildren()) {
         const result = this.getValuesAndParamsForStep(child, counter)
@@ -78,8 +88,10 @@ export class PostgreSQLStepRepository implements IStepRepository {
     await this.getClient().query(query, params);
   }
 
-  async getById(id: string): Promise<IStep | null> {
-    return this.getStepByIdRecursive(id)
+  async getById(id: string): Promise<IStep> {
+    const step = await this.getStepByIdRecursive(id)
+    this.uow.register(step, this)
+    return step
   }
 
   async getByJobId(jobId: string): Promise<IStep[]> {
@@ -92,6 +104,7 @@ export class PostgreSQLStepRepository implements IStepRepository {
     const stepIds = await this.getClient().query(query, [jobId])
 
     const steps = await Promise.all(stepIds.rows.map((r) => this.getStepByIdRecursive(r.id)))
+    this.uow.registerAll(steps, this)
     return steps
   }
 
@@ -120,7 +133,10 @@ export class PostgreSQLStepRepository implements IStepRepository {
       StepStatus.WAITING,
       limit
     ]);
-    return result.rows.map((row) => StepFactory.fromDb(row, [])) as ExecutableStep[];
+
+    const steps = result.rows.map((row) => StepFactory.fromDb(row, [])) as ExecutableStep[];
+    this.uow.registerAll(steps, this)
+    return steps;
   }
 
   async getPendingManualSteps(limit: number, cursor?: Cursor): Promise<ManualStep[]> {
@@ -148,7 +164,9 @@ export class PostgreSQLStepRepository implements IStepRepository {
     }
 
     const result = await this.getClient().query(query, params);
-    return result.rows.map((row) => StepFactory.fromDb(row, [])) as ManualStep[];
+    const steps = result.rows.map((row) => StepFactory.fromDb(row, [])) as ManualStep[];
+    this.uow.registerAll(steps, this)
+    return steps;
   }
 
   async update(step: IStep): Promise<void> {
@@ -323,32 +341,8 @@ export class PostgreSQLStepRepository implements IStepRepository {
     const result = await this.getClient().query(query, params);
 
     const steps = await Promise.all(result.rows.map((r) => this.getStepByIdRecursive(r.id)))
-
+    this.uow.registerAll(steps, this)
     return steps;
-  }
-
-  async resetStepToWaiting(stepId: string): Promise<void> {
-    const query = `
-      UPDATE steps
-      SET status = $1,
-          retry_count = retry_count + 1,
-          started_at = NULL,
-          completed_at = NULL
-      WHERE id = $2
-    `;
-
-    await this.getClient().query(query, [StepStatus.WAITING, stepId]);
-  }
-
-  async markStepAsFailed(stepId: string, errorMessage: string): Promise<void> {
-    const query = `
-      UPDATE steps
-      SET status = $1,
-          completed_at = COALESCE(completed_at, NOW())
-      WHERE id = $2
-    `;
-
-    await this.getClient().query(query, [StepStatus.FAILED, stepId]);
   }
 
   /**
@@ -375,37 +369,27 @@ export class PostgreSQLStepRepository implements IStepRepository {
     ]);
 
     // Force type cast as we specifically look for executable steps
-    return Promise.all(result.rows.map((r) => this.getStepByIdRecursive(r.id))) as Promise<ExecutableStep[]>
+    const steps = await Promise.all(result.rows.map((r) => this.getStepByIdRecursive(r.id)))
+    this.uow.registerAll(steps, this)
+    return steps as ExecutableStep[];
+
   }
 
-  async getStepsByJobIdWithTimestamps(jobId: string): Promise<Array<{
-    stepId: string;
-    stepType: StepType;
-    stepStatus: StepStatus;
-    createdAt: Date;
-    startedAt: Date | null;
-    completedAt: Date | null;
-    retryCount: number;
-    retryAfter: Date | null;
-  }>> {
+  async getStepsByJob(jobId: string): Promise<Array<IStep>> {
     const query = `
-      SELECT id, type, status, created_at, started_at, completed_at, retry_count, retry_after
-      FROM steps
-      WHERE job_id = $1
+      SELECT id FROM steps
+      WHERE job_id = $1 AND parent_id is NULL
       ORDER BY created_at ASC
     `;
 
     const result = await this.getClient().query(query, [jobId]);
 
-    return result.rows.map((row: any) => ({
-      stepId: row.id,
-      stepType: row.type as StepType,
-      stepStatus: row.status as StepStatus,
-      createdAt: row.created_at,
-      startedAt: row.started_at,
-      completedAt: row.completed_at,
-      retryCount: row.retry_count || 0,
-      retryAfter: row.retry_after ? new Date(row.retry_after) : null,
-    }));
+    const mainSteps = result.rows.map((v) => {
+      const step = this.getStepByIdRecursive(v.id)
+      return step;
+    })
+
+    return Promise.all(mainSteps)
   }
+
 }

@@ -1,6 +1,6 @@
-import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { StepStatus } from '../domain/steps/IStep.js';
 import { StepWithJob } from '../domain/steps/IStepRepository.js';
+import { UoWFactory } from '../infrastructure/UoW.js';
 import { getLogger } from '../utils/logger.js';
 
 /**
@@ -40,7 +40,7 @@ export interface QueueItem {
  * Application service that manages transaction context for queue queries.
  */
 export class QueueApplicationService {
-  constructor(private readonly txManager: TransactionManager) {}
+  constructor(private readonly uowFactory: UoWFactory) {}
 
   /**
    * Get queue statistics for all automated steps
@@ -48,13 +48,12 @@ export class QueueApplicationService {
    */
   async getQueueStats(): Promise<QueueStats> {
     const logger = getLogger();
-    const context = await this.txManager.createContext();
 
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
 
-      const stats = await repos.getSteps().getAutomatedStepStatistics();
+      const stats = await context.getSteps().getAutomatedStepStatistics();
 
       await context.commit();
 
@@ -69,10 +68,7 @@ export class QueueApplicationService {
       };
     } catch (error) {
       logger.error({ error }, 'Failed to get queue statistics');
-      await context.rollback();
       throw error;
-    } finally {
-      await context.dispose();
     }
   }
 
@@ -89,16 +85,15 @@ export class QueueApplicationService {
     status?: string
   ): Promise<{ items: QueueItem[]; nextCursor: string | null }> {
     const logger = getLogger();
-    const context = await this.txManager.createContext();
 
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
 
       // Map WorkItemStatus to StepStatus for repository query
       const stepStatus = this.mapWorkItemStatusToStepStatus(status);
-
-      const result = await repos.getSteps().listAutomatedStepsWithJob(
+      logger.info({ "limit": limit, "cursor": cursor, "stepStatus": stepStatus},"Requesting automated steps for queue")
+      const result = await context.getSteps().listAutomatedStepsWithJob(
         limit,
         cursor,
         stepStatus
@@ -115,10 +110,7 @@ export class QueueApplicationService {
       };
     } catch (error) {
       logger.error({ error, limit, cursor, status }, 'Failed to list queue items');
-      await context.rollback();
       throw error;
-    } finally {
-      await context.dispose();
     }
   }
 
@@ -128,26 +120,15 @@ export class QueueApplicationService {
    * @returns StepStatus or undefined
    */
   private mapWorkItemStatusToStepStatus(status?: string): StepStatus | undefined {
+    console.log("Mapping " + status)
     if (!status) {
       return undefined;
     }
 
-    switch (status) {
-      case 'pending':
-        return StepStatus.WAITING;
-      case 'processing':
-        return StepStatus.IN_PROGRESS;
-      case 'completed':
-        return StepStatus.COMPLETED;
-      case 'failed':
-        return StepStatus.FAILED;
-      case 'retrying':
-        return StepStatus.RETRYING;
-      case 'in_fallout':
-        return StepStatus.IN_FALLOUT;
-      default:
-        return undefined;
-    }
+    const result = Object.values(StepStatus).includes(status as StepStatus) ? status as StepStatus : undefined;
+    //const result: StepStatus | undefined = (<any> StepStatus)[status]
+    console.log("Mapped " + result)
+    return result;
   }
 
   /**

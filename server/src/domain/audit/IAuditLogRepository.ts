@@ -1,5 +1,13 @@
 import { AuditLogEntry } from './AuditLogEntry.js';
 
+export interface IAuditCollector {
+  record(entry: AuditLogEntry): void;
+  recordAll(entry: AuditLogEntry[]): void;
+
+  getEvents(): AuditLogEntry[];
+  clear(): void;
+}
+
 /**
  * Repository interface for audit log persistence
  */
@@ -9,9 +17,9 @@ export interface IAuditLogRepository {
    * @param entry The audit log entry to persist
    * @returns The created audit log entry
    */
-  create(entry: AuditLogEntry): Promise<AuditLogEntry>;
+  create(entry: AuditLogEntry): Promise<void>;
 
-  createAll(entry: AuditLogEntry[]): Promise<AuditLogEntry[]>;
+  createAll(entry: AuditLogEntry[]): Promise<void>;
   
   /**
    * Get all audit log entries for a specific job

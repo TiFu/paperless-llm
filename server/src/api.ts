@@ -2,7 +2,6 @@
 
 import { createAppConfig } from './config/AppConfig.js';
 import { Database } from './infrastructure/Database.js';
-import { TransactionManager } from './infrastructure/TransactionManager.js';
 import { WorkerExecutor } from './infrastructure/WorkerExecutor.js';
 import { runMigrations } from './infrastructure/MigrationRunner.js';
 import { initializeLogger } from './utils/logger.js';
@@ -10,6 +9,8 @@ import { createApiServer } from './api/server.js';
 import { PaperlessService } from './services/PaperlessService.js';
 import { OllamaService } from './services/OllamaService.js';
 import { ApplicationServiceFactory } from './application/ApplicationServiceFactory.js';
+import { UoWFactory } from './infrastructure/UoW.js';
+import { PostgresqlDatabaseTransactionContext, PostgresqlTransactionManager } from './repositories/postgresql/PostgresqlTransactionContext.js';
 
 async function main(): Promise<void> {
   // Load configuration
@@ -46,7 +47,8 @@ async function main(): Promise<void> {
   }
 
   // Initialize infrastructure
-  const txManager = new TransactionManager(pool);
+  const txManager = new PostgresqlTransactionManager(pool)
+  const uowFactory = new UoWFactory(txManager);
   const paperlessService = new PaperlessService(config.paperless);
 
   // Check Paperless connectivity
@@ -68,7 +70,7 @@ async function main(): Promise<void> {
 
   // Initialize service factories
   const applicationServiceFactory = new ApplicationServiceFactory(
-    txManager,
+    uowFactory,
     paperlessService,
     ollamaService,
     config.paperless.url,
@@ -90,7 +92,7 @@ async function main(): Promise<void> {
       apiSpec: 'docs/openapi.yaml'
     },
     applicationServiceFactory,
-    txManager,
+    uowFactory,
     paperlessService,
     ollamaService,
     logger,

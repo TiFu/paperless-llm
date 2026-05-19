@@ -308,7 +308,7 @@ export const DocumentsPage: React.FC = () => {
             Successfully created {submissionResult.submitted} job(s):
           </Typography>
           <Box component="ul" sx={{ mt: 1, mb: 0 }}>
-            {submissionResult.jobs.map((job) => (
+            {submissionResult.jobs.map((job: { documentId: number; jobType: string; id: string }) => (
               <li key={job.id}>
                 Document {job.documentId} - {job.jobType}:{' '}
                 <Link component={RouterLink} to={`/jobs/${job.id}`}>

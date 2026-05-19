@@ -56,6 +56,7 @@ export class ManualStep extends IStep  {
         console.log("Invalid decision " + decision + " for ApprovalInteractionStep");
         this.moveToFailed();
         return Promise.resolve({
+          success: false,
           actions: [],
           transition: Transition.FAILURE, 
           message: "User decision " + decision + " unknown for " + this
@@ -74,6 +75,7 @@ export class ManualStep extends IStep  {
 
       return Promise.resolve({
         actions: [],
+        success: true,
         transition: transition,
         message: "User decision " + decision + ", transition " + transition
       })

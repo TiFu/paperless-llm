@@ -1,9 +1,10 @@
 export interface IDocument {
-  id: string;
+  id: number;
   content: string;
   title: string | null;
   tags: string[];
-  metadata: Record<string, unknown>;
+  correspondent: string | null;
+  documentType: string | null;  
   createdDate: Date | null;
   modifiedDate: Date | null;
 }

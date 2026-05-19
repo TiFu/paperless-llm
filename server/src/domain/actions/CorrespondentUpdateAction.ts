@@ -29,24 +29,20 @@ export class CorrespondentUpdateAction extends DocumentAction {
    */
   static create(
     jobId: string,
-    newCorrespondentId: number | null,
-    oldCorrespondentId: number | null,
+    newCorrespondentId: string,
+    oldCorrespondentId: string,
   ): CorrespondentUpdateAction {
     return new CorrespondentUpdateAction(
       null, // id - will be assigned by database
       jobId,
-      oldCorrespondentId !== null ? String(oldCorrespondentId) : "",
-      newCorrespondentId !== null ? String(newCorrespondentId) : "",
+      oldCorrespondentId,
+      newCorrespondentId
     );
   }
-
+ 
   apply(document: IDocument): Partial<IDocument> {
-    const correspondentId = this.newValue ? parseInt(this.newValue, 10) : null;
     return {
-      metadata: {
-        ...document.metadata,
-        correspondent: correspondentId
-      }
+      correspondent: this.newValue
     };
   }
 }

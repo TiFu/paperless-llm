@@ -187,24 +187,24 @@ paths:
                 summary: Single document, single job type
                 value:
                   documents:
-                    - documentId: "123"
+                    - documentId: 123
                       jobTypes: ["automated"]
                       fields: ["title"]
               multiple-documents:
                 summary: Multiple documents with different job types
                 value:
                   documents:
-                    - documentId: "123"
+                    - documentId: 123
                       jobTypes: ["title"]
                       fields: ["title", "tags"]
-                    - documentId: "456"
+                    - documentId: 456
                       jobTypes: ["title", "tag"]
                       fields: ["title", "tags"]
               with-approval:
                 summary: Job requiring approval
                 value:
                   documents:
-                    - documentId: "789"
+                    - documentId: 789
                       jobTypes: ["approval"]
       responses:
         '201':
@@ -360,7 +360,7 @@ paths:
                     processingEndTime: null
                     processingDurationMs: null
                     metadata:
-                      documentId: "42"
+                      documentId: 42
                       jobType: "GENERATE_TITLE"
                   - id: "550e8400-e29b-41d4-a716-446655440001"
                     jobId: "123e4567-e89b-12d3-a456-426614174000"
@@ -802,6 +802,7 @@ components:
         - pending_approval
         - updating_document
         - completed
+        - removing_tags
         - failed
         - rejected
       description: Current state of a job in its workflow
@@ -835,11 +836,11 @@ components:
       type: string
       enum:
         - JOB_CREATED
+        - JOB_COMPLETED
+        - JOB_FAILED
         - STEP_CREATED
+        - STEP_EXECUTED
         - STEP_COMPLETED
-        - STEP_FAILED
-        - STEP_MOVED_TO_RETRYING
-        - STEP_MOVED_TO_FALLOUT
         - APPROVAL_REQUESTED
         - APPROVAL_APPROVED
         - APPROVAL_REJECTED
@@ -883,9 +884,9 @@ components:
             type: object
             properties:
               documentId:
-                type: string
+                type: number
                 description: ID of the document in Paperless-NGX
-                example: "123"
+                example: 123
               jobType:
                 $ref: '#/components/schemas/WorkflowType'
               fields:
@@ -919,8 +920,8 @@ components:
             type: object
             properties:
               documentId:
-                type: string
-                example: "123"
+                type: number
+                example: 123
               jobType:
                 type: string
                 example: title
@@ -946,8 +947,8 @@ components:
         fields:
           $ref: '#/components/schemas/LLMGenerateableFields'
         documentId:
-          type: string
-          example: "123"
+          type: number
+          example: 123
         jobType:
           $ref: '#/components/schemas/WorkflowType'
         status:
@@ -1043,20 +1044,16 @@ components:
           $ref: '#/components/schemas/StepType'
         stepStatus:
           $ref: '#/components/schemas/StepStatus'
-        createdAt:
-          type: string
-          format: date-time
-          example: "2026-05-11T10:00:00Z"
+        children:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JobStep'
         startedAt:
           type: string
           format: date-time
           nullable: true
           example: "2026-05-11T10:01:00Z"
-        completedAt:
-          type: string
-          format: date-time
-          nullable: true
-          example: "2026-05-11T10:05:00Z"
         retryCount:
           type: integer
           description: Number of times this step has been retried
@@ -1072,7 +1069,6 @@ components:
         - stepId
         - stepType
         - stepStatus
-        - createdAt
         - retryCount
         - retryAfter
 
@@ -1206,8 +1202,8 @@ components:
           format: uuid
           example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
         documentId:
-          type: string
-          example: "123"
+          type: number
+          example: 123
         paperlessUrl:
           type: string
           format: uri
@@ -1362,8 +1358,8 @@ components:
           format: uuid
           example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
         documentId:
-          type: string
-          example: "123"
+          type: number
+          example: 123
         stepType:
           type: string
           example: LLM_GENERATE_TITLE
@@ -1423,8 +1419,8 @@ components:
       type: object
       properties:
         id:
-          type: string
-          example: "123"
+          type: number
+          example: 123
         title:
           type: string
           example: "Invoice 2026-05-11"

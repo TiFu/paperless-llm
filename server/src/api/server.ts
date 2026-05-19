@@ -7,7 +7,6 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import fs from 'fs';
 import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory.js';
-import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { PaperlessService } from '../services/PaperlessService.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -20,6 +19,7 @@ import { createApprovalsRouter } from './routes/approvals.js';
 import { createStepsRouter } from './routes/steps.js';
 import { createStatsRouter } from './routes/stats.js';
 import * as OpenAPIValidator from 'express-openapi-validator';
+import { UoWFactory } from '../infrastructure/UoW.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,7 +35,7 @@ export interface ApiServerConfig {
 export function createApiServer(
   config: ApiServerConfig,
   appFactory: ApplicationServiceFactory,
-  txManager: TransactionManager,
+  uowFactory: UoWFactory,
   paperlessService: PaperlessService,
   llmService: ILLMService,
   logger: pino.Logger,
@@ -81,10 +81,10 @@ export function createApiServer(
   }))
 
   // Health check (outside /api prefix)
-  app.use('/', createHealthRouter(txManager, paperlessService, llmService, logger));
+  app.use('/', createHealthRouter(uowFactory, paperlessService, llmService, logger));
 
   // API routes
-  app.use('/api/documents', createDocumentsRouter(paperlessService, txManager));
+  app.use('/api/documents', createDocumentsRouter(paperlessService, uowFactory));
   app.use('/api/prompts', createPromptsRouter(appFactory));
   app.use('/api/jobs', createJobsRouter(appFactory));
   app.use('/api/approvals', createApprovalsRouter(appFactory));

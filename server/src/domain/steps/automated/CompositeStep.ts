@@ -7,6 +7,57 @@ import { IStep, StepStatus, StepType } from '../IStep.js';
 export class CompositeStep extends IStep {
   kind = "composite" as const
 
+  private compositeStepStatusMapping: Record<StepStatus, Record<StepStatus, StepStatus>> = {
+      [StepStatus.WAITING]: {
+          [StepStatus.WAITING]: StepStatus.WAITING,
+          [StepStatus.IN_PROGRESS]: StepStatus.IN_PROGRESS,
+          [StepStatus.IN_FALLOUT]: StepStatus.IN_PROGRESS,
+          [StepStatus.RETRYING]: StepStatus.IN_PROGRESS,
+          [StepStatus.COMPLETED]: StepStatus.IN_PROGRESS,
+          [StepStatus.FAILED]: StepStatus.IN_PROGRESS,
+      },
+      [StepStatus.IN_PROGRESS]: {
+          [StepStatus.WAITING]: StepStatus.IN_PROGRESS,
+          [StepStatus.IN_PROGRESS]: StepStatus.IN_PROGRESS,
+          [StepStatus.IN_FALLOUT]: StepStatus.IN_PROGRESS,
+          [StepStatus.RETRYING]: StepStatus.IN_PROGRESS,
+          [StepStatus.COMPLETED]: StepStatus.IN_PROGRESS,
+          [StepStatus.FAILED]: StepStatus.IN_PROGRESS,
+      },
+      [StepStatus.COMPLETED]: {
+          [StepStatus.WAITING]: StepStatus.IN_PROGRESS,
+          [StepStatus.IN_PROGRESS]: StepStatus.IN_PROGRESS,
+          [StepStatus.IN_FALLOUT]: StepStatus.IN_PROGRESS,
+          [StepStatus.RETRYING]: StepStatus.IN_PROGRESS,
+          [StepStatus.COMPLETED]: StepStatus.COMPLETED,
+          [StepStatus.FAILED]: StepStatus.FAILED,
+      },
+      [StepStatus.FAILED]: {
+          [StepStatus.WAITING]: StepStatus.IN_PROGRESS,
+          [StepStatus.IN_PROGRESS]: StepStatus.IN_PROGRESS,
+          [StepStatus.IN_FALLOUT]: StepStatus.IN_PROGRESS,
+          [StepStatus.RETRYING]: StepStatus.IN_PROGRESS,
+          [StepStatus.COMPLETED]: StepStatus.FAILED,
+          [StepStatus.FAILED]: StepStatus.FAILED,
+      },
+      [StepStatus.RETRYING]: {
+          [StepStatus.WAITING]: StepStatus.IN_PROGRESS,
+          [StepStatus.IN_PROGRESS]: StepStatus.IN_PROGRESS,
+          [StepStatus.IN_FALLOUT]: StepStatus.IN_PROGRESS,
+          [StepStatus.RETRYING]: StepStatus.IN_PROGRESS,
+          [StepStatus.COMPLETED]: StepStatus.IN_PROGRESS,
+          [StepStatus.FAILED]: StepStatus.IN_PROGRESS,
+      },
+      [StepStatus.IN_FALLOUT]: {
+          [StepStatus.WAITING]: StepStatus.IN_PROGRESS,
+          [StepStatus.IN_PROGRESS]: StepStatus.IN_PROGRESS,
+          [StepStatus.IN_FALLOUT]: StepStatus.IN_PROGRESS,
+          [StepStatus.RETRYING]: StepStatus.IN_PROGRESS,
+          [StepStatus.COMPLETED]: StepStatus.IN_PROGRESS,
+          [StepStatus.FAILED]: StepStatus.IN_PROGRESS,
+      }
+  }
+
   public constructor(
     stepId: string, 
     stepType: StepType, 
@@ -36,5 +87,14 @@ export class CompositeStep extends IStep {
    */
   public isCompositeStep(): boolean {
     return true;
+  }
+
+  public recalculateStateFromChildren(): void {
+    // Map
+    const resultState = this.children.map(s => s.getStepStatus()).reduce<StepStatus>(
+            (output: StepStatus, current) => {
+                return this.compositeStepStatusMapping[output][current];
+            }, this.children[0].getStepStatus());
+    this.setStepState(resultState)
   }
 }

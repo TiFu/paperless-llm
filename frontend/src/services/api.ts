@@ -137,7 +137,7 @@ class ApiClient {
 
   // Audit Log
   async fetchAuditLog(
-    documentId?: string,
+    documentId?: number,
     limit: number = 50,
     offset: number = 0
   ): Promise<AuditLogResponse> {

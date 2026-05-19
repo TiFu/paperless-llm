@@ -39,6 +39,7 @@ export enum StepStatus {
  * Contains document actions, transition result, and audit log metadata
  */
 export interface StepResult {
+  success: boolean;
   actions: DocumentAction[];
   transition: Transition;
   message: string
@@ -51,7 +52,6 @@ export interface StepResult {
  */
 export interface StepExecutionContext {
   job: Job;
-  stepId: string;
   prompt: Prompt | null;
   services: {
     dms: IDocumentManagementSystem,
@@ -70,7 +70,6 @@ export abstract class IStep {
   public abstract kind: "composite" | "manual" | "executable"
 
   constructor(
-
     protected stepId: string, 
     protected stepType: StepType, 
     protected jobId: string, 

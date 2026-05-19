@@ -56,25 +56,20 @@ export class LLMGenerateCorrespondentStep extends ExecutableStep {
     // Clean the correspondent name
     const proposedCorrespondentName = this.cleanCorrespondent(generatedResponse);
 
-    // Resolve correspondent name to ID (create if missing)
-    const proposedCorrespondentId = await context.services.dms.resolveCorrespondentId(
-      proposedCorrespondentName, 
-      true
-    );
-
     // Get current correspondent from document metadata
-    const currentCorrespondentId: number | null = 
-      document.metadata?.correspondent ? Number(document.metadata.correspondent) : null;
+    const currentCorrespondentName: string = 
+      document.correspondent || "";
 
     // Create CorrespondentUpdateAction
     const action = CorrespondentUpdateAction.create(
       context.job.id,
-      proposedCorrespondentId,
-      currentCorrespondentId
+      proposedCorrespondentName,
+      currentCorrespondentName
     );
 
     return {
       actions: [action],
+      success: true,
       transition: Transition.SUCCESS,
       message: "Correspondent: " + action.newValue
     };

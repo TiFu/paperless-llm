@@ -2,11 +2,10 @@ import { IPromptDomainService } from './IPromptDomainService.js';
 import { IDocument } from '../document/IDocument.js';
 import { Job } from '../job/Job.js';
 import { Prompt } from './Prompt.js';
-import { TransactionContext } from '../../infrastructure/TransactionManager.js';
-import { IStep } from '../steps/IStep.js';
 import { ExecutableStep } from '../steps/automated/ExecutableStep.js';
 import pino from 'pino';
 import { createChildLogger } from '../../utils/logger.js';
+import { IPromptsRepository } from './IPromptsRepository.js';
 
 /**
  * PromptDomainService - handles prompt rendering with document and job context.
@@ -14,7 +13,7 @@ import { createChildLogger } from '../../utils/logger.js';
  */
 export class PromptService implements IPromptDomainService {
   private readonly logger: pino.Logger
-  public constructor(private context: TransactionContext) {
+  public constructor(private repo: IPromptsRepository) {
     this.logger = createChildLogger({ name: "PromptService"})
   }
 
@@ -24,8 +23,7 @@ export class PromptService implements IPromptDomainService {
       return null
     }
 
-    const promptRepo = this.context.getRepositoryRegistry().getPrompts();
-    const prompt = promptRepo.getByStepType(step.getStepType());
+    const prompt = this.repo.getByStepType(step.getStepType());
     return prompt
   }
   /**

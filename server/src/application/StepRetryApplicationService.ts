@@ -1,9 +1,8 @@
 import pino from 'pino';
-import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { createChildLogger } from '../utils/logger.js';
 import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
-import { AuditLogApplicationService } from './AuditLogApplicationService.js';
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
+import { UoWFactory } from '../infrastructure/UoW.js';
 
 /**
  * StepRetryApplicationService - handles manual retry of steps in fallout or retry state.
@@ -13,8 +12,7 @@ export class StepRetryApplicationService {
   private readonly logger: pino.Logger;
 
   constructor(
-    private readonly txManager: TransactionManager,
-    private readonly auditLogService: AuditLogApplicationService
+    private readonly uowFactory: UoWFactory,
   ) {
     this.logger = createChildLogger({ service: 'StepRetryApplicationService' });
   }
@@ -26,14 +24,13 @@ export class StepRetryApplicationService {
    * @throws Error if step not found or not eligible for manual retry
    */
   async retryStep(stepId: string): Promise<void> {
-    await using context = await this.txManager.createContext();
 
     try {
+      await using context = await this.uowFactory.createUoW();
       await context.start();
-      const repos = context.getRepositoryRegistry();
 
       // Load step
-      const step = await repos.getSteps().getById(stepId);
+      const step = await context.getSteps().getById(stepId);
       if (!step) {
         throw new Error(`Step ${stepId} not found`);
       }
@@ -58,17 +55,16 @@ export class StepRetryApplicationService {
         );
       }
 
+      const workflowOrchestrator = context.getWorkflowOrchestratorDomainService();
+      workflowOrchestrator.manuallyRetry(step);
       // Reset step using domain logic
       const state = step.getStepStatus();
-      step.resetForManualRetry();
       
-      const entry = AuditLogEntry.createStepManuallyRetried(step, {previousStatus: state }, new Date())
-      this.auditLogService.createEntry(entry)
 
       // Persist changes
-      await repos.getSteps().update(step);
-
+      await context.save();
       await context.commit();
+
 
       this.logger.info(
         { stepId, newStatus: step.getStepStatus(), retryCount: step.getRetryCount() },
@@ -77,7 +73,6 @@ export class StepRetryApplicationService {
 
     } catch (error) {
       this.logger.error({ error, stepId }, 'Failed to manually retry step');
-      await context.rollback();
       throw error;
     }
   }

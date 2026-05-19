@@ -1,10 +1,10 @@
-import { TransactionManager } from '../infrastructure/TransactionManager.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { IDocument } from '../domain/document/IDocument.js';
 import { Job } from '../domain/job/Job.js';
 import { JobApplicationService } from './JobApplicationService.js';
 import { AutoQueueConfig } from '../config/AppConfig.js';
 import { getLogger } from '../utils/logger.js';
+import { UoWFactory } from '../infrastructure/UoW.js';
 
 /**
  * Result of processing auto-queue documents
@@ -24,7 +24,7 @@ export interface AutoQueueProcessResult {
  */
 export class DocumentAutoQueueApplicationService {
   constructor(
-    private readonly txManager: TransactionManager,
+    private readonly uowFactory: UoWFactory,
     private readonly paperlessService: IDocumentManagementSystem,
     private readonly jobApplicationService: JobApplicationService,
     private readonly config: AutoQueueConfig,
@@ -84,13 +84,13 @@ export class DocumentAutoQueueApplicationService {
       const documentIds = documents.map(doc => doc.id);
 
       // 3. Batch check: find which documents already have active jobs
-      let inProgressIds: string[] = [];
-      await using context = await this.txManager.createContext();
-      await context.start();
-      const repos = context.getRepositoryRegistry();
-      inProgressIds = await repos.getJobs().filterInProgressDocuments(documentIds);
-      await context.commit();
-
+      let inProgressIds: number[] = [];
+      await using uow1 = await this.uowFactory.createUoW();
+      await uow1.start();
+      inProgressIds = await uow1.getJobs().filterInProgressDocuments(documentIds);
+      await uow1.save();
+      await uow1.commit();
+      
       logger.debug({ inProgressCount: inProgressIds.length }, 'Documents with active jobs');
 
       // 4. Filter out documents that have active jobs

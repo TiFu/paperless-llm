@@ -8,12 +8,14 @@ import { DocumentActionFactory } from '../../domain/actions/DocumentActionFactor
 import { DocumentField } from '../../domain/steps/StepFactory.js';
 import { createChildLogger } from '../../utils/logger.js';
 import pino from 'pino';
+import { Saveable, UoW } from '../../infrastructure/UoW.js';
 
-export class PostgreSQLJobRepository implements IJobRepository {
+export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
   private logger: pino.Logger
 
   constructor(
-    private readonly pool: PoolClient
+    private readonly pool: PoolClient,
+    private readonly uow: UoW
   ) {
     this.logger = createChildLogger({ name: "PostgreSQLJobRepository"})
   }
@@ -80,11 +82,13 @@ export class PostgreSQLJobRepository implements IJobRepository {
       JobState.PENDING
     ]);
 
-    return Job.fromDb(result.rows[0], []);
+    const output = Job.fromDb(result.rows[0], []);
+    this.uow.register<Job>(output, this)
+    return output
   }
 
   async createBulk(
-    jobs: Array<{ documentId: string; jobType: WorkflowType, fields: DocumentField[]}>
+    jobs: Array<{ documentId: number; jobType: WorkflowType, fields: DocumentField[]}>
   ): Promise<Job[]> {
     if (jobs.length === 0) {
       return [];
@@ -107,7 +111,7 @@ export class PostgreSQLJobRepository implements IJobRepository {
       RETURNING *
     `;
 
-    this.logger.error({ query: query}, "Creating jobs in bulk")
+    this.logger.debug({ query: query}, "Creating jobs in bulk")
     const result = await this.getClient().query(query, params);
 
     const fields = result.rows.map((r, idx) => { 
@@ -118,20 +122,24 @@ export class PostgreSQLJobRepository implements IJobRepository {
     })
     await this.saveFieldsBulk(fields)
     
-    return result.rows.map((row, idx) => Job.fromDb(row, jobs[idx].fields));
+    const output = result.rows.map((row, idx) => Job.fromDb(row, jobs[idx].fields));
+    this.uow.registerAll<Job>(output, this)
+    return output
   }
 
-  async getById(id: string): Promise<Job | null> {
+  async getById(id: string): Promise<Job> {
     const query = `SELECT * FROM jobs WHERE id = $1`;
     const result = await this.getClient().query(query, [id]);
 
     if (result.rows.length === 0) {
-      return null;
+      throw new Error("Job with id " + id + " not found.")
     }
 
     const actions = await this.loadActions(id);
     const fields = await this.loadFields(id);
-    return Job.fromDb(result.rows[0], fields, actions);
+    const output = Job.fromDb(result.rows[0], fields, actions);
+    this.uow.register(output, this);
+    return output
   }
 
   private async saveFieldsBulk(fields: Array<{jobId: string, fields: DocumentField[]}>) {
@@ -179,6 +187,19 @@ export class PostgreSQLJobRepository implements IJobRepository {
     const output = result.rows.map((v) => v.field as DocumentField);
     return output
 
+  }
+
+  async save(job: Job): Promise<void> {
+    return this.update(job)
+  }
+
+  async saveAll(objects: Job[]): Promise<void> {
+    const promises = []
+    for (let job of objects) {
+      promises.push(this.save(job))
+    }
+
+    return Promise.all(promises).then((e) => {});
   }
 
   async update(job: Job): Promise<void> {
@@ -299,7 +320,7 @@ export class PostgreSQLJobRepository implements IJobRepository {
     return counts;
   }
 
-  async filterInProgressDocuments(documentIds: string[]): Promise<string[]> {
+  async filterInProgressDocuments(documentIds: number[]): Promise<number[]> {
     if (documentIds.length === 0) {
       return [];
     }

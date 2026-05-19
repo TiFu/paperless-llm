@@ -91,8 +91,8 @@ const getEventLabel = (eventType: AuditEventType): string => {
   switch (eventType) {
     case AuditEventType.JOB_CREATED:
       return 'Job Created';
-    case AuditEventType.JOB_COMPLETED:
-      return 'Job Completed';
+    case AuditEventType.STEP_EXECUTED:
+      return 'Step Executed';
     case AuditEventType.STEP_CREATED:
       return 'Step Created';
     case AuditEventType.STEP_COMPLETED:
@@ -165,6 +165,10 @@ const MetadataDisplay: React.FC<{ metadata: Record<string, unknown> | null }> = 
       {metadata.retryCount !== undefined && (
         <Box>Retry Count: {String(metadata.retryCount)}</Box>
       )}
+      {metadata.message !== undefined && (
+        <Box sx={{ color: 'error.main', mt: 0.5 }}>
+          {String(metadata.message)}</Box>
+      )}
       {metadata.errorMessage !== undefined && (
         <Box sx={{ color: 'error.main', mt: 0.5 }}>
           Error: {String(metadata.errorMessage)}</Box>
@@ -219,29 +223,6 @@ export const AuditLogTimeline: React.FC<AuditLogTimelineProps> = ({ entries }) =
           } else if ((entry.eventType === AuditEventType.STEP_COMPLETED || entry.eventType === AuditEventType.STEP_FAILED) && stepType) {
             description = `Step Type: ${stepType}`;
           }
-          // Show a message for completion/error events, but suppress misleading success if step is being retried
-          let message = '';
-          if (entry.eventType === AuditEventType.STEP_COMPLETED) {
-            // Find if a retry event for this step follows this entry
-            const retryEvent = entries.find(
-              (e, idx) =>
-                idx > index &&
-                e.stepId === entry.stepId &&
-                (e.eventType === AuditEventType.STEP_MOVED_TO_RETRYING || e.eventType === AuditEventType.STEP_MANUALLY_RETRIED)
-            );
-            if (!retryEvent) {
-              if (entry.metadata?.message) {
-                message = String(entry.metadata.message);
-              } else {
-                message = 'Step completed successfully.';
-              }
-            } // else: suppress misleading success message if retry event follows
-          } else if (entry.eventType === AuditEventType.STEP_FAILED) {
-            message = entry.metadata?.errorMessage ? `Error: ${entry.metadata.errorMessage}` : 'Step failed.';
-          }
-          if (entry.eventType === AuditEventType.JOB_COMPLETED) {
-            message = 'Job completed successfully.';
-          }
           return (
             <TimelineItem key={entry.id}>
               <TimelineOppositeContent color="text.secondary" sx={{ flex: 0.2, paddingLeft: 0 }}>
@@ -261,7 +242,7 @@ export const AuditLogTimeline: React.FC<AuditLogTimelineProps> = ({ entries }) =
               <TimelineContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                   <Typography variant="subtitle2">
-                    {getEventLabel(entry.eventType)}
+                    {entry.metadata?.stepType ? entry.metadata.stepType + " - " : ""}{getEventLabel(entry.eventType)}
                   </Typography>
                   {entry.processingDurationMs !== null && (
                     <Chip 
@@ -287,9 +268,6 @@ export const AuditLogTimeline: React.FC<AuditLogTimelineProps> = ({ entries }) =
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{description}</Typography>
                 )}
                 {/* Always show a message for completion/error/job events */}
-                {message && (
-                  <Typography variant="body2" color={entry.eventType === AuditEventType.STEP_FAILED ? 'error.main' : 'success.main'} sx={{ mb: 0.5 }}>{message}</Typography>
-                )}
                 <Collapse in={expandedEntry === entry.id}>
                   <MetadataDisplay metadata={entry.metadata} />
                 </Collapse>

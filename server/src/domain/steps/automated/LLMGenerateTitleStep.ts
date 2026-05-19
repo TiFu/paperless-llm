@@ -61,6 +61,7 @@ export class LLMGenerateTitleStep extends ExecutableStep {
     // UpdateDocumentStep can read it from there
     return {
       actions: [action],
+      success: true,
       transition: Transition.SUCCESS,
       message: "Generated title: " + action.newValue
     };

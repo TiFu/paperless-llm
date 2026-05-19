@@ -1,13 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import pino from 'pino';
 import { PaperlessService } from '../../services/PaperlessService.js';
-import { TransactionManager } from '../../infrastructure/TransactionManager.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { UoWFactory } from '../../infrastructure/UoW.js';
 
 export function createDocumentsRouter(
   paperlessService: PaperlessService,
-  txManager: TransactionManager,
+  uowFactory: UoWFactory,
 ): Router {
   const logger = createChildLogger({ name: "document-router"})
 
@@ -54,12 +54,11 @@ export function createDocumentsRouter(
       const documentIds = paginatedResult.documents.map(doc => doc.id);
 
       // 3. Query database to find which documents have jobs in progress
-      let inProgressIds: string[] = [];
+      let inProgressIds: number[] = [];
       if (documentIds.length > 0) {
-        await using context = await txManager.createContext();
+        await using context = await uowFactory.createUoW();
         await context.start();
-        const repos = context.getRepositoryRegistry();
-        inProgressIds = await repos.getJobs().filterInProgressDocuments(documentIds);
+        inProgressIds = await context.getJobs().filterInProgressDocuments(documentIds);
       }
 
       // 4. Filter out documents that are currently being processed
