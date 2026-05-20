@@ -154,6 +154,8 @@ export const JobsPage: React.FC = () => {
                   <TableRow>
                     <TableCell>Job ID</TableCell>
                     <TableCell>Document ID</TableCell>
+                    <TableCell>Title</TableCell>
+                    <TableCell>Correspondent</TableCell>
                     <TableCell>Job Type</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Created</TableCell>
@@ -178,6 +180,8 @@ export const JobsPage: React.FC = () => {
                       >
                         <TableCell>{job.id.substring(0, 8)}...</TableCell>
                         <TableCell>{job.documentId}</TableCell>
+                        <TableCell>{job.document?.title ?? <em>–</em>}</TableCell>
+                        <TableCell>{job.document?.correspondent ?? <em>–</em>}</TableCell>
                         <TableCell>{job.jobType.replace(/_/g, ' ')}</TableCell>
                         <TableCell>
                           <Chip

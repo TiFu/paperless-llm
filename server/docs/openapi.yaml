@@ -974,6 +974,24 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DocumentAction'
+        document:
+          type: object
+          nullable: true
+          description: Document metadata for the job's document
+          properties:
+            id:
+              type: number
+              example: 123
+            title:
+              type: string
+              nullable: true
+              example: "Invoice May 2026"
+            correspondent:
+              type: string
+              nullable: true
+              example: "Acme Corp"
+          required:
+            - id
       required:
         - id
         - documentId

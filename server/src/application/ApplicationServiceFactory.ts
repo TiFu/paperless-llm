@@ -34,7 +34,7 @@ export class ApplicationServiceFactory {
    */
   createJobApplicationService(): JobApplicationService {
     const auditLogService = this.createAuditLogApplicationService();
-    return new JobApplicationService(this.uowFactory);
+    return new JobApplicationService(this.uowFactory, this.dmsService);
   }
 
 
@@ -42,7 +42,6 @@ export class ApplicationServiceFactory {
    * Create a new StepExecutorApplicationService instance.
    */
   createStepExecutorApplicationService(): StepExecutorApplicationService {
-    const auditLogService = this.createAuditLogApplicationService();
 
     return new StepExecutorApplicationService(
       this.uowFactory,
@@ -56,7 +55,6 @@ export class ApplicationServiceFactory {
    * Create a new ApprovalApplicationService instance.
    */
   createApprovalApplicationService(): ManualStepApplicationService {
-    const auditLogService = this.createAuditLogApplicationService();
     
     return new ManualStepApplicationService(
       this.uowFactory,
@@ -75,7 +73,7 @@ export class ApplicationServiceFactory {
    * Create a new QueueApplicationService instance.
    */
   createQueueApplicationService(): QueueApplicationService {
-    return new QueueApplicationService(this.uowFactory);
+    return new QueueApplicationService(this.uowFactory, this.dmsService);
   }
 
   /**DashboardStatsApplicationService instance.
@@ -95,7 +93,6 @@ export class ApplicationServiceFactory {
     timeoutMs: number,
     maxRetries: number,
   ): StuckStepResetApplicationService {
-    const auditLogService = this.createAuditLogApplicationService();
     return new StuckStepResetApplicationService(this.uowFactory, timeoutMs, this.retryConfig);
 
   }
@@ -104,7 +101,6 @@ export class ApplicationServiceFactory {
    * Used for manual retry of steps in fallout or retry state.
    */
   createStepRetryApplicationService(): StepRetryApplicationService {
-    const auditLogService = this.createAuditLogApplicationService();
     return new StepRetryApplicationService(this.uowFactory);
   }
 
@@ -113,7 +109,6 @@ export class ApplicationServiceFactory {
    * Used for manual cancellation of steps in fallout or retry state.
    */
   createStepCancelApplicationService(): StepCancelApplicationService {
-    const auditLogService = this.createAuditLogApplicationService();
     return new StepCancelApplicationService(this.uowFactory);
   }
 

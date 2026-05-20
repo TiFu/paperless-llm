@@ -7,6 +7,8 @@ import { Prompt } from './Prompt.js';
  * Domain service interface for prompt rendering.
  * Pure business logic - no side effects or infrastructure dependencies.
  */
+import { AvailableFieldsObtainer } from '../document/IDocumentEntities.js';
+
 export interface IPromptDomainService {
   /**
    * Render a prompt template with document and job context.
@@ -15,8 +17,7 @@ export interface IPromptDomainService {
    * @param job The job context
    * @returns Rendered prompt with variables substituted
    */
-  renderPrompt(prompt: Prompt, document: IDocument, job: Job): string;
+  renderPrompt(prompt: Prompt, document: IDocument, job: Job): Promise<string>;
 
   loadPrompt(step: ExecutableStep): Promise<Prompt | null>
-  
 }

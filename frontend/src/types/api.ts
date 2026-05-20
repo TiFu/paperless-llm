@@ -1,7 +1,7 @@
 // API Response Types
 
 export interface Document {
-  id: string;
+  id: number;
   title: string;
   content: string;
   tags?: string[];
@@ -146,6 +146,14 @@ export interface JobResponse {
   updatedAt: string;
   completedAt?: string;
   documentActions: DocumentAction[];
+  document?: {
+    id: number;
+    title: string | null;
+    correspondent: string | null;
+    tags: string[],
+    documentType: string
+    content: string
+  } | null;
 }
 
 export interface JobStep {

@@ -2,6 +2,9 @@ import { StepStatus } from '../domain/steps/IStep.js';
 import { StepWithJob } from '../domain/steps/IStepRepository.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { getLogger } from '../utils/logger.js';
+import { PaperlessService } from '../services/PaperlessService.js';
+import { enrichWithDocument, DocumentEnriched, enrichAllWithDocument } from './util/documentEnrichment.js';
+import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 
 /**
  * Queue statistics response
@@ -21,7 +24,7 @@ export interface QueueStats {
 export interface QueueItem {
   id: string;
   jobId: string;
-  documentId: string;
+  documentId: number;
   stepType: string;
   jobType: string;
   status: string; // WorkItemStatus from frontend enum
@@ -35,12 +38,15 @@ export interface QueueItem {
   jobState: string;
 }
 
+export type QueueItemWithDocument = DocumentEnriched<QueueItem>;
+
 /**
  * QueueApplicationService - provides queue statistics and listings for automated steps.
  * Application service that manages transaction context for queue queries.
  */
 export class QueueApplicationService {
-  constructor(private readonly uowFactory: UoWFactory) {}
+  constructor(private readonly uowFactory: UoWFactory, private paperlessService: IDocumentManagementSystem
+) {}
 
   /**
    * Get queue statistics for all automated steps
@@ -83,7 +89,7 @@ export class QueueApplicationService {
     limit: number,
     cursor?: string,
     status?: string
-  ): Promise<{ items: QueueItem[]; nextCursor: string | null }> {
+  ): Promise<{ items: QueueItemWithDocument[]; nextCursor: string | null }> {
     const logger = getLogger();
 
     try {
@@ -104,8 +110,12 @@ export class QueueApplicationService {
       // Map StepWithJob domain objects to QueueItem DTOs
       const items = result.items.map((step) => this.mapStepToQueueItem(step));
 
+      // Enrich with document metadata if service provided
+      let enrichedItems: QueueItemWithDocument[];
+      enrichedItems = await enrichAllWithDocument(items, this.paperlessService);
+
       return {
-        items,
+        items: enrichedItems,
         nextCursor: result.nextCursor,
       };
     } catch (error) {

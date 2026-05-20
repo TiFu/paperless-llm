@@ -70,32 +70,35 @@ interface UoWRegistryEntry<T> {
 }
 
 export class UoWFactory {
-    constructor(private readonly txManager: DatabaseTransactionContextFactory) {
-
-    }
+    constructor(
+        private readonly txManager: DatabaseTransactionContextFactory,
+        private readonly dms: IDocumentManagementSystem
+    ) {}
 
     public async createUoW(): Promise<UoW> {
-        const context = await this.txManager.createContext()
-        return new UoWImplementation(context)
+        const context = await this.txManager.createContext();
+        return new UoWImplementation(context, this.dms);
     }
 }
 
 export class UoWImplementation implements UoW {
     private objectRegistry: Set<UoWRegistryEntry<any>>;
     private promptDomainService: IPromptDomainService | null;
-    private repositoryRegistry: RepositoryRegistry
-    private context: DatabaseTransactionContext
+    private repositoryRegistry: RepositoryRegistry;
+    private context: DatabaseTransactionContext;
     private auditCollector: IAuditCollector;
+    private dms: IDocumentManagementSystem;
 
     getAuditCollector(): IAuditCollector {
         return this.auditCollector
     }
-    constructor(context: DBContextWithRepositoryFactory) {
+    constructor(context: DBContextWithRepositoryFactory, dms: IDocumentManagementSystem) {
         this.objectRegistry = new Set<UoWRegistryEntry<any>>();
-        this.context = context.ctx
-        this.repositoryRegistry = context.repositoryFactory.create(this)
-        this.promptDomainService = null
+        this.context = context.ctx;
+        this.repositoryRegistry = context.repositoryFactory.create(this);
+        this.promptDomainService = null;
         this.auditCollector = new AuditCollector();
+        this.dms = dms;
     }
     getStepExecutorDomainService(): StepExecutorDomainService {
         return new StepExecutorDomainService(this.auditCollector)
@@ -106,10 +109,10 @@ export class UoWImplementation implements UoW {
 
     getPromptDomainService(): IPromptDomainService {
         if (!this.promptDomainService) {
-            this.promptDomainService = new PromptService(this.getPrompts());
+            const obtainer = () => this.dms.getAvailableFields();
+            this.promptDomainService = new PromptService(this.getPrompts(), obtainer);
         }
-
-        return this.promptDomainService    
+        return this.promptDomainService;
     }
 
     getPrompts(): IPromptsRepository {

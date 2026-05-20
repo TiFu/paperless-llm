@@ -8,9 +8,12 @@ Done
 * As a user, I would like to look at documents from paperless in a paginated manner based on page & page_size query parameters passed to paperless
 * As a user, I would like to see the fallouts I need to respond to
 * As a user, I would like to rename the Queue tab to Automated Steps
+* As a user, I would like to see an audit log of all step executions (including retries/cancel/...)
 
 In progress
-* As a user, I would like to see an audit log of all step executions (including retries/cancel/...)
+* As a user, I want to see document details in the frontend
+* As a user, I would like to have a properly cached DMS/Paperless Service
+* As a developer, I would like to extract the logic to transform to API Objects from the routes to web layer services
 
 Feature ideas
     Design choices: 

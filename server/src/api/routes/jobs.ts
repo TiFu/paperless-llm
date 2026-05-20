@@ -153,7 +153,15 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
             createdAt: job.createdAt,
             updatedAt: job.updatedAt,
             completedAt: job.completedAt,
-            documentActions: job.documentActions
+            documentActions: job.documentActions,
+            document: job.document ? {
+              id: job.document.id,
+              title: job.document.title,
+              correspondent: job.document.correspondent,
+              tags: job.document.tags,
+              documentType: job.document.documentType,
+              lastModified: job.document.modifiedDate
+            } : null
           })),
           nextCursor: result.nextCursor,
         });
@@ -178,13 +186,13 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
         // Create application service for this request
         const jobAppService = appFactory.createJobApplicationService();
 
-        // Get the job
-        const job = await jobAppService.getById(jobId);
+        // Get the job with document info
+        const jobWithDoc = await jobAppService.getById(jobId);
 
-        if (!job) {
+        if (!jobWithDoc) {
           throw new ApiError(404, 'Job not found');
         }
-
+        const job = jobWithDoc;
         res.json({
           id: job.id,
           documentId: job.documentId,
@@ -200,6 +208,16 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
             oldValue: action.oldValue,
             newValue: action.newValue,
           })),
+          document: job.document ? {
+            id: job.document.id,
+            title: job.document.title,
+            content: job.document.content,
+            correspondent: job.document.correspondent,
+            tags: job.document.tags,
+            documentType: job.document.documentType,
+            lastModified: job.document.modifiedDate
+            // add more fields as needed
+          } : null
         });
       } catch (error) {
         logger.error({ error, id: req.params.id }, 'Failed to get job status');

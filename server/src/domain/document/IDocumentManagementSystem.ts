@@ -1,5 +1,5 @@
 import { IDocument, PaginatedDocuments } from "./IDocument.js";
-import { ITag, ICorrespondent, IDocumentType } from "./IDocumentEntities.js";
+import { ITag, ICorrespondent, IDocumentType, AvailableFields } from "./IDocumentEntities.js";
 
 export interface IDocumentManagementSystem {
   /**
@@ -14,6 +14,8 @@ export interface IDocumentManagementSystem {
     limit: number,
     cursor?: string
   ): Promise<PaginatedDocuments>;
+
+  getDocumentsByIds(ids: (number | string)[]): Promise<IDocument[]>;
 
   /**
    * Get a single document by ID
@@ -89,4 +91,8 @@ export interface IDocumentManagementSystem {
    * @returns Document type ID, or null if not found and createIfMissing is false
    */
   resolveDocumentTypeId(documentTypeName: string, createIfMissing?: boolean): Promise<number | null>;
+  /**
+   * Get all available fields for prompt context (tags, correspondents, document types)
+   */
+  getAvailableFields(): Promise<AvailableFields>;
 }

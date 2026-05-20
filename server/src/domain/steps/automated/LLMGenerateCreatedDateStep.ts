@@ -44,7 +44,7 @@ export class LLMGenerateCreatedDateStep extends ExecutableStep {
     const document = await context.services.dms.getDocument(context.job.documentId);
 
     // Render prompt using domain service
-    const renderedPrompt = context.services.promptDomainService.renderPrompt(
+    const renderedPrompt = await context.services.promptDomainService.renderPrompt(
       context.prompt,
       document,
       context.job

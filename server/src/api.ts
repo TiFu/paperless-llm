@@ -48,8 +48,8 @@ async function main(): Promise<void> {
 
   // Initialize infrastructure
   const txManager = new PostgresqlTransactionManager(pool)
-  const uowFactory = new UoWFactory(txManager);
   const paperlessService = new PaperlessService(config.paperless);
+  const uowFactory = new UoWFactory(txManager, paperlessService);
 
   // Check Paperless connectivity
   const paperlessHealthy = await paperlessService.healthCheck();

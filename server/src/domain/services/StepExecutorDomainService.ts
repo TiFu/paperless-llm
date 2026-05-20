@@ -17,7 +17,7 @@ export class StepExecutorDomainService {
 
     public async executeStep(step: ExecutableStep, context: StepExecutionContext, retryConfig: RetryConfig): Promise<StepResult> {
         const start = new Date();
-        const result =step.execute(context, retryConfig)
+        const result = step.execute(context, retryConfig)
         const end = new Date();
 
         const meta: StepExecutionMetadata = {stepType: step.getStepType(), message: "Successfully executed.", success: true, retryCount: step.getRetryCount(), nextRetryTime: step.getRetryAfter()};

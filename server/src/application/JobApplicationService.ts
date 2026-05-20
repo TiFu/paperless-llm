@@ -25,9 +25,13 @@ export interface JobStats {
  * JobApplicationService - handles job creation and retrieval with transaction management.
  * Application service that orchestrates persistence for job operations.
  */
+import { IDocumentManagementSystem } from "../domain/document/IDocumentManagementSystem.js";
+import { DocumentEnriched, enrichAllWithDocument, enrichWithDocument } from "./util/documentEnrichment.js";
+
 export class JobApplicationService {
   constructor(
-    private readonly uowFactory: UoWFactory
+    private readonly uowFactory: UoWFactory,
+    private readonly dmsService: IDocumentManagementSystem
   ) {}
 
   /**
@@ -73,8 +77,9 @@ export class JobApplicationService {
     documentId: number,
     fields: DocumentField[],
     jobType: WorkflowType,
-  ): Promise<Job> {
-    return this.createBulk([{ documentId, fields, jobType}]).then((v) => v[0])
+  ): Promise<DocumentEnriched<Job>> {
+    const job = await this.createBulk([{ documentId, fields, jobType}]).then((v) => v[0])
+    return enrichWithDocument(job, this.dmsService);
   }
 
   /**
@@ -85,7 +90,7 @@ export class JobApplicationService {
    */
   async createBulk(
     jobs: Array<{ documentId: number; jobType: WorkflowType, fields: DocumentField[] }>
-  ): Promise<Job[]> {
+  ): Promise<DocumentEnriched<Job>[]> {
     if (jobs.length === 0) {
       return [];
     }
@@ -118,8 +123,8 @@ export class JobApplicationService {
 
       await context.save();
       await context.commit();
-
-      return createdJobs;
+      const output = enrichAllWithDocument(createdJobs, this.dmsService)
+      return output;
     } catch (error) {
       logger.error({ error, count: jobs.length }, 'Failed to create jobs in bulk');
       throw error;
@@ -131,18 +136,19 @@ export class JobApplicationService {
    * @param id Job ID
    * @returns Job or null if not found
    */
-  async getById(id: string): Promise<Job | null> {
+  async getById(id: string): Promise<DocumentEnriched<Job> | null> {
     const logger = getLogger();
     
     try {
       await using context = await this.uowFactory.createUoW();
       await context.start();
 
-      const job = await context.getJobs().getById(id);
-
+      const job = await context.getJobs().getById(id);      
       await context.save();
       await context.commit();
-      return job;
+
+      const output = await enrichWithDocument(job, this.dmsService)
+      return output;
     } catch (error) {
       logger.error({ error, id }, 'Failed to get job by ID');
       throw error;
@@ -154,7 +160,7 @@ export class JobApplicationService {
    * @param documentId Document ID
    * @returns Array of jobs for the document
    */
-  async getByDocumentId(documentId: string): Promise<Job[]> {
+  async getByDocumentId(documentId: string): Promise<DocumentEnriched<Job>[]> {
     const logger = getLogger();
     
     try {
@@ -164,7 +170,8 @@ export class JobApplicationService {
       const jobs = await context.getJobs().getByDocumentId(documentId);
       await context.save();
       await context.commit();
-      return jobs;
+      const output = enrichAllWithDocument(jobs, this.dmsService)
+      return output;
     } catch (error) {
       logger.error({ error, documentId }, 'Failed to get jobs by document ID');
       throw error;
@@ -182,7 +189,7 @@ export class JobApplicationService {
     limit: number,
     cursor?: string,
     state?: JobState,
-  ): Promise<{ items: Job[]; nextCursor: string | null }> {
+  ): Promise<{ items: DocumentEnriched<Job>[]; nextCursor: string | null }> {
     const logger = getLogger();
     
     try {
@@ -192,7 +199,8 @@ export class JobApplicationService {
       const result = await context.getJobs().list(limit, cursor, state);
 
       await context.commit();
-      return result;
+      const output = await enrichAllWithDocument(result.items, this.dmsService)
+      return { items: output, nextCursor: result.nextCursor};
     } catch (error) {
       logger.error({ error, limit, cursor, state }, 'Failed to list jobs');
       throw error;

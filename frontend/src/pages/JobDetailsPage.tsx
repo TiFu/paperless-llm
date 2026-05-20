@@ -67,16 +67,11 @@ export const JobDetailsPage: React.FC = () => {
         console.error('Failed to fetch audit log:', auditErr);
       }
 
-      // Fetch document details
-      try {
-        const docsResponse = await apiClient.fetchDocumentsByTag('llm-process');
-        const doc = docsResponse.documents.find((d) => d.id === jobData.documentId);
-        if (doc) {
-          setDocument(doc);
-        }
-      } catch (docErr) {
-        // Don't fail the whole page if document fetch fails
-        console.error('Failed to fetch document:', docErr);
+      // Use document info from job response if available
+      if (jobData.document) {
+        setDocument(jobData.document);
+      } else {
+        setDocument(null);
       }
 
       // Stop auto-refresh if job is in terminal state

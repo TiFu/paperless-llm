@@ -88,6 +88,7 @@ class ApiClient {
     cursor?: string,
     state?: JobState
   ): Promise<JobListResponse> {
+    // Now expects document metadata in each job
     const response = await this.client.get<JobListResponse>('/api/jobs', {
       params: { limit, cursor, state },
     });

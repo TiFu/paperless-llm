@@ -6,6 +6,7 @@ import { ExecutableStep } from '../steps/automated/ExecutableStep.js';
 import pino from 'pino';
 import { createChildLogger } from '../../utils/logger.js';
 import { IPromptsRepository } from './IPromptsRepository.js';
+import { AvailableFieldsObtainer } from '../document/IDocumentEntities.js';
 
 /**
  * PromptDomainService - handles prompt rendering with document and job context.
@@ -13,7 +14,7 @@ import { IPromptsRepository } from './IPromptsRepository.js';
  */
 export class PromptService implements IPromptDomainService {
   private readonly logger: pino.Logger
-  public constructor(private repo: IPromptsRepository) {
+  public constructor(private readonly repo: IPromptsRepository, private readonly fieldsObtainer: AvailableFieldsObtainer) {
     this.logger = createChildLogger({ name: "PromptService"})
   }
 
@@ -33,16 +34,28 @@ export class PromptService implements IPromptDomainService {
    * @param job The job context
    * @returns Rendered prompt with variables substituted
    */
-  renderPrompt(prompt: Prompt, document: IDocument, job: Job): string {
-    // TODO: This will have to be expanded to also provide available tags, correspondents, ...
-    // Prepare variables for rendering
-    const variables: Record<string, string> = {
-      documentContent: this.truncateContent(document.content, 4000),
-      documentTitle: document.title || '(No title)',
-    };
+  async renderPrompt(prompt: Prompt, document: IDocument, job: Job): Promise<string> {
+      // Fetch available fields
+      const { tags: availableTags, correspondents: availableCorrespondents, documentTypes: availableDocumentTypes } = await this.fieldsObtainer();
 
-    // Render the template using the Prompt entity's render method
-    return prompt.render(variables);
+      // Prepare variables for rendering
+      const tags = availableTags.map(t => `<availableTag>${t.name}</availableTag>`).join('\n');
+      const correspondents = availableCorrespondents.map(c => `<availableCorrespondent>${c.name}</availableCorrespondent>`).join('\n');
+      const documentTypes = availableDocumentTypes.map(dt => `<availableDocumentType>${dt.name}</availableDocumentType>`).join('\n');
+
+      const variables: Record<string, string> = {
+        documentContent: `<content>${document.content}</content>`,
+        documentTitle: `<title>${document.title || '(No title)'}</title>`,
+        documentTags: `<tags>${document.tags.map((v) => `<tag>${v}</tag>`).join('\n')}</tags>`,
+        documentType: `<documentType>${document.documentType || '(No document type)'}</documentType>`,
+        documentCorrespondent: `<documentCorrespondent>${document.correspondent || '(No correspondent)'}</documentCorrespondent>`,
+        availableTags: `<availableTags>${tags}</availableTags>`,
+        availableCorrespondents: `<availableCorrespondents>${correspondents}</availableCorrespondents>`,
+        availableDocumentTypes: `<availableDocumentTypes>${documentTypes}</availableDocumentTypes>`
+      };
+
+      // Render the template using the Prompt entity's render method
+      return prompt.render(variables);
   }
 
   /**

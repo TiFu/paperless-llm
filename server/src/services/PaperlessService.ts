@@ -99,6 +99,37 @@ export class PaperlessService implements IDocumentManagementSystem {
     this.logger = createChildLogger({"name": "PaperlessService"})
   }
 
+  async getAvailableFields() {
+    const [tags, correspondents, documentTypes] = await Promise.all([
+      this.getTags(),
+      this.getCorrespondents(),
+      this.getDocumentTypes(),
+    ]);
+    return { tags, correspondents, documentTypes };
+  }
+
+  /**
+   * Bulk fetch documents by IDs
+   * @param ids Array of document IDs
+   * @returns Array of IDocument (order not guaranteed)
+   */
+  async getDocumentsByIds(ids: number[]): Promise<IDocument[]> {
+    // Remove duplicates and filter falsy
+    const docs: IDocument[] = [];
+    for (const id of ids) {
+      const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+      if (!numId || isNaN(numId)) continue;
+      try {
+        const doc = await this.getDocument(numId);
+        docs.push(doc);
+      } catch (e) {
+        // Optionally log or skip missing documents
+        this.logger.warn({ id, error: e }, 'Failed to fetch document for enrichment');
+      }
+    }
+    return docs;
+  }
+
   async getDocumentsByTag(
     tag: string,
     limit: number,

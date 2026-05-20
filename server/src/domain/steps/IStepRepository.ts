@@ -30,7 +30,7 @@ export interface StepWithJob {
   stepCompletedAt: Date | null;
   // Job fields
   jobId: string;
-  documentId: string;
+  documentId: number;
   jobType: WorkflowType;
   jobState: JobState;
 }
