@@ -63,7 +63,8 @@ export class LLMGenerateTitleStep extends ExecutableStep {
       actions: [action],
       success: true,
       transition: Transition.SUCCESS,
-      message: "Generated title: " + action.newValue
+      message: "Generated title: " + action.newValue,
+      prompt: renderedPrompt
     };
   }
 

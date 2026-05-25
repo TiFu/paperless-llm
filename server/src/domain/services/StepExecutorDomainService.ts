@@ -17,11 +17,19 @@ export class StepExecutorDomainService {
 
     public async executeStep(step: ExecutableStep, context: StepExecutionContext, retryConfig: RetryConfig): Promise<StepResult> {
         const start = new Date();
-        const result = step.execute(context, retryConfig)
+        const resultPromise = step.execute(context, retryConfig);
+        const result = await resultPromise;
         const end = new Date();
 
-        const meta: StepExecutionMetadata = {stepType: step.getStepType(), message: "Successfully executed.", success: true, retryCount: step.getRetryCount(), nextRetryTime: step.getRetryAfter()};
-        const auditLogEntry = AuditLogEntry.createStepExecuted(step, meta,new Date(), start, end);
+        const meta: StepExecutionMetadata = {
+            stepType: step.getStepType(),
+            message: "Successfully executed.",
+            success: true,
+            retryCount: step.getRetryCount(),
+            nextRetryTime: step.getRetryAfter(),
+            prompt: result.prompt
+        };
+        const auditLogEntry = AuditLogEntry.createStepExecuted(step, meta, new Date(), start, end);
         this.auditCollector.record(auditLogEntry)
 
         return result;

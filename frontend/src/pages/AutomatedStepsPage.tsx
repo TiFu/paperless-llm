@@ -26,6 +26,12 @@ export const AutomatedStepsPage: React.FC = () => {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<WorkItemStatus | ''>('');
+  // Count of steps not completed or failed (include fallout as not completed)
+  const notCompletedCount = items.filter(
+    (item) =>
+      item.status !== WorkItemStatus.FAILED &&
+      item.status !== WorkItemStatus.COMPLETED
+  ).length + items.filter(item => item.status === WorkItemStatus.IN_FALLOUT).length;
 
   const fetchQueue = async (cursor?: string, append = false) => {
     try {
@@ -95,6 +101,13 @@ export const AutomatedStepsPage: React.FC = () => {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Monitor all automated processing steps across workflows.
       </Typography>
+
+      {/* Not Completed Steps Count */}
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="subtitle1" color="primary">
+          Not Completed Steps: {notCompletedCount}
+        </Typography>
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>

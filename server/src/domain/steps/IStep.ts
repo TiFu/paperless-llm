@@ -42,7 +42,9 @@ export interface StepResult {
   success: boolean;
   actions: DocumentAction[];
   transition: Transition;
-  message: string
+  message: string;
+  /** The rendered prompt used for this step, if applicable */
+  prompt?: string;
 }
 
 

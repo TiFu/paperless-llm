@@ -55,10 +55,10 @@ export class ApplicationServiceFactory {
    * Create a new ApprovalApplicationService instance.
    */
   createApprovalApplicationService(): ManualStepApplicationService {
-    
     return new ManualStepApplicationService(
       this.uowFactory,
-      this.paperlessBaseUrl
+      this.paperlessBaseUrl,
+      this.dmsService
     );
   }
 

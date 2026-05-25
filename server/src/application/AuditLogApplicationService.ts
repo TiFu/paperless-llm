@@ -36,4 +36,21 @@ export class AuditLogApplicationService {
       throw error
     }
   }
+
+  /**
+   * Get audit log entries for a specific step
+   * @param stepId The step ID to fetch audit logs for
+   * @returns Array of audit log entries ordered by event_timestamp DESC
+   */
+  async getAuditLogForStep(stepId: string): Promise<AuditLogEntry[]> {
+    try {
+      await using context = await this.uowFactory.createUoW();
+      await context.start();
+      const result = await context.getAuditLog().getByStepId(stepId);
+      return result;
+    } catch (error) {
+      this.logger.error({ error }, "Failed to fetch audit log items for step");
+      throw error;
+    }
+  }
 }

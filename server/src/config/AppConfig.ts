@@ -10,6 +10,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
+ * Redis configuration
+ */
+export interface RedisConfig {
+  readonly host: string;
+  readonly port: number;
+  readonly username: string;
+  readonly password: string;
+  readonly db: number;
+  readonly ttlInSeconds: number;
+}
+
+/**
  * Database configuration
  */
 export interface DatabaseConfig {
@@ -132,12 +144,14 @@ interface RawConfig {
     tag?: string;
     fields?: DocumentField[]
   };
+  redis: RedisConfig;
 }
 
 /**
  * Application configuration
  */
 export class AppConfig {
+  public readonly redis: RedisConfig;
   public readonly database: DatabaseConfig;
   public readonly worker: WorkerConfig;
   public readonly orchestration: OrchestrationConfig;
@@ -188,6 +202,9 @@ export class AppConfig {
       tag: rawConfig.autoQueue?.tag ?? 'llm-auto-process', // Default: llm-auto-process
       fields: rawConfig.autoQueue?.fields ?? [ 'title' ]
     };
+
+    // Redis Configuration (optional)
+    this.redis = rawConfig.redis;
 
     this.validate();
     this.validateLLMConfig();

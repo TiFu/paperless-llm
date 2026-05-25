@@ -18,7 +18,9 @@ import {
   IconButton,
   Tooltip,
   Alert,
+  Link,
 } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Refresh as RefreshIcon,
   Cancel as CancelIcon,
@@ -174,7 +176,14 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
             {items.map((item) => (
               <TableRow key={item.id}>
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                  {item.id.substring(0, 8)}...
+                  <Link
+                    component={RouterLink}
+                    to={`/steps/${item.id}`}
+                    underline="hover"
+                    color="primary"
+                  >
+                    {item.id.substring(0, 8)}...
+                  </Link>
                 </TableCell>
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                   {item.jobId.substring(0, 8)}...

@@ -74,11 +74,13 @@ export const Sidebar: React.FC = () => {
           jobStats.updatingDocument
         );
       },
+      // Add sub-items for jobs (Automated Steps last)
+      subItems: [],
     },
     {
       path: '/approvals',
       label: 'Approvals',
-      icon: <CheckCircleIcon />,
+      icon: <CheckCircleIcon />, 
       nested: true,
       getBadgeCount: () => {
         if (!approvalStats) return 0;
@@ -88,7 +90,7 @@ export const Sidebar: React.FC = () => {
     {
       path: '/fallouts',
       label: 'Fallouts',
-      icon: <ErrorIcon />,
+      icon: <ErrorIcon />, 
       nested: true,
       badgeColor: 'warning',
       getBadgeCount: () => {
@@ -96,10 +98,12 @@ export const Sidebar: React.FC = () => {
         return queueStats.inFallout || 0;
       },
     },
+    // Automated Steps as last sub-item under Jobs
     {
       path: '/queues',
-      label: 'Queues',
-      icon: <QueueIcon />,
+      label: 'Automated Steps',
+      icon: <QueueIcon />, 
+      nested: true,
       getBadgeCount: () => {
         if (!queueStats) return 0;
         return queueStats.pending + queueStats.processing;
@@ -186,6 +190,59 @@ export const Sidebar: React.FC = () => {
                 </ListItemIcon>
                 <ListItemText primary={item.label} />
               </ListItemButton>
+              {/* Render sub-items if present */}
+              {item.subItems && item.subItems.map((sub, subIdx) => {
+                const isSubActive = location.pathname === sub.path;
+                const subBadgeCount = sub.getBadgeCount ? sub.getBadgeCount() : undefined;
+                const subBadgeColor = sub.badgeColor || 'error';
+                return (
+                  <ListItemButton
+                    key={sub.path}
+                    component={RouterLink}
+                    to={sub.path}
+                    selected={isSubActive}
+                    onClick={handleNavigation}
+                    sx={{
+                      mx: 1,
+                      borderRadius: 1,
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      pl: 6,
+                      '&:hover': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      },
+                      '&.Mui-selected': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255, 255, 255, 0.24)',
+                        },
+                        '& .MuiListItemIcon-root': {
+                          color: 'white',
+                        },
+                      },
+                      '& .MuiListItemIcon-root': {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      {subBadgeCount !== undefined ? (
+                        <Badge
+                          badgeContent={subBadgeCount}
+                          color={subBadgeColor}
+                          max={999}
+                          overlap="circular"
+                        >
+                          {sub.icon}
+                        </Badge>
+                      ) : (
+                        sub.icon
+                      )}
+                    </ListItemIcon>
+                    <ListItemText primary={sub.label} />
+                  </ListItemButton>
+                );
+              })}
               {index < navItems.length - 1 && !item.nested && !navItems[index + 1]?.nested && (
                 <Divider sx={{ my: 1, mx: 2, borderColor: 'rgba(255, 255, 255, 0.12)' }} />
               )}

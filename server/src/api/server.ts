@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import fs from 'fs';
 import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory.js';
-import { PaperlessService } from '../services/PaperlessService.js';
+import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { createPromptsRouter } from './routes/prompts.js';
@@ -31,12 +31,11 @@ export interface ApiServerConfig {
   corsOrigins: string[];
   apiSpec: string
 }
-
 export function createApiServer(
   config: ApiServerConfig,
   appFactory: ApplicationServiceFactory,
   uowFactory: UoWFactory,
-  paperlessService: PaperlessService,
+  paperlessService: IDocumentManagementSystem,
   llmService: ILLMService,
   logger: pino.Logger,
 ): Express {

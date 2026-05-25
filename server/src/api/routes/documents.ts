@@ -4,9 +4,10 @@ import { PaperlessService } from '../../services/PaperlessService.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { createChildLogger } from '../../utils/logger.js';
 import { UoWFactory } from '../../infrastructure/UoW.js';
+import { IDocumentManagementSystem } from '../../domain/document/IDocumentManagementSystem.js';
 
 export function createDocumentsRouter(
-  paperlessService: PaperlessService,
+  paperlessService: IDocumentManagementSystem,
   uowFactory: UoWFactory,
 ): Router {
   const logger = createChildLogger({ name: "document-router"})

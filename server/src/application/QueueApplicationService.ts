@@ -1,3 +1,4 @@
+
 import { StepStatus } from '../domain/steps/IStep.js';
 import { StepWithJob } from '../domain/steps/IStepRepository.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
@@ -5,6 +6,7 @@ import { getLogger } from '../utils/logger.js';
 import { PaperlessService } from '../services/PaperlessService.js';
 import { enrichWithDocument, DocumentEnriched, enrichAllWithDocument } from './util/documentEnrichment.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
+import { AuditLogApplicationService } from './AuditLogApplicationService.js';
 
 /**
  * Queue statistics response
@@ -44,9 +46,25 @@ export type QueueItemWithDocument = DocumentEnriched<QueueItem>;
  * QueueApplicationService - provides queue statistics and listings for automated steps.
  * Application service that manages transaction context for queue queries.
  */
+
 export class QueueApplicationService {
-  constructor(private readonly uowFactory: UoWFactory, private paperlessService: IDocumentManagementSystem
-) {}
+  constructor(private readonly uowFactory: UoWFactory, private paperlessService: IDocumentManagementSystem) {}
+
+  /**
+   * Get all fallout steps (in_fallout) enriched with audit log
+   * @param auditLogService Instance of AuditLogApplicationService
+   * @returns Array of fallout items with audit log
+   */
+  async getFallouts(auditLogService: AuditLogApplicationService): Promise<(QueueItemWithDocument & { auditLog: any[] })[]> {
+    const { items: falloutItems } = await this.getQueueItems(100, undefined, 'in_fallout');
+    const enriched = await Promise.all(
+      falloutItems.map(async (item) => {
+        const auditLog = await auditLogService.getAuditLogForStep(item.id);
+        return { ...item, auditLog };
+      })
+    );
+    return enriched;
+  }
 
   /**
    * Get queue statistics for all automated steps

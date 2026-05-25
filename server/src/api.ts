@@ -7,6 +7,8 @@ import { runMigrations } from './infrastructure/MigrationRunner.js';
 import { initializeLogger } from './utils/logger.js';
 import { createApiServer } from './api/server.js';
 import { PaperlessService } from './services/PaperlessService.js';
+import { CachedPaperlessServiceAdapter } from './services/CachedPaperlessServiceAdapter.js';
+import { DMSCacheService, DMSSerializers } from './services/CacheService.js';
 import { OllamaService } from './services/OllamaService.js';
 import { ApplicationServiceFactory } from './application/ApplicationServiceFactory.js';
 import { UoWFactory } from './infrastructure/UoW.js';
@@ -48,11 +50,17 @@ async function main(): Promise<void> {
 
   // Initialize infrastructure
   const txManager = new PostgresqlTransactionManager(pool)
+  const dmsCacheService = new DMSCacheService(config.redis, DMSSerializers)
+  await dmsCacheService.connect();
+  await dmsCacheService.ping();
+  logger.info("Cache connection established")
+
   const paperlessService = new PaperlessService(config.paperless);
-  const uowFactory = new UoWFactory(txManager, paperlessService);
+  const cachedPaperlessService = new CachedPaperlessServiceAdapter(paperlessService, dmsCacheService);
+  const uowFactory = new UoWFactory(txManager, cachedPaperlessService);
 
   // Check Paperless connectivity
-  const paperlessHealthy = await paperlessService.healthCheck();
+  const paperlessHealthy = await cachedPaperlessService.healthCheck();
   if (!paperlessHealthy) {
     logger.warn('Paperless-NG health check failed, but continuing...');
   } else {
@@ -71,7 +79,7 @@ async function main(): Promise<void> {
   // Initialize service factories
   const applicationServiceFactory = new ApplicationServiceFactory(
     uowFactory,
-    paperlessService,
+    cachedPaperlessService,
     ollamaService,
     config.paperless.url,
     config.retry,
@@ -93,7 +101,7 @@ async function main(): Promise<void> {
     },
     applicationServiceFactory,
     uowFactory,
-    paperlessService,
+    cachedPaperlessService,
     ollamaService,
     logger,
   );

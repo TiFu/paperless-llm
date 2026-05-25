@@ -233,12 +233,14 @@ export interface DashboardStats {
   jobs: JobStats;
 }
 
+
 export interface ApprovalItem {
   stepId: string;
   jobId: string;
   documentId: number;
   paperlessUrl: string;
   jobType: string;
+  document: Document;
   proposedActions: Array<{
     actionType: string;
     oldValue: string;

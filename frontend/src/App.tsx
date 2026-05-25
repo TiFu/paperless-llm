@@ -14,6 +14,8 @@ import { JobDetailsPage } from './pages/JobDetailsPage';
 import { ApprovalsPage } from './pages/ApprovalsPage';import { FalloutsPage } from './pages/FalloutsPage';import { PromptsPage } from './pages/PromptsPage';
 import { Sidebar } from './components/Sidebar';
 import { StatsProvider } from './contexts/StatsContext';
+import { AutomatedStepsPage } from './pages/AutomatedStepsPage';
+import { StepDetailsPage } from './pages/StepDetailsPage';
 
 const theme = createTheme({
   palette: {
@@ -90,7 +92,8 @@ function App() {
                   <Route path="/documents" element={<DocumentsPage />} />
                   <Route path="/jobs" element={<JobsPage />} />
                   <Route path="/jobs/:id" element={<JobDetailsPage />} />
-                  {/* <Route path="/queues" element={<QueuesPage />} /> removed: replaced by /automated-steps */}
+                  <Route path="/queues" element={<AutomatedStepsPage />} />
+                  <Route path="/steps/:stepId" element={<StepDetailsPage />} />
                   <Route path="/approvals" element={<ApprovalsPage />} />
                   <Route path="/fallouts" element={<FalloutsPage />} />
                   <Route path="/prompts" element={<PromptsPage />} />

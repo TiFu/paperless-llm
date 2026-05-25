@@ -78,11 +78,7 @@ class BidirectionalMap<A, B> {
 
 export class PaperlessService implements IDocumentManagementSystem {
   private readonly client: AxiosInstance;
-  private readonly documentCache: Map<number, IDocument> = new Map();
-  private readonly tagNameCache: BidirectionalMap<number, string> = new BidirectionalMap();
-  private readonly tagCache: Map<number, PaperlessTag> = new Map();
-  private readonly correspondentCache: BidirectionalMap<number, string> = new BidirectionalMap();
-  private readonly documentTypeCache: BidirectionalMap<number, string> = new BidirectionalMap();
+  // Removed in-memory caches; caching is now handled by adapter
   private readonly paperlessConfig: PaperlessConfig;
   private readonly logger: pino.Logger;
 
@@ -188,12 +184,7 @@ export class PaperlessService implements IDocumentManagementSystem {
         // due to deletions/changes. Return all results from this page.
       }
 
-      // Cache documents
-      await Promise.all(
-        results.map((doc) => this.convertToIDocument(doc)),
-      ).then((documents) =>{
-        documents.forEach((d) => this.documentCache.set(d.id, d))
-      })
+      // No in-memory caching; handled by adapter
 
       // Convert
       const documents = await Promise.all(
@@ -236,18 +227,13 @@ export class PaperlessService implements IDocumentManagementSystem {
   }
 
   async getDocument(documentId: number): Promise<IDocument> {
-    if (this.documentCache.has(documentId)) {
-      return Promise.resolve(this.documentCache.get(documentId) as IDocument);
-    }
+    // No in-memory caching; handled by adapter
 
     try {
       const response = await this.client.get<PaperlessDocument>(
         `/api/documents/${documentId}/`,
       );
 
-      const cachedDocument = await this.convertToIDocument(response.data)
-      this.documentCache.set(cachedDocument.id, cachedDocument)
-      // Return document
       const document = await this.convertToIDocument(response.data);
       return document;
     } catch (error) {
@@ -264,8 +250,7 @@ export class PaperlessService implements IDocumentManagementSystem {
 
   async updateDocument(documentId: number, updates: Partial<IDocument>): Promise<void> {
     try {
-      // invalidate cache
-      this.documentCache.delete(documentId)
+      // No in-memory cache to invalidate; handled by adapter
       const payload: Record<string, unknown> = {};
 
       if (updates.title !== undefined) {
@@ -307,16 +292,14 @@ export class PaperlessService implements IDocumentManagementSystem {
   }
 
   async getDocumentTypeById(id: number): Promise<string> {
-    if (this.documentTypeCache.hasA(id)) {
-      return Promise.resolve(this.documentTypeCache.getA(id) as string)
-    }
+    // No in-memory cache; handled by adapter
     try {
       const response = await this.client.get<{id: number, name: string}>(
         "/api/document_types/" + id + "/"
       );
       const name = response.data.name;
 
-      this.correspondentCache.set(response.data.id, response.data.name)
+      // No in-memory cache; handled by adapter
 
       return name
     } catch (error) {
@@ -330,16 +313,14 @@ export class PaperlessService implements IDocumentManagementSystem {
 
 
   async getCorrespondentById(id: number): Promise<string> {
-    if (this.correspondentCache.hasA(id)) {
-      return Promise.resolve(this.correspondentCache.getA(id) as string)
-    }
+    // No in-memory cache; handled by adapter
     try {
       const response = await this.client.get<{id: number, name: string}>(
         "/api/correspondents/" + id + "/"
       );
       const name = response.data.name;
 
-      this.correspondentCache.set(response.data.id, response.data.name)
+      // No in-memory cache; handled by adapter
 
       return name
     } catch (error) {
@@ -367,10 +348,7 @@ export class PaperlessService implements IDocumentManagementSystem {
         isInboxTag: tag.is_inbox_tag,
       }));
 
-      tags.forEach((t) => {
-        this.tagNameCache.set(t.id, t.name)
-        this.tagCache.set(t.id, t)
-      })
+      // No in-memory cache; handled by adapter
 
       return tags;
     } catch (error) {
@@ -396,9 +374,7 @@ export class PaperlessService implements IDocumentManagementSystem {
         name: correspondent.name,
       }));
 
-      correspondents.forEach(c => {
-        this.correspondentCache.set(c.id, c.name)
-      })
+      // No in-memory cache; handled by adapter
 
       return correspondents
     } catch (error) {
@@ -424,9 +400,7 @@ export class PaperlessService implements IDocumentManagementSystem {
         name: docType.name,
       }));
 
-      types.forEach((t) => {
-        this.documentTypeCache.set(t.id, t.name)
-      })
+      // No in-memory cache; handled by adapter
 
       return types
     } catch (error) {
@@ -445,9 +419,7 @@ export class PaperlessService implements IDocumentManagementSystem {
    * @returns Tag ID, or null if not found and createIfMissing is false
    */
   async resolveTagId(tagName: string): Promise<number | null> {
-    if (this.tagNameCache.hasB(tagName)) {
-      return Promise.resolve(this.tagNameCache.getB(tagName) as number)
-    }
+    // No in-memory cache; handled by adapter
     try {
       const response = await this.client.get<PaperlessPaginatedResponse<PaperlessTag>>(
         '/api/tags/',
@@ -477,9 +449,7 @@ export class PaperlessService implements IDocumentManagementSystem {
    * @returns Correspondent ID, or null if not found and createIfMissing is false
    */
   async resolveCorrespondentId(correspondentName: string): Promise<number | null> {
-    if (this.correspondentCache.hasB(correspondentName)) {
-      return Promise.resolve(this.correspondentCache.getB(correspondentName) as number)
-    }
+    // No in-memory cache; handled by adapter
 
     try {
       const response = await this.client.get<PaperlessPaginatedResponse<PaperlessCorrespondent>>(
@@ -510,9 +480,7 @@ export class PaperlessService implements IDocumentManagementSystem {
    * @returns Document type ID, or null if not found and createIfMissing is false
    */
   async resolveDocumentTypeId(documentTypeName: string): Promise<number | null> {
-    if (this.documentTypeCache.hasB(documentTypeName)) {
-      return Promise.resolve(this.documentTypeCache.getB(documentTypeName) as number)
-    }
+    // No in-memory cache; handled by adapter
     try {
       const response = await this.client.get<PaperlessPaginatedResponse<PaperlessDocumentType>>(
         '/api/document_types/',
@@ -622,18 +590,12 @@ export class PaperlessService implements IDocumentManagementSystem {
     const names: string[] = [];
 
     for (const tagId of tagIds) {
-      if (this.tagNameCache.hasA(tagId)) {
-        names.push(this.tagNameCache.getA(tagId)!);
-      } else {
-        try {
-          const response = await this.client.get<PaperlessTag>(`/api/tags/${tagId}/`);
-          this.tagNameCache.set(tagId, response.data.name);
-          this.tagCache.set(tagId, response.data)
-          names.push(response.data.name);
-        } catch(error) {
-          this.logger.error({ error, "api": "getTagNames"})
-          // Skip tags that can't be resolved
-        }
+      try {
+        const response = await this.client.get<PaperlessTag>(`/api/tags/${tagId}/`);
+        names.push(response.data.name);
+      } catch(error) {
+        this.logger.error({ error, "api": "getTagNames"})
+        // Skip tags that can't be resolved
       }
     }
 

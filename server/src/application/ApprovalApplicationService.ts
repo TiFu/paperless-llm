@@ -5,6 +5,9 @@ import { createChildLogger } from "../utils/logger.js";
 import { AuditLogEntry } from "../domain/audit/AuditLogEntry.js";
 import { UoWFactory } from "../infrastructure/UoW.js";
 import pino from "pino";
+import { IDocument } from '../domain/document/IDocument.js';
+import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
+import { enrichAllWithDocument, DocumentEnriched } from './util/documentEnrichment.js';
 
 /**
  * Enriched approval item with full context for UI display
@@ -22,6 +25,7 @@ export interface ApprovalItem {
   }>;
   possibleDecisions: string[];
   createdAt: Date;
+  document: IDocument | null;
 }
 
 /**
@@ -41,6 +45,7 @@ export class ManualStepApplicationService {
   constructor(
     private readonly uowFactory: UoWFactory,
     private readonly paperlessBaseUrl: string,
+    private readonly dmsService: IDocumentManagementSystem,
   ) {
     this.logger = createChildLogger({name: "ManualStepApplicationService"})
   }
@@ -77,7 +82,6 @@ export class ManualStepApplicationService {
     limit: number = 50, 
     cursor?: Cursor
   ): Promise<{ items: ApprovalItem[]; nextCursor: string | null }> {  
-    
     try {
       await using context = await this.uowFactory.createUoW();
       await context.start();
@@ -91,18 +95,16 @@ export class ManualStepApplicationService {
       await context.save();
       await context.commit();
 
-      // Build enriched approval items
-      const approvalItems: ApprovalItem[] = [];
+      // Build base approval items
+      const baseApprovalItems = [];
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
         const job = jobs[i];
-
         if (!job) {
           this.logger.warn({ stepId: step.getStepId() }, 'Skipping approval item - missing job');
           continue;
         }
-
-        approvalItems.push({
+        baseApprovalItems.push({
           stepId: step.getStepId() as string,
           jobId: job.id,
           documentId: job.documentId,
@@ -118,13 +120,15 @@ export class ManualStepApplicationService {
         });
       }
 
+      // Enrich with document info
+      const approvalItems: ApprovalItem[] = await enrichAllWithDocument(baseApprovalItems, this.dmsService);
+
       // Calculate next cursor from last item
       const nextCursor = approvalItems.length > 0 
         ? encodeCursor({ stepId: approvalItems[approvalItems.length - 1].stepId })
         : null;
 
       return { items: approvalItems, nextCursor };
-
     } catch (error) {
       this.logger.error({ error }, 'Failed to list pending approvals');
       throw error;

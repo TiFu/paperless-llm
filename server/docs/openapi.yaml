@@ -975,23 +975,9 @@ components:
           items:
             $ref: '#/components/schemas/DocumentAction'
         document:
-          type: object
+          $ref: '#/components/schemas/Document'
           nullable: true
           description: Document metadata for the job's document
-          properties:
-            id:
-              type: number
-              example: 123
-            title:
-              type: string
-              nullable: true
-              example: "Invoice May 2026"
-            correspondent:
-              type: string
-              nullable: true
-              example: "Acme Corp"
-          required:
-            - id
       required:
         - id
         - documentId
@@ -1100,58 +1086,255 @@ components:
       required:
         - auditLog
 
-    AuditLogEntry:
+    BaseAuditLogEntry:
       type: object
       properties:
         id:
           type: string
           format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
         jobId:
           type: string
           format: uuid
-          example: "123e4567-e89b-12d3-a456-426614174000"
         stepId:
           type: string
           format: uuid
           nullable: true
-          description: Step ID (null for job-level events)
-          example: "789e4567-e89b-12d3-a456-426614174000"
         eventType:
           $ref: '#/components/schemas/AuditEventType'
         eventTimestamp:
           type: string
           format: date-time
-          description: When the event occurred
-          example: "2024-01-15T10:00:00.000Z"
         processingStartTime:
           type: string
           format: date-time
           nullable: true
-          description: When processing started (for execution events)
-          example: "2024-01-15T10:00:10.000Z"
         processingEndTime:
           type: string
           format: date-time
           nullable: true
-          description: When processing ended (for execution events)
-          example: "2024-01-15T10:00:15.000Z"
         processingDurationMs:
           type: integer
           nullable: true
-          description: Processing duration in milliseconds
-          minimum: 0
-          example: 5000
-        metadata:
-          type: object
-          nullable: true
-          description: Event-specific metadata (varies by eventType)
-          additionalProperties: true
       required:
         - id
         - jobId
         - eventType
         - eventTimestamp
+
+    StepExecutedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STEP_EXECUTED]
+            stepType:
+              $ref: '#/components/schemas/StepType'
+            retryCount:
+              type: integer
+            prompt:
+              type: string
+              nullable: true
+            message:
+              type: string
+          required:
+            - stepType
+            - retryCount
+            - message
+
+    ApprovalDecisionEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [APPROVAL_APPROVED, APPROVAL_REJECTED]
+            decision:
+              type: string
+            approver:
+              type: string
+          required:
+            - decision
+            - approver
+
+
+    # --- Audit Log Entry Event Types ---
+    JobCreatedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [JOB_CREATED]
+            documentId:
+              type: integer
+            jobType:
+              $ref: '#/components/schemas/WorkflowType'
+            message:
+              type: string
+              nullable: true
+          required:
+            - documentId
+            - jobType
+
+    JobCompletedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [JOB_COMPLETED]
+            documentId:
+              type: integer
+            jobType:
+              $ref: '#/components/schemas/WorkflowType'
+          required:
+            - documentId
+            - jobType
+
+    JobFailedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [JOB_FAILED]
+            message:
+              type: string
+          required:
+            - message
+
+    StepCreatedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STEP_CREATED]
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - stepType
+
+    StepCompletedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STEP_COMPLETED]
+            message:
+              type: string
+            success:
+              type: boolean
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - message
+            - success
+            - stepType
+
+    ApprovalRequestedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [APPROVAL_REQUESTED]
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - stepType
+
+    StepManuallyRetriedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STEP_MANUALLY_RETRIED]
+            previousRetryCount:
+              type: integer
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - previousRetryCount
+            - stepType
+
+    StepCancelledEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STEP_CANCELLED]
+            previousStatus:
+              type: string
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - previousStatus
+            - stepType
+
+    StuckStepResetEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STUCK_STEP_RESET]
+            stuckDurationMs:
+              type: integer
+            previousStartedAt:
+              type: string
+              format: date-time
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - stuckDurationMs
+            - previousStartedAt
+            - stepType
+
+    ErrorEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [ERROR]
+            message:
+              type: string
+          required:
+            - message
+
+    AuditLogEntry:
+      oneOf:
+        - $ref: '#/components/schemas/JobCreatedEntry'
+        - $ref: '#/components/schemas/JobCompletedEntry'
+        - $ref: '#/components/schemas/JobFailedEntry'
+        - $ref: '#/components/schemas/StepCreatedEntry'
+        - $ref: '#/components/schemas/StepExecutedEntry'
+        - $ref: '#/components/schemas/StepCompletedEntry'
+        - $ref: '#/components/schemas/ApprovalRequestedEntry'
+        - $ref: '#/components/schemas/ApprovalDecisionEntry'
+        - $ref: '#/components/schemas/StepManuallyRetriedEntry'
+        - $ref: '#/components/schemas/StepCancelledEntry'
+        - $ref: '#/components/schemas/StuckStepResetEntry'
+        - $ref: '#/components/schemas/ErrorEntry'
+      discriminator:
+        propertyName: eventType
 
     JobStats:
       type: object
@@ -1230,6 +1413,9 @@ components:
         jobType:
           type: string
           example: title
+        document:
+          $ref: '#/components/schemas/Document'
+          description: Full document object related to this approval item
         proposedActions:
           type: array
           items:
@@ -1263,6 +1449,7 @@ components:
         - documentId
         - paperlessUrl
         - jobType
+        - document
         - proposedActions
         - possibleDecisions
         - createdAt
@@ -1378,6 +1565,9 @@ components:
         documentId:
           type: number
           example: 123
+        document:
+          $ref: '#/components/schemas/Document'
+          description: Full document object related to this queue item
         stepType:
           type: string
           example: LLM_GENERATE_TITLE
@@ -1422,6 +1612,7 @@ components:
         - id
         - jobId
         - documentId
+        - document
         - stepType
         - jobType
         - status

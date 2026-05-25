@@ -68,6 +68,8 @@ export interface StepExecutionMetadata {
   success: boolean
   retryCount: number;
   nextRetryTime: Date | null;
+  /** The rendered prompt used for this step, if applicable */
+  prompt?: string;
 }
 
 export interface ManualStepDecisionMetadata {
