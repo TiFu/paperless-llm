@@ -28,7 +28,7 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     const query = `
       SELECT * FROM document_actions
       WHERE job_id = $1
-      ORDER BY created_at ASC
+      ORDER BY created_at DESC
     `;
 
     const result = await this.getClient().query(query, [jobId]);
@@ -267,7 +267,7 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     const query = `
       SELECT * FROM jobs
       ${whereClause}
-      ORDER BY id ASC
+      ORDER BY created_at DESC
       LIMIT $1
     `;
 

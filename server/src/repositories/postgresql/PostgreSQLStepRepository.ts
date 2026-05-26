@@ -98,7 +98,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
     const query = `
       SELECT id FROM steps
       WHERE job_id = $1
-      ORDER BY created_at ASC
+      ORDER BY created_at DESC
     `;
 
     const stepIds = await this.getClient().query(query, [jobId])
@@ -125,7 +125,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
     const query = `
       SELECT * FROM steps
       WHERE status = $1 AND kind = 'executable'
-      ORDER BY created_at ASC
+      ORDER BY created_at DESC
       LIMIT $2
     `;
 
@@ -147,8 +147,8 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
       // With cursor: fetch steps after the cursor position
       query = `
         SELECT * FROM steps
-        WHERE status = $1 AND type = $2 AND id > $3
-        ORDER BY created_at ASC, id ASC
+        WHERE status = $1 AND type = $2 AND id < $3
+        ORDER BY created_at DESC, id DESC
         LIMIT $4
       `;
       params = [StepStatus.WAITING, StepType.REQUIRE_APPROVAL, cursor.stepId, limit];
@@ -157,7 +157,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
       query = `
         SELECT * FROM steps
         WHERE status = $1 AND type = $2
-        ORDER BY created_at ASC, id ASC
+        ORDER BY created_at DESC, id DESC
         LIMIT $3
       `;
       params = [StepStatus.WAITING, StepType.REQUIRE_APPROVAL, limit];
@@ -289,8 +289,8 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
       paramIndex++;
     }
 
-    // Order by created_at ASC (FIFO queue) and limit
-    query += ` ORDER BY s.created_at ASC, s.id ASC LIMIT $${paramIndex}`;
+    // Order by created_at DESC (LIFO queue) and limit
+    query += ` ORDER BY s.created_at DESC, s.id DESC LIMIT $${paramIndex}`;
     params.push(limit + 1); // Fetch one extra to determine if there's a next page
 
     const result = await this.getClient().query(query, params);
@@ -379,7 +379,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
     const query = `
       SELECT id FROM steps
       WHERE job_id = $1 AND parent_id is NULL
-      ORDER BY created_at ASC
+      ORDER BY created_at DESC
     `;
 
     const result = await this.getClient().query(query, [jobId]);
