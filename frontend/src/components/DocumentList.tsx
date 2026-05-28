@@ -13,7 +13,7 @@ import {
   Button,
   CircularProgress,
 } from '@mui/material';
-import { Document } from '../types/api';
+import { Document } from '../services/api/generated/models/Document';
 
 interface DocumentListProps {
   documents: Document[];

@@ -21,9 +21,11 @@ import {
 import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
-import { apiClient } from '../services/api';
+import { apiClient } from '../services/api/api';
 import { fetchDocumentFields } from '../services/fields';
-import { Document, WorkflowType, JobSubmissionResponse } from '../types/api';
+import { Document } from '../services/api/generated/models/Document';
+import { WorkflowType } from '../services/api/generated/models/WorkflowType';
+import { JobSubmissionResponse } from '../services/api/generated/models/JobSubmissionResponse';
 
 const DEFAULT_TAG = 'llm-process';
 const PAGE_LIMIT = 10;

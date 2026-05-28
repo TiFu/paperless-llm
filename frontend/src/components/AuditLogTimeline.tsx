@@ -26,7 +26,8 @@ import {
   WarningAmber as WarningIcon,
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
-import { AuditLogEntry, AuditEventType } from '../types/api';
+import { AuditLogEntry } from '../services/api/generated/models/AuditLogEntry';
+import { AuditEventType } from '../services/api/generated/models/AuditEventType';
 
 interface AuditLogTimelineProps {
   entries: AuditLogEntry[];

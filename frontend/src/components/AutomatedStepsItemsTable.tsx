@@ -25,7 +25,8 @@ import {
   Refresh as RefreshIcon,
   Cancel as CancelIcon,
 } from '@mui/icons-material';
-import { QueueItem, WorkItemStatus } from '../types/api';
+import { QueueItem } from '../services/api/generated/models/QueueItem';
+import { WorkItemStatus } from '../services/api/generated/models/WorkItemStatus';
 import { apiClient } from '../services/api';
 
 interface AutomatedStepsItemsTableProps {

@@ -20,7 +20,9 @@ import {
   Warning as WarningIcon,
   Cancel as CancelIcon,
 } from '@mui/icons-material';
-import { JobStep, StepStatus, StepType } from '../types/api';
+import { JobStep } from '../services/api/generated/models/JobStep';
+import { StepStatus } from '../services/api/generated/models/StepStatus';
+import { StepType } from '../services/api/generated/models/StepType';
 import { apiClient } from '../services/api';
 import { useStats } from '../contexts/StatsContext';
 

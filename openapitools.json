@@ -6,7 +6,7 @@
     "generators": {
       "typescript-frontend": {
         "generatorName": "typescript",
-        "output": "src/api-generated",
+        "output": "src/services/api/generated",
         "inputSpec": "../server/docs/openapi.yaml",
         "additionalProperties": {
           "npmName": "@api/generated",

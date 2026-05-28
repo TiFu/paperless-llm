@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { apiClient } from '../services/api';
-import { QueueStats, ApprovalStats, JobStats } from '../types/api';
+import { QueueStats } from '../services/api/generated/models/QueueStats';
+import { ApprovalStats } from '../services/api/generated/models/ApprovalStats';
+import { JobStats } from '../services/api/generated/models/JobStats';
 
 interface StatsContextValue {
   queueStats: QueueStats | null;

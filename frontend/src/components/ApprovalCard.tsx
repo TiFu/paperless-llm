@@ -18,7 +18,7 @@ import {
   Link,
 } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
-import { ApprovalItem } from '../types/api';
+import { ApprovalItem } from '../services/api/generated/models/ApprovalItem';
 
 interface ApprovalCardProps {
   approval: ApprovalItem;

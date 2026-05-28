@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, Typography, Grid, Chip, Box } from '@mui/material';
-import { QueueStats } from '../types/api';
+import { QueueStats } from '../services/api/generated/models/QueueStats';
 
 interface AutomatedStepsStatsCardProps {
   title: string;

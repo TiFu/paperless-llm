@@ -11,7 +11,7 @@ import {
   Link,
 } from '@mui/material';
 import { OpenInNew, Refresh, Cancel } from '@mui/icons-material';
-import { QueueItem } from '../types/api';
+import { QueueItem } from '../services/api/generated/models/QueueItem';
 
 interface FalloutCardProps {
   fallout: QueueItem;

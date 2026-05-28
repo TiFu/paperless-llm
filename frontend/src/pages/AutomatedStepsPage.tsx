@@ -9,11 +9,9 @@ import {
 import { AutomatedStepsStatsCard } from '../components/AutomatedStepsStatsCard';
 import { AutomatedStepsItemsTable } from '../components/AutomatedStepsItemsTable';
 import { apiClient } from '../services/api';
-import {
-  QueueStats,
-  QueueItem,
-  WorkItemStatus,
-} from '../types/api';
+import { QueueStats } from '../services/api/generated/models/QueueStats';
+import { QueueItem } from '../services/api/generated/models/QueueItem';
+import { WorkItemStatus } from '../services/api/generated/models/WorkItemStatus';
 
 const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
 
@@ -29,9 +27,9 @@ export const AutomatedStepsPage: React.FC = () => {
   // Count of steps not completed or failed (include fallout as not completed)
   const notCompletedCount = items.filter(
     (item) =>
-      item.status !== WorkItemStatus.FAILED &&
-      item.status !== WorkItemStatus.COMPLETED
-  ).length + items.filter(item => item.status === WorkItemStatus.IN_FALLOUT).length;
+      item.status !== WorkItemStatus.failed &&
+      item.status !== WorkItemStatus.completed
+  ).length + items.filter(item => item.status === WorkItemStatus.in_fallout).length;
 
   const fetchQueue = async (cursor?: string, append = false) => {
     try {
