@@ -1,0 +1,72 @@
+
+import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory.js';
+import { AppMapper } from '../map/Mapper.js';
+import { DOCUMENT_FIELDS, DocumentField } from '../domain/steps/StepFactory.js';
+import { WorkflowType } from '../domain/workflows/WorkflowType.js';
+import { JobState } from '../domain/job/JobState.js';
+
+export class JobController {
+  constructor(private readonly appFactory: ApplicationServiceFactory) {}
+
+  async getAvailableFields(): Promise<string[]> {
+    return [...DOCUMENT_FIELDS];
+  }
+
+  async getJobStats() {
+    const jobAppService = this.appFactory.createJobApplicationService();
+    const stats = await jobAppService.getJobStats();
+    return stats;
+  }
+
+  async getJobTypes() {
+    return { jobTypes: Object.values(WorkflowType) };
+  }
+
+  async submitJob(documents: Array<{ documentId: number; jobType: WorkflowType; fields: DocumentField[] }>) {
+    const jobAppService = this.appFactory.createJobApplicationService();
+    const createdJobs = await jobAppService.createBulk(documents);
+    return {
+      submitted: createdJobs.length,
+      jobs: createdJobs.map(AppMapper.toJobResponse),
+    };
+  }
+
+  async listJobs(limit: number, cursor?: string, state?: JobState) {
+    const jobAppService = this.appFactory.createJobApplicationService();
+    const result = await jobAppService.list(limit, cursor, state);
+    return {
+      jobs: result.items.map(AppMapper.toJobResponse),
+      nextCursor: result.nextCursor,
+    };
+  }
+
+  async getJob(id: string) {
+    const jobAppService = this.appFactory.createJobApplicationService();
+    const job = await jobAppService.getById(id);
+    if (!job) return null;
+    return AppMapper.toJobResponse(job);
+  }
+
+  async getJobSteps(id: string) {
+    const jobAppService = this.appFactory.createJobApplicationService();
+    // Ensure job exists
+    const job = await jobAppService.getById(id);
+    if (!job) return null;
+    const steps = await jobAppService.getStepsByJobId(id);
+    return {
+      steps: steps.map(AppMapper.toJobStep),
+    };
+  }
+
+  async getJobAuditLog(id: string) {
+    const jobAppService = this.appFactory.createJobApplicationService();
+    // Ensure job exists
+    const job = await jobAppService.getById(id);
+    if (!job) return null;
+    const auditLogService = this.appFactory.createAuditLogApplicationService();
+    const auditLog = await auditLogService.getAuditLogForJobById(id);
+    return {
+      auditLog: AppMapper.toAuditLogEntryList(auditLog),
+    };
+  }
+}

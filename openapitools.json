@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/@openapitools/openapi-generator-cli/config.schema.json",
+  "spaces": 2,
+  "generator-cli": {
+    "version": "7.22.0",
+    "generators": {
+      "typescript-frontend": {
+        "generatorName": "typescript",
+        "output": "src/api-generated",
+        "inputSpec": "../server/docs/openapi.yaml",
+        "additionalProperties": {
+          "npmName": "@api/generated",
+          "supportsES6": true,
+          "withSeparateModelsAndApi": true,
+          "modelPropertyNaming": "original",
+          "enumPropertyNaming": "original",
+          "useSingleRequestParameter": true
+        }
+      },
+      "typescript-backend-dtos": {
+        "generatorName": "typescript",
+        "output": "src/web/dtos",
+        "inputSpec": "../server/docs/openapi.yaml",
+        "additionalProperties": {
+          "importFileExtension": ".js",
+          "supportsES6": true,
+          "modelPropertyNaming": "original",
+          "enumPropertyNaming": "original",
+          "withSeparateModelsAndApi": true,
+          "api": false,
+          "modelSuffix": "DTO",
+          "useSingleRequestParameter": true
+        }
+      }
+    }
+  }
+}

@@ -31,11 +31,11 @@ export interface QueueItem {
   jobType: string;
   status: string; // WorkItemStatus from frontend enum
   retryCount: number;
-  retryAfter: string | null;
+  retryAfter: Date | null;
   claimedBy: string | null;
-  claimedAt: string | null;
-  createdAt: string;
-  updatedAt: string | null;
+  claimedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date | null;
   // Additional context
   jobState: string;
 }
@@ -176,8 +176,8 @@ export class QueueApplicationService {
       retryAfter: null,
       claimedBy: null,
       claimedAt: null,
-      createdAt: step.stepCreatedAt.toISOString(),
-      updatedAt: step.stepStartedAt?.toISOString() || step.stepCompletedAt?.toISOString() || null,
+      createdAt: step.stepCreatedAt,
+      updatedAt: step.stepStartedAt || step.stepCompletedAt || null,
       jobState: step.jobState,
     };
   }

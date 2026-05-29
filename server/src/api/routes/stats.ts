@@ -1,10 +1,11 @@
+
 import { Router, Request, Response, NextFunction } from 'express';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
-import { createChildLogger } from '../../utils/logger.js';
+import { StatsController } from '../../web/StatsController.js';
 
 export function createStatsRouter(appFactory: ApplicationServiceFactory): Router {
-  const logger = createChildLogger({ name: 'stats-router' });
   const router = Router();
+  const controller = new StatsController(appFactory);
 
   /**
    * GET /api/stats/dashboard
@@ -12,12 +13,9 @@ export function createStatsRouter(appFactory: ApplicationServiceFactory): Router
    */
   router.get('/dashboard', async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const dashboardStatsService = appFactory.createDashboardStatsApplicationService();
-      const stats = await dashboardStatsService.getDashboardStats();
-
+      const stats = await controller.getDashboardStats();
       res.json(stats);
     } catch (error) {
-      logger.error({ error }, 'Failed to fetch dashboard stats');
       next(error);
     }
   });
