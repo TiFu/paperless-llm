@@ -95,19 +95,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    enum: [ok]
-                    example: ok
-                  timestamp:
-                    type: string
-                    format: date-time
-                    example: '2026-05-11T10:30:00Z'
-                required:
-                  - status
-                  - timestamp
+                $ref: '#/components/schemas/HealthStatus'
 
   /system/status:
     get:
@@ -628,19 +616,11 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  documents:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Document'
-                required:
-                  - documents
+                $ref: '#/components/schemas/DocumentsListWithPagination'
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
   /documents/tags:
     get:
       tags:
@@ -777,6 +757,20 @@ paths:
 
 components:
   schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-05-11T10:30:00Z'
+      required:
+        - status
+        - timestamp
     DashboardStats:
       type: object
       properties:
@@ -975,7 +969,9 @@ components:
           items:
             $ref: '#/components/schemas/DocumentAction'
         document:
-          $ref: '#/components/schemas/Document'
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/Document'
           nullable: true
           description: Document metadata for the job's document
       required:
@@ -1076,6 +1072,30 @@ components:
         - retryCount
         - retryAfter
 
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: number
+        nextCursor:
+          type: string
+          nullable: true
+      required:
+        - limit
+
+    DocumentsListWithPagination:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - documents
+        - pagination
+
     AuditLogResponse:
       type: object
       properties:
@@ -1153,11 +1173,8 @@ components:
               enum: [APPROVAL_APPROVED, APPROVAL_REJECTED]
             decision:
               type: string
-            approver:
-              type: string
           required:
             - decision
-            - approver
 
 
     # --- Audit Log Entry Event Types ---
@@ -1262,12 +1279,12 @@ components:
             eventType:
               type: string
               enum: [STEP_MANUALLY_RETRIED]
-            previousRetryCount:
-              type: integer
+            previousStatus:
+              $ref: '#/components/schemas/StepStatus'
             stepType:
               $ref: '#/components/schemas/StepType'
           required:
-            - previousRetryCount
+            - previousStatus
             - stepType
 
     StepCancelledEntry:
@@ -1566,7 +1583,10 @@ components:
           type: number
           example: 123
         document:
-          $ref: '#/components/schemas/Document'
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/Document'
           description: Full document object related to this queue item
         stepType:
           type: string
@@ -1712,6 +1732,69 @@ components:
         - status
         - timestamp
         - components
+
+    JobFieldsList:
+      type: array
+      items:
+        type: string
+
+    JobTypesList:
+      type: object
+      properties:
+        jobTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowType'
+      required:
+        - jobTypes
+
+    ApprovalDecision:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+
+    DocumentsList:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+      required:
+        - documents
+
+    TagsList:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+      required:
+        - tags
+
+    CorrespondentsList:
+      type: object
+      properties:
+        correspondents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Correspondent'
+      required:
+        - correspondents
+
+    DocumentTypesList:
+      type: object
+      properties:
+        documentTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentType'
+      required:
+        - documentTypes
 
     ComponentHealth:
       type: object

@@ -1,3 +1,5 @@
+
+import { HealthApplicationService } from './HealthApplicationService.js';
 import { JobApplicationService } from './JobApplicationService.js';
 import { StepExecutorApplicationService } from './StepExecutorApplicationService.js';
 import { ManualStepApplicationService } from './ApprovalApplicationService.js';
@@ -28,6 +30,13 @@ export class ApplicationServiceFactory {
     private readonly paperlessBaseUrl: string,
     private readonly retryConfig: RetryConfig
   ) {}
+
+  /**
+   * Create a new HealthApplicationService instance.
+   */
+  createHealthApplicationService(): HealthApplicationService {
+    return new HealthApplicationService(this.uowFactory, this.dmsService, this.llmService);
+  }
 
   /**
    * Create a new JobApplicationService instance.

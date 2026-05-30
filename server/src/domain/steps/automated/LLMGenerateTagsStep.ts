@@ -61,6 +61,8 @@ export class LLMGenerateTagsStep extends ExecutableStep {
       ? (document.tags)
       : [];
 
+    // TODO: We may want to inject some validation logic here for the available tags... 
+    // Not sure how best to do that though -- maybe it's also on a "higher" level to do that
     // Create TagUpdateAction
     const action = TagUpdateAction.create(
       context.job.id,

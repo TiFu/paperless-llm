@@ -1,24 +1,24 @@
-import { Router } from 'express';
+
+import { Router, Request, Response, NextFunction } from 'express';
 import { createChildLogger } from '../../utils/logger.js';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
+import { FalloutController } from '../../web/controllers.js';
 
-// GET /fallouts - List fallout steps (in_fallout) with audit log attached
-
-export function createFalloutsRouter(appFactory: ApplicationServiceFactory) {
-  const logger = createChildLogger({ name: "fallout-router"})
+export function createFalloutsRouter(appFactory: ApplicationServiceFactory): Router {
+  const logger = createChildLogger({ name: "fallout-router" });
   const router = Router();
+  const controller = new FalloutController(appFactory);
 
-    // Updated: Use getQueueItems with status 'in_fallout' and enrich with audit log
-  router.get('/', async (req, res) => {
+  // GET /fallouts - List fallout steps (in_fallout) with audit log attached
+  router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const queueService = appFactory.createQueueApplicationService();
-      const auditLogService = appFactory.createAuditLogApplicationService();
-      const enriched = await queueService.getFallouts(auditLogService);
-      res.json({ items: enriched, count: enriched.length });
+      const result = await controller.listFallouts();
+      res.json(result);
     } catch (err) {
+      logger.error({ err }, 'Failed to fetch fallout items');
       res.status(500).json({ error: (err as any).message });
     }
   });
 
-  return router
+  return router;
 }

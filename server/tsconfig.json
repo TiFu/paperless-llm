@@ -12,6 +12,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "experimentalDecorators": true, // for @automapper/classes
+    "emitDecoratorMetadata": true, // for @automapper/classes
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,

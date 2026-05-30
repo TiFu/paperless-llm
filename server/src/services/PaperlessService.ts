@@ -260,7 +260,12 @@ export class PaperlessService implements IDocumentManagementSystem {
       // Handle tags - IDocument has string[] but Paperless expects number[]
       // The updates object should have the metadata with tag IDs if tags are being updated
       if (updates.tags !== undefined) {
-        payload.tags = updates.tags.map((t) => this.resolveTagId(t));
+        // TODO: In this case, we need to return some info about the tags we have not applied/not found... for documentation purposes
+        const result = await Promise.all(updates.tags.map((t) => this.resolveTagId(t).catch((e) => { 
+          this.logger.info({ tagName: t, }, "Tag not found")
+          return null 
+        })));
+        payload.tags = result.filter((f) => f != null)
       }
 
       // Handle correspondent - from metadata

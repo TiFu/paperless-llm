@@ -3,11 +3,14 @@ import { body } from 'express-validator';
 import pino from 'pino';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
 import { ApiError } from '../middleware/errorHandler.js';
-import { StepType } from '../../domain/steps/IStep.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { PromptController } from '../../web/PromptController.js';
+import { UpdatePromptRequest } from '../../web/dtos/models/UpdatePromptRequest.js';
+import { StepType } from '../../web/dtos/models/StepType.js';
 
 
 export function createPromptsRouter(appFactory: ApplicationServiceFactory): Router {
+  const promptController = new PromptController(appFactory);
   const logger = createChildLogger({ name: "prompt-router"})
   const router = Router();
 
@@ -17,17 +20,8 @@ export function createPromptsRouter(appFactory: ApplicationServiceFactory): Rout
    */
   router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const promptAppService = appFactory.createPromptApplicationService();
-      const prompts = await promptAppService.getAllPrompts();
-
-      res.json({
-        prompts: prompts.map((p) => ({
-          stepType: p.stepType,
-          template: p.template,
-          version: p.version,
-          updatedAt: p.updatedAt,
-        })),
-      });
+      const result = await promptController.listPrompts();
+      res.json(result);
     } catch (error) {
       logger.error({ error }, 'Failed to fetch prompts');
       next(error);
@@ -49,7 +43,7 @@ export function createPromptsRouter(appFactory: ApplicationServiceFactory): Rout
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { stepType } = req.params;
-        const { template } = req.body;
+        const body: UpdatePromptRequest = req.body;
 
         // Validate step type
         if (!Object.values(StepType).includes(stepType as StepType)) {
@@ -60,17 +54,8 @@ export function createPromptsRouter(appFactory: ApplicationServiceFactory): Rout
           );
         }
 
-        const promptAppService = appFactory.createPromptApplicationService();
-        const prompt = await promptAppService.upsertPrompt(stepType as StepType, template);
-
-        logger.info({ stepType, version: prompt.version }, 'Prompt updated');
-
-        res.json({
-          stepType: prompt.stepType,
-          template: prompt.template,
-          version: prompt.version,
-          updatedAt: prompt.updatedAt,
-        });
+        const result = await promptController.updatePrompt(stepType as StepType, body);
+        res.json(result);
       } catch (error) {
         logger.error({ error, stepType: req.params.stepType }, 'Failed to update prompt');
         next(error);

@@ -1,11 +1,12 @@
+
 import { Router, Request, Response, NextFunction } from 'express';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
 import { createChildLogger } from '../../utils/logger.js';
-
+import { StepController } from '../../web/StepController.js';
 
 export function createStepsRouter(appServiceFactory: ApplicationServiceFactory): Router {
-    const logger = createChildLogger({ service: 'steps-route' });
-    const router = Router();
+  const router = Router();
+  const controller = new StepController(appServiceFactory);
 
   /**
    * POST /api/steps/:id/retry
@@ -14,18 +15,9 @@ export function createStepsRouter(appServiceFactory: ApplicationServiceFactory):
   router.post('/:id/retry', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const stepId = req.params.id;
-
-      logger.info({ stepId }, 'Manual retry requested');
-
-      const stepRetryService = appServiceFactory.createStepRetryApplicationService();
-      await stepRetryService.retryStep(stepId);
-
-      res.json({ 
-        success: true,
-        message: `Step ${stepId} has been reset and will be retried`
-      });
+      const result = await controller.retryStep(stepId);
+      res.json(result);
     } catch (error) {
-      logger.error({ error }, 'Failed to retry step');
       next(error);
     }
   });
@@ -37,18 +29,9 @@ export function createStepsRouter(appServiceFactory: ApplicationServiceFactory):
   router.post('/:id/cancel', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const stepId = req.params.id;
-
-      logger.info({ stepId }, 'Manual cancel requested');
-
-      const stepCancelService = appServiceFactory.createStepCancelApplicationService();
-      await stepCancelService.cancelStep(stepId);
-
-      res.json({ 
-        success: true,
-        message: `Step ${stepId} has been cancelled and marked as failed`
-      });
+      const result = await controller.cancelStep(stepId);
+      res.json(result);
     } catch (error) {
-      logger.error({ error }, 'Failed to cancel step');
       next(error);
     }
   });

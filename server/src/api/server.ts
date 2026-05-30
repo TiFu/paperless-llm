@@ -18,6 +18,7 @@ import { createDocumentsRouter } from './routes/documents.js';
 import { createApprovalsRouter } from './routes/approvals.js';
 import { createStepsRouter } from './routes/steps.js';
 import { createStatsRouter } from './routes/stats.js';
+import { createDocsRouter } from './routes/docs.js';
 import * as OpenAPIValidator from 'express-openapi-validator';
 import { UoWFactory } from '../infrastructure/UoW.js';
 
@@ -80,7 +81,7 @@ export function createApiServer(
   }))
 
   // Health check (outside /api prefix)
-  app.use('/', createHealthRouter(uowFactory, paperlessService, llmService, logger));
+  app.use('/', createHealthRouter(uowFactory, paperlessService, llmService));
 
   // API routes
   app.use('/api/documents', createDocumentsRouter(paperlessService, uowFactory));
@@ -91,49 +92,8 @@ export function createApiServer(
   app.use('/api/stats', createStatsRouter(appFactory));
   app.use('/api/queue', createQueueRouter(appFactory));
 
-  // OpenAPI specification routes
-  // Serve the OpenAPI YAML spec file
-  app.get('/api/openapi.yaml', (_req: Request, res: Response) => {
-    const specPath = path.resolve(__dirname, '../../docs/openapi.yaml');
-    if (fs.existsSync(specPath)) {
-      res.setHeader('Content-Type', 'application/x-yaml');
-      res.sendFile(specPath);
-    } else {
-      res.status(404).json({
-        type: 'about:blank',
-        title: 'Not Found',
-        status: 404,
-        detail: 'OpenAPI specification file not found',
-      });
-    }
-  });
-
-  // Serve ReDoc interactive documentation UI
-  app.get(
-    '/api/docs',
-    redoc({
-      title: 'Paperless-LLM API Documentation',
-      specUrl: '/api/docs/openapi.yaml',
-      redocOptions: {
-        theme: {
-          colors: {
-            primary: {
-              main: '#3b82f6',
-            },
-          },
-          typography: {
-            fontSize: '14px',
-            fontFamily: '"Inter", "Segoe UI", "Roboto", sans-serif',
-          },
-        },
-        hideDownloadButton: false,
-        disableSearch: false,
-        scrollYOffset: 0,
-      },
-    }),
-  );
-
-  app.use("/api/docs", express.static("./docs/"))
+  // API Docs and OpenAPI spec
+  app.use('/api/docs', createDocsRouter());
 
   // 404 handler
   app.use((_req: Request, res: Response) => {

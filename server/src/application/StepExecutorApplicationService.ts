@@ -58,7 +58,6 @@ export class StepExecutorApplicationService {
                   llm: this.llmService,
                   promptDomainService: uow.getPromptDomainService()
               }
-
           }
       await uow.save();
       await uow.commit();
