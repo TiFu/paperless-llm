@@ -14,6 +14,7 @@ In progress
 * As a user, I want to see document details in the frontend
 * As a user, I would like to have a properly cached DMS/Paperless Service
 * As a developer, I would like to extract the logic to transform to API Objects from the routes to web layer services
+* Update prompts to use the new variables that are available
 
 Feature ideas
     Design choices: 

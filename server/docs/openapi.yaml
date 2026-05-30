@@ -969,7 +969,9 @@ components:
           items:
             $ref: '#/components/schemas/DocumentAction'
         document:
-          $ref: '#/components/schemas/Document'
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/Document'
           nullable: true
           description: Document metadata for the job's document
       required:
@@ -1171,11 +1173,8 @@ components:
               enum: [APPROVAL_APPROVED, APPROVAL_REJECTED]
             decision:
               type: string
-            approver:
-              type: string
           required:
             - decision
-            - approver
 
 
     # --- Audit Log Entry Event Types ---
@@ -1280,12 +1279,12 @@ components:
             eventType:
               type: string
               enum: [STEP_MANUALLY_RETRIED]
-            previousRetryCount:
-              type: integer
+            previousStatus:
+              $ref: '#/components/schemas/StepStatus'
             stepType:
               $ref: '#/components/schemas/StepType'
           required:
-            - previousRetryCount
+            - previousStatus
             - stepType
 
     StepCancelledEntry:
@@ -1585,6 +1584,7 @@ components:
           example: 123
         document:
           nullable: true
+          type: object
           allOf:
             - $ref: '#/components/schemas/Document'
           description: Full document object related to this queue item

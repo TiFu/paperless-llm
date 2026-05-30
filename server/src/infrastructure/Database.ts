@@ -39,6 +39,7 @@ export class Database {
       const result = await this.pool.query('SELECT NOW()');
       return !!result.rows[0];
     } catch (error) {
+      console.log(error)
       return false;
     }
   }

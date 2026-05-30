@@ -106,6 +106,7 @@ export type AuditLogMetadata =
   | StuckStepResetMetadata
   | Record<string, any>; // Fallback for extensibility
 
+// TODO: We can improve type safety for AuditLogentry
 /**
  * AuditLogEntry entity - represents a single event in the audit log
  */

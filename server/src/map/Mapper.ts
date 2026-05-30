@@ -1,5 +1,5 @@
 import type { AuditLogEntry as DtoAuditLogEntry } from '../web/dtos/models/AuditLogEntry.js';
-import { AuditLogEntry as DomainAuditLogEntry } from '../domain/audit/AuditLogEntry.js';
+import { AuditEventType, AuditLogEntry as DomainAuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 import type { QueueItem as DtoQueueItem } from '../web/dtos/models/QueueItem.js';
 
 import { StepType as DomainStepType } from '../domain/steps/IStep.js';
@@ -13,6 +13,8 @@ import { Document } from '../web/dtos/models/Document.js';
 import { Correspondent } from '../web/dtos/models/Correspondent.js';
 import { DocumentType } from '../web/dtos/models/DocumentType.js';
 import { Tag } from '../web/dtos/models/Tag.js';
+import { JobCreatedEntry } from '../web/dtos/models/JobCreatedEntry.js';
+import { metadata } from 'reflect-metadata/no-conflict';
 
 export class AppMapper {
   // --- Job Mapping ---
@@ -56,34 +58,38 @@ export class AppMapper {
       processingStartTime: domain.processingStartTime ? (domain.processingStartTime instanceof Date ? domain.processingStartTime.toISOString() : domain.processingStartTime) : undefined,
       processingEndTime: domain.processingEndTime ? (domain.processingEndTime instanceof Date ? domain.processingEndTime.toISOString() : domain.processingEndTime) : undefined,
       processingDurationMs: typeof domain.getProcessingDurationMs === 'function' ? domain.getProcessingDurationMs() : undefined,
+      ...domain.metadata
     };
+
+    // Assume 1:1
+    return base as any;
 
     const m = domain.metadata ?? {};
     switch (domain.eventType) {
-      case 'JOB_CREATED':
+      case AuditEventType.JOB_CREATED:
         return {
           ...base,
           documentId: (m as any).documentId,
           jobType: (m as any).jobType,
           message: (m as any).message ?? null,
         } as any;
-      case 'JOB_COMPLETED':
+      case AuditEventType.JOB_COMPLETED:
         return {
           ...base,
           documentId: (m as any).documentId,
           jobType: (m as any).jobType,
         } as any;
-      case 'JOB_FAILED':
+      case AuditEventType.JOB_FAILED:
         return {
           ...base,
           message: (m as any).message,
         } as any;
-      case 'STEP_CREATED':
+      case AuditEventType.STEP_CREATED:
         return {
           ...base,
           stepType: (m as any).stepType,
         } as any;
-      case 'STEP_EXECUTED':
+      case AuditEventType.STEP_EXECUTED:
         return {
           ...base,
           stepType: (m as any).stepType,
@@ -91,45 +97,45 @@ export class AppMapper {
           prompt: (m as any).prompt,
           message: (m as any).message,
         } as any;
-      case 'STEP_COMPLETED':
+      case AuditEventType.STEP_COMPLETED:
         return {
           ...base,
           message: (m as any).message,
           success: (m as any).success,
           stepType: (m as any).stepType,
         } as any;
-      case 'APPROVAL_REQUESTED':
+      case AuditEventType.APPROVAL_REQUESTED:
         return {
           ...base,
           stepType: (m as any).stepType,
         } as any;
-      case 'APPROVAL_APPROVED':
-      case 'APPROVAL_REJECTED':
+      case AuditEventType.APPROVAL_APPROVED:
+      case AuditEventType.APPROVAL_REJECTED:
         return {
           ...base,
           decision: (m as any).decision,
           approver: (m as any).approver,
         } as any;
-      case 'STEP_MANUALLY_RETRIED':
+      case AuditEventType.STEP_MANUALLY_RETRIED:
         return {
           ...base,
           previousRetryCount: (m as any).previousRetryCount,
           stepType: (m as any).stepType,
         } as any;
-      case 'STEP_CANCELLED':
+      case AuditEventType.STEP_CANCELLED:
         return {
           ...base,
           previousStatus: (m as any).previousStatus,
           stepType: (m as any).stepType,
         } as any;
-      case 'STUCK_STEP_RESET':
+      case AuditEventType.STUCK_STEP_RESET:
         return {
           ...base,
           stuckDurationMs: (m as any).stuckDurationMs,
           previousStartedAt: (m as any).previousStartedAt,
           stepType: (m as any).stepType,
         } as any;
-      case 'ERROR':
+      case AuditEventType.ERROR:
         return {
           ...base,
           message: (m as any).message,
