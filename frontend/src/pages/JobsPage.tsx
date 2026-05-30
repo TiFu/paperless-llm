@@ -20,23 +20,24 @@ import {
   InputLabel,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { apiClient } from '../services/api';
-import { JobResponse, JobState } from '../types/api';
-
+import { apiClient } from '../services/api/api';
+import { JobResponse } from '../services/api/generated/models/JobResponse';
+import { JobState } from '../services/api/generated/models/JobState';
 const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
 
 const getStatusColor = (status: JobState): 'default' | 'info' | 'warning' | 'success' | 'error' => {
   switch (status) {
-    case JobState.PENDING:
-    case JobState.LLM_PROCESSING:
-    case JobState.UPDATING_DOCUMENT:
+    case JobState.pending:
+    case JobState.llm_processing:
+    case JobState.updating_document:
       return 'info';
-    case JobState.PENDING_APPROVAL:
+    case JobState.pending_approval:
       return 'warning';
-    case JobState.COMPLETED:
+    case JobState.completed:
       return 'success';
-    case JobState.FAILED:
-    case JobState.REJECTED:
+    case JobState.rejected:
+      return 'error';
+    case JobState.failed:
       return 'error';
     default:
       return 'default';
@@ -44,7 +45,7 @@ const getStatusColor = (status: JobState): 'default' | 'info' | 'warning' | 'suc
 };
 
 const isTerminalState = (status: JobState): boolean => {
-  return [JobState.COMPLETED, JobState.FAILED, JobState.REJECTED].includes(status);
+  return [JobState.completed, JobState.failed, JobState.rejected].includes(status);
 };
 
 export const JobsPage: React.FC = () => {
@@ -181,7 +182,7 @@ export const JobsPage: React.FC = () => {
                         <TableCell>{job.id.substring(0, 8)}...</TableCell>
                         <TableCell>{job.documentId}</TableCell>
                         <TableCell>{job.document?.title ?? <em>–</em>}</TableCell>
-                        <TableCell>{job.document?.correspondent ?? <em>–</em>}</TableCell>
+                        <TableCell><em>–</em></TableCell>
                         <TableCell>{job.jobType.replace(/_/g, ' ')}</TableCell>
                         <TableCell>
                           <Chip

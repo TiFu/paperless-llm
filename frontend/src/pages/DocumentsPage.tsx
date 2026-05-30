@@ -22,7 +22,6 @@ import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
 import { apiClient } from '../services/api/api';
-import { fetchDocumentFields } from '../services/fields';
 import { Document } from '../services/api/generated/models/Document';
 import { WorkflowType } from '../services/api/generated/models/WorkflowType';
 import { JobSubmissionResponse } from '../services/api/generated/models/JobSubmissionResponse';
@@ -69,7 +68,7 @@ export const DocumentsPage: React.FC = () => {
         setDocuments(response.documents);
       }
       
-      setNextCursor(response.pagination.nextCursor);
+      setNextCursor(response.pagination.nextCursor ?? null);
       
       // Only update URL for initial loads, not when appending pages
       // This prevents URL changes from interfering with pagination state
@@ -108,7 +107,7 @@ export const DocumentsPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to fetch job types:', error);
       // Set default workflow types if API call fails
-      setAvailableJobTypes([WorkflowType.AUTOMATED, WorkflowType.APPROVAL]);
+      setAvailableJobTypes([WorkflowType.automated, WorkflowType.approval]);
     }
   };
 
@@ -145,7 +144,7 @@ export const DocumentsPage: React.FC = () => {
         // Check if we've reached the target cursor or there are no more pages
         if (response.pagination.nextCursor === targetCursor || !response.pagination.nextCursor) {
           setDocuments(allDocs);
-          setNextCursor(response.pagination.nextCursor);
+          setNextCursor(response.pagination.nextCursor ?? null);
           break;
         }
         
@@ -201,9 +200,9 @@ export const DocumentsPage: React.FC = () => {
 
   const getWorkflowLabel = (workflow: WorkflowType) => {
     switch (workflow) {
-      case WorkflowType.APPROVAL:
+      case WorkflowType.approval:
         return 'Approval Workflow';
-      case WorkflowType.AUTOMATED:
+      case WorkflowType.automated:
         return 'Automated Workflow';
       default:
         return workflow;
@@ -212,9 +211,9 @@ export const DocumentsPage: React.FC = () => {
 
   const getWorkflowDescription = (workflow: WorkflowType) => {
     switch (workflow) {
-      case WorkflowType.APPROVAL:
+      case WorkflowType.approval:
         return 'Requires manual approval before applying changes to documents';
-      case WorkflowType.AUTOMATED:
+      case WorkflowType.automated:
         return 'Automatically applies changes without manual approval';
       default:
         return '';

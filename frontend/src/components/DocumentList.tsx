@@ -32,7 +32,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
 }) => {
   const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked) {
-      onSelectionChange(documents.map((doc) => doc.id));
+      onSelectionChange(documents.map((doc) => String(doc.id)));
     } else {
       onSelectionChange([]);
     }
@@ -80,19 +80,20 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           </TableHead>
           <TableBody>
             {documents.map((doc) => {
-              const isSelected = selectedIds.includes(doc.id);
+              const docId = String(doc.id);
+              const isSelected = selectedIds.includes(docId);
               return (
                 <TableRow
-                  key={doc.id}
+                  key={docId}
                   hover
-                  onClick={() => handleSelectOne(doc.id)}
+                  onClick={() => handleSelectOne(docId)}
                   selected={isSelected}
                   sx={{ cursor: 'pointer' }}
                 >
                   <TableCell padding="checkbox">
                     <Checkbox checked={isSelected} />
                   </TableCell>
-                  <TableCell>{doc.id}</TableCell>
+                  <TableCell>{docId}</TableCell>
                   <TableCell>{doc.title || '(No Title)'}</TableCell>
                   <TableCell>
                     <Typography variant="body2" color="text.secondary" noWrap>

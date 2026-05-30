@@ -1,3 +1,4 @@
+import { StepType } from './generated/models/StepType';
 import {
   createConfiguration,
   Configuration,
@@ -41,7 +42,7 @@ function normalizeError(error: any): Error {
       if (error?.response?.data?.title) return new Error(error.response.data.title);
       if (error?.message) return new Error(error.message);
       return new Error('Unknown API error');
-    }
+}
 
 export const apiClient = {
   // Documents
@@ -131,7 +132,7 @@ export const apiClient = {
   },
   async updatePrompt(stepType: string, template: string) {
     try {
-      return await promptsApi.updatePrompt(stepType, { template });
+      return await promptsApi.updatePrompt(stepType as StepType, { template });
     } catch (e) {
       throw normalizeError(e);
     }

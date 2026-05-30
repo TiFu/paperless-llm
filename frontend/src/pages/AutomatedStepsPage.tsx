@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import { AutomatedStepsStatsCard } from '../components/AutomatedStepsStatsCard';
 import { AutomatedStepsItemsTable } from '../components/AutomatedStepsItemsTable';
-import { apiClient } from '../services/api';
+import { apiClient } from '../services/api/api';
 import { QueueStats } from '../services/api/generated/models/QueueStats';
 import { QueueItem } from '../services/api/generated/models/QueueItem';
 import { WorkItemStatus } from '../services/api/generated/models/WorkItemStatus';

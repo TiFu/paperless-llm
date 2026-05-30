@@ -21,9 +21,9 @@ import {
   Chip,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import { apiClient } from '../services/api';
-import { PromptResponse, StepType } from '../types/api';
-
+import { apiClient } from '../services/api/api';
+import { PromptResponse } from '../services/api/generated/models/PromptResponse';
+import { StepType } from '../services/api/generated/models/StepType';
 export const PromptsPage: React.FC = () => {
   const [prompts, setPrompts] = useState<PromptResponse[]>([]);
   const [loading, setLoading] = useState(true);

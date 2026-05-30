@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Circle as CircleIcon } from '@mui/icons-material';
-import { apiClient } from '../services/api';
+import { apiClient } from '../services/api/api';
 import { SystemHealthResponse } from '../services/api/generated/models/SystemHealthResponse';
 import { ServiceStatus } from '../services/api/generated/models/ServiceStatus';
 

@@ -8,8 +8,9 @@ import {
   Button,
   Paper,
 } from '@mui/material';
-import { apiClient } from '../services/api';
-import { QueueItem, WorkItemStatus } from '../types/api';
+import { apiClient } from '../services/api/api';
+import { QueueItem } from '../services/api/generated/models/QueueItem';
+import { WorkItemStatus } from '../services/api/generated/models/WorkItemStatus';
 import { FalloutCard } from '../components/FalloutCard';
 import { useStats } from '../contexts/StatsContext';
 
@@ -31,8 +32,7 @@ export const FalloutsPage: React.FC = () => {
       }
       setError(null);
 
-      const response = await apiClient.fetchQueueItems(50, cursor, WorkItemStatus.IN_FALLOUT);
-
+      const response = await apiClient.fetchQueueItems(50, cursor, WorkItemStatus.in_fallout);
       if (append) {
         setFallouts((prev) => [...prev, ...response.items]);
       } else {

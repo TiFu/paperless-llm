@@ -23,7 +23,7 @@ import {
 import { JobStep } from '../services/api/generated/models/JobStep';
 import { StepStatus } from '../services/api/generated/models/StepStatus';
 import { StepType } from '../services/api/generated/models/StepType';
-import { apiClient } from '../services/api';
+import { apiClient } from '../services/api/api';
 import { useStats } from '../contexts/StatsContext';
 
 interface JobStepsTimelineProps {
@@ -33,17 +33,17 @@ interface JobStepsTimelineProps {
 
 const getStepStatusIcon = (status: StepStatus) => {
   switch (status) {
-    case StepStatus.COMPLETED:
+    case StepStatus.completed:
       return <CheckCircleIcon color="success" />;
-    case StepStatus.FAILED:
+    case StepStatus.failed:
       return <ErrorIcon color="error" />;
-    case StepStatus.IN_PROGRESS:
+    case StepStatus.in_progress:
       return <PlayArrowIcon color="info" />;
-    case StepStatus.WAITING:
+    case StepStatus.waiting:
       return <HourglassIcon color="disabled" />;
-    case StepStatus.RETRYING:
+    case StepStatus.retrying:
       return <RefreshIcon color="warning" />;
-    case StepStatus.IN_FALLOUT:
+    case StepStatus.in_fallout:
       return <WarningIcon color="error" />;
     default:
       return null;
@@ -54,17 +54,17 @@ const getStepStatusColor = (
   status: StepStatus
 ): 'default' | 'info' | 'success' | 'error' | 'warning' => {
   switch (status) {
-    case StepStatus.COMPLETED:
+    case StepStatus.completed:
       return 'success';
-    case StepStatus.FAILED:
+    case StepStatus.failed:
       return 'error';
-    case StepStatus.IN_PROGRESS:
+    case StepStatus.in_progress:
       return 'info';
-    case StepStatus.RETRYING:
+    case StepStatus.retrying:
       return 'warning';
-    case StepStatus.IN_FALLOUT:
+    case StepStatus.in_fallout:
       return 'error';
-    case StepStatus.WAITING:
+    case StepStatus.waiting:
     default:
       return 'default';
   }
@@ -76,12 +76,12 @@ const formatStepType = (stepType: StepType): string => {
 
 const getActiveStep = (steps: JobStep[]): number => {
   const inProgressIndex = steps.findIndex(
-    (step) => step.stepStatus === StepStatus.IN_PROGRESS || step.stepStatus === StepStatus.RETRYING
+    (step) => step.stepStatus === StepStatus.in_progress || step.stepStatus === StepStatus.retrying
   );
   if (inProgressIndex !== -1) return inProgressIndex;
 
   const waitingIndex = steps.findIndex(
-    (step) => step.stepStatus === StepStatus.WAITING
+    (step) => step.stepStatus === StepStatus.waiting
   );
   if (waitingIndex !== -1) return waitingIndex;
 
@@ -133,7 +133,7 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps, showS
     
     try {
       const result = await apiClient.retryStep(stepId);
-      setRetrySuccess(result.message);
+      setRetrySuccess(result.message ?? null);
       
       // Optimistically adjust queue stats: failed -> processing
       adjustQueueStats({ failed: -1, processing: 1 });
@@ -154,11 +154,11 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps, showS
     
     try {
       const result = await apiClient.cancelStep(stepId);
-      setRetrySuccess(result.message);
+      setRetrySuccess(result.message ?? null);
       
       // Optimistically adjust queue stats: processing/retrying -> failed
       adjustQueueStats({ processing: -1, failed: 1 });
-      setRetrySuccess(result.message);
+      setRetrySuccess(result.message ?? null);
       // Clear success message after 3 seconds
       setTimeout(() => setRetrySuccess(null), 3000);
     } catch (error) {
@@ -194,10 +194,10 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps, showS
       
       <Stepper activeStep={activeStep} orientation="vertical">
         {steps.map((step) => (
-          <Step key={step.stepId} active={showStepsAsActive} completed={step.stepStatus === StepStatus.COMPLETED}>
+          <Step key={step.stepId} active={showStepsAsActive} completed={step.stepStatus === StepStatus.completed}>
             <StepLabel
               icon={getStepStatusIcon(step.stepStatus)}
-              error={step.stepStatus === StepStatus.FAILED || step.stepStatus === StepStatus.IN_FALLOUT}
+              error={step.stepStatus === StepStatus.failed || step.stepStatus === StepStatus.in_fallout}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <Typography variant="body1">{formatStepType(step.stepType)}</Typography>
@@ -218,18 +218,18 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps, showS
             </StepLabel>
             <StepContent>
               <Box sx={{ mb: 2 }}>
-                {step.stepStatus === StepStatus.RETRYING && step.retryAfter && (
+                {step.stepStatus === StepStatus.retrying && step.retryAfter && (
                   <Typography variant="body2" color="warning.main">
                     <strong>Retry scheduled:</strong>{' '}
-                    {formatRetryTimer(step.retryAfter)} ({new Date(step.retryAfter).toLocaleString()})
+                    {typeof step.retryAfter === 'string' ? formatRetryTimer(step.retryAfter) : ''} {step.retryAfter ? `(${new Date(step.retryAfter).toLocaleString()})` : ''}
                   </Typography>
                 )}
-                {(step.stepStatus === StepStatus.RETRYING || step.stepStatus === StepStatus.IN_FALLOUT) && (
+                {(step.stepStatus === StepStatus.retrying || step.stepStatus === StepStatus.in_fallout) && (
                   <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Button
                       variant="outlined"
                       size="small"
-                      color={step.stepStatus === StepStatus.IN_FALLOUT ? 'error' : 'warning'}
+                      color={step.stepStatus === StepStatus.in_fallout ? 'error' : 'warning'}
                       startIcon={<RefreshIcon />}
                       onClick={() => handleRetry(step.stepId)}
                       disabled={retryingStepId === step.stepId || cancelingStepId === step.stepId}
@@ -246,7 +246,7 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps, showS
                     >
                       {cancelingStepId === step.stepId ? 'Cancelling...' : 'Cancel'}
                     </Button>
-                    {step.stepStatus === StepStatus.IN_FALLOUT && (
+                    {step.stepStatus === StepStatus.in_fallout && (
                       <Typography variant="caption" color="error" display="block" sx={{ mt: 0.5, width: '100%' }}>
                         Maximum automatic retries exceeded. Manual intervention required.
                       </Typography>

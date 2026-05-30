@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { apiClient } from '../services/api';
+import { apiClient } from '../services/api/api';
 import { QueueStats } from '../services/api/generated/models/QueueStats';
 import { ApprovalStats } from '../services/api/generated/models/ApprovalStats';
 import { JobStats } from '../services/api/generated/models/JobStats';
@@ -30,9 +30,9 @@ export const StatsProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       const stats = await apiClient.fetchDashboardStats();
 
-      setQueueStats(stats.queue);
-      setApprovalStats(stats.approvals);
-      setJobStats(stats.jobs);
+      setQueueStats(stats.queue ?? null);
+      setApprovalStats(stats.approvals ?? null);
+      setJobStats(stats.jobs ?? null);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch stats');

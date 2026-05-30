@@ -20,8 +20,12 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { apiClient } from '../services/api';
-import { JobResponse, JobState, Document, JobStep, AuditLogEntry } from '../types/api';
+import { apiClient } from '../services/api/api';
+import { JobResponse } from '../services/api/generated/models/JobResponse';
+import { JobState } from '../services/api/generated/models/JobState';
+import { Document } from '../services/api/generated/models/Document';
+import { JobStep } from '../services/api/generated/models/JobStep';
+import { AuditLogEntry } from '../services/api/generated/models/AuditLogEntry';
 import { JobStepsTimeline } from '../components/JobStepsTimeline';
 import { AuditLogTimeline } from '../components/AuditLogTimeline';
 
@@ -38,7 +42,7 @@ export const JobDetailsPage: React.FC = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   const isTerminalState = (state: JobState) => {
-    return [JobState.COMPLETED, JobState.FAILED, JobState.REJECTED].includes(state);
+    return [JobState.completed, JobState.failed, JobState.rejected].includes(state);
   };
 
   const fetchJobDetails = async () => {
@@ -55,8 +59,8 @@ export const JobDetailsPage: React.FC = () => {
       try {
         const stepsData = await apiClient.fetchJobSteps(id);
         setSteps(stepsData.steps);
-      } catch (stepsErr) {
-        console.error('Failed to fetch steps:', stepsErr);
+      } catch (err) {
+        console.error('Failed to fetch steps:', err);
       }
 
       // Fetch audit log
@@ -102,38 +106,22 @@ export const JobDetailsPage: React.FC = () => {
 
   const getStatusColor = (state: JobState) => {
     switch (state) {
-      case JobState.PENDING:
+      case JobState.pending:
         return 'default';
-      case JobState.LLM_PROCESSING:
-      case JobState.UPDATING_DOCUMENT:
+      case JobState.llm_processing:
+      case JobState.updating_document:
         return 'info';
-      case JobState.PENDING_APPROVAL:
+      case JobState.pending_approval:
         return 'warning';
-      case JobState.COMPLETED:
+      case JobState.completed:
         return 'success';
-      case JobState.FAILED:
-      case JobState.REJECTED:
+      case JobState.failed:
+      case JobState.rejected:
         return 'error';
       default:
         return 'default';
     }
   };
-
-  const formatJobState = (state: string) => {
-    return state.replace(/_/g, ' ').toUpperCase();
-  };
-
-  if (loading && !job) {
-    return (
-      <Container maxWidth="lg" sx={{ py: 4, textAlign: 'center' }}>
-        <CircularProgress />
-        <Typography variant="body1" sx={{ mt: 2 }}>
-          Loading job details...
-        </Typography>
-      </Container>
-    );
-  }
-
   if (error && !job) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -222,7 +210,7 @@ export const JobDetailsPage: React.FC = () => {
                     <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
                     <TableCell>
                       <Chip
-                        label={formatJobState(job.status)}
+                        label={job.status}
                         color={getStatusColor(job.status)}
                         size="small"
                       />
@@ -273,28 +261,7 @@ export const JobDetailsPage: React.FC = () => {
                       <TableCell sx={{ fontWeight: 'bold' }}>Title</TableCell>
                       <TableCell>{document.title || '(No title)'}</TableCell>
                     </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Tags</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                          {(document.tags ?? []).map((tag) => (
-                            <Chip key={tag} label={tag} size="small" />
-                          ))}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                    {document.createdDate && (
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Created</TableCell>
-                        <TableCell>{new Date(document.createdDate).toLocaleString()}</TableCell>
-                      </TableRow>
-                    )}
-                    {document.modifiedDate && (
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Modified</TableCell>
-                        <TableCell>{new Date(document.modifiedDate).toLocaleString()}</TableCell>
-                      </TableRow>
-                    )}
+                    {/* Tags, createdDate, and modifiedDate removed: not present on Document */}
                     <TableRow>
                       <TableCell sx={{ fontWeight: 'bold' }}>Content Preview</TableCell>
                       <TableCell>

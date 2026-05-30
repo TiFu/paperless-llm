@@ -41,12 +41,7 @@ const getEventIcon = (eventType: AuditEventType) => {
       return <AddCircleIcon />;
     case AuditEventType.STEP_COMPLETED:
       return <CheckCircleIcon />;
-    case AuditEventType.STEP_FAILED:
-      return <ErrorIcon />;
-    case AuditEventType.STEP_MOVED_TO_RETRYING:
-      return <RefreshIcon />;
-    case AuditEventType.STEP_MOVED_TO_FALLOUT:
-      return <WarningIcon />;
+    // STEP_FAILED, STEP_MOVED_TO_RETRYING, STEP_MOVED_TO_FALLOUT removed (not present in generated enum)
     case AuditEventType.APPROVAL_REQUESTED:
       return <PlayArrowIcon />;
     case AuditEventType.APPROVAL_APPROVED:
@@ -72,11 +67,8 @@ const getEventColor = (eventType: AuditEventType): 'success' | 'error' | 'warnin
     case AuditEventType.STEP_COMPLETED:
     case AuditEventType.APPROVAL_APPROVED:
       return 'success';
-    case AuditEventType.STEP_FAILED:
-    case AuditEventType.STEP_MOVED_TO_FALLOUT:
     case AuditEventType.APPROVAL_REJECTED:
       return 'error';
-    case AuditEventType.STEP_MOVED_TO_RETRYING:
     case AuditEventType.STEP_MANUALLY_RETRIED:
     case AuditEventType.STUCK_STEP_RESET:
       return 'warning';
@@ -98,12 +90,7 @@ const getEventLabel = (eventType: AuditEventType): string => {
       return 'Step Created';
     case AuditEventType.STEP_COMPLETED:
       return 'Step Completed';
-    case AuditEventType.STEP_FAILED:
-      return 'Step Failed';
-    case AuditEventType.STEP_MOVED_TO_RETRYING:
-      return 'Moved to Retrying';
-    case AuditEventType.STEP_MOVED_TO_FALLOUT:
-      return 'Moved to Fallout';
+    // STEP_FAILED, STEP_MOVED_TO_RETRYING, STEP_MOVED_TO_FALLOUT removed (not present in generated enum)
     case AuditEventType.APPROVAL_REQUESTED:
       return 'Approval Requested';
     case AuditEventType.APPROVAL_APPROVED:
@@ -149,46 +136,28 @@ const formatFullDateTime = (timestamp: string): string => {
   });
 };
 
-const MetadataDisplay: React.FC<{ metadata: Record<string, unknown> | null }> = ({ metadata }) => {
-  if (!metadata || Object.keys(metadata).length === 0) return null;
-
+const MetadataDisplay: React.FC<{ entry: any }> = ({ entry }) => {
+  // Show all relevant fields for the entry type
+  const fields: Array<{ label: string, value: string | number | boolean | undefined }> = [
+    { label: 'Document ID', value: entry.documentId },
+    { label: 'Job Type', value: entry.jobType },
+    { label: 'Step Type', value: entry.stepType },
+    { label: 'Retry Count', value: entry.retryCount },
+    { label: 'Message', value: entry.message },
+    { label: 'Error Message', value: entry.errorMessage },
+    { label: 'Next Retry', value: entry.nextRetryTime ? formatFullDateTime(String(entry.nextRetryTime)) : undefined },
+    { label: 'Stuck Duration', value: entry.stuckDurationMs !== undefined ? formatDuration(Number(entry.stuckDurationMs)) : undefined },
+    { label: 'Decision', value: entry.decision },
+    { label: 'Previous Status', value: entry.previousStatus },
+    { label: 'Previous Retry Count', value: entry.previousRetryCount },
+  ];
+  const shown = fields.filter(f => f.value !== undefined && f.value !== null && f.value !== '');
+  if (shown.length === 0) return null;
   return (
     <Box sx={{ mt: 1, fontSize: '0.875rem', color: 'text.secondary' }}>
-      {metadata.documentId !== undefined && (
-        <Box>Document ID: {String(metadata.documentId)}</Box>
-      )}
-      {metadata.jobType !== undefined && (
-        <Box>Job Type: {String(metadata.jobType)}</Box>
-      )}
-      {metadata.stepType !== undefined && (
-        <Box>Step Type: {String(metadata.stepType)}</Box>
-      )}
-      {metadata.retryCount !== undefined && (
-        <Box>Retry Count: {String(metadata.retryCount)}</Box>
-      )}
-      {metadata.message !== undefined && (
-        <Box sx={{ color: 'error.main', mt: 0.5 }}>
-          {String(metadata.message)}</Box>
-      )}
-      {metadata.errorMessage !== undefined && (
-        <Box sx={{ color: 'error.main', mt: 0.5 }}>
-          Error: {String(metadata.errorMessage)}</Box>
-      )}
-      {metadata.nextRetryTime !== undefined && (
-        <Box>Next Retry: {formatFullDateTime(String(metadata.nextRetryTime))}</Box>
-      )}
-      {metadata.stuckDurationMs !== undefined && (
-        <Box>Stuck Duration: {formatDuration(Number(metadata.stuckDurationMs))}</Box>
-      )}
-      {metadata.decision !== undefined && (
-        <Box>Decision: {String(metadata.decision)}</Box>
-      )}
-      {metadata.previousStatus !== undefined && (
-        <Box>Previous Status: {String(metadata.previousStatus)}</Box>
-      )}
-      {metadata.previousRetryCount !== undefined && (
-        <Box>Previous Retry Count: {String(metadata.previousRetryCount)}</Box>
-      )}
+      {shown.map(f => (
+        <Box key={f.label}>{f.label}: {String(f.value)}</Box>
+      ))}
     </Box>
   );
 };
@@ -217,42 +186,45 @@ export const AuditLogTimeline: React.FC<AuditLogTimelineProps> = ({ entries }) =
       </Typography>
       <Timeline position="right">
         {entries.map((entry, index) => {
-          const stepType = entry.metadata?.stepType ? String(entry.metadata.stepType) : undefined;
+          // Type guards for stepType, jobType, etc.
+          const hasStepType = 'stepType' in entry && entry.stepType !== undefined;
+          const stepType = hasStepType ? String((entry as any).stepType) : undefined;
           let description = '';
-          if (entry.eventType === AuditEventType.STEP_CREATED && stepType) {
+          if (String(entry.eventType) === AuditEventType.STEP_CREATED && stepType) {
             description = `Step Type: ${stepType}`;
-          } else if ((entry.eventType === AuditEventType.STEP_COMPLETED || entry.eventType === AuditEventType.STEP_FAILED) && stepType) {
+          } else if (String(entry.eventType) === AuditEventType.STEP_COMPLETED && stepType) {
             description = `Step Type: ${stepType}`;
           }
           return (
             <TimelineItem key={entry.id}>
               <TimelineOppositeContent color="text.secondary" sx={{ flex: 0.2, paddingLeft: 0 }}>
                 <Typography variant="caption">
-                  {formatTime(entry.eventTimestamp)}
+                  {formatTime(entry.eventTimestamp as any as string)}
                 </Typography>
                 <Typography variant="caption" display="block">
-                  {formatDate(entry.eventTimestamp)}
+                  {formatDate(entry.eventTimestamp as any as string)}
                 </Typography>
               </TimelineOppositeContent>
               <TimelineSeparator>
-                <TimelineDot color={getEventColor(entry.eventType)}>
-                  {getEventIcon(entry.eventType)}
+                  <TimelineDot color={getEventColor(String(entry.eventType) as AuditEventType)}>
+                    {getEventIcon(String(entry.eventType) as AuditEventType)}
                 </TimelineDot>
                 {index < entries.length - 1 && <TimelineConnector />}
               </TimelineSeparator>
               <TimelineContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                   <Typography variant="subtitle2">
-                    {entry.metadata?.stepType ? entry.metadata.stepType + " - " : ""}{getEventLabel(entry.eventType)}
+                    {stepType ? stepType + " - " : ""}{getEventLabel(String(entry.eventType) as AuditEventType)}
                   </Typography>
-                  {entry.processingDurationMs !== null && (
+                  {entry.processingDurationMs !== null && entry.processingDurationMs !== undefined && (
                     <Chip 
-                      label={formatDuration(entry.processingDurationMs)} 
+                      label={formatDuration(entry.processingDurationMs ?? null)} 
                       size="small" 
                       variant="outlined"
                     />
                   )}
-                  {entry.metadata && Object.keys(entry.metadata).length > 0 && (
+                  {/* Expand button if any extra fields exist */}
+                  {hasStepType && (
                     <IconButton
                       size="small"
                       onClick={() => toggleExpand(entry.id)}
@@ -270,7 +242,7 @@ export const AuditLogTimeline: React.FC<AuditLogTimelineProps> = ({ entries }) =
                 )}
                 {/* Always show a message for completion/error/job events */}
                 <Collapse in={expandedEntry === entry.id}>
-                  <MetadataDisplay metadata={entry.metadata} />
+                  <MetadataDisplay entry={entry} />
                 </Collapse>
               </TimelineContent>
             </TimelineItem>

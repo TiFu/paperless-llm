@@ -8,8 +8,9 @@ import {
   Button,
   Paper,
 } from '@mui/material';
-import { apiClient } from '../services/api';
-import { ApprovalItem, ApprovalStats } from '../types/api';
+import { apiClient } from '../services/api/api';
+import { ApprovalItem } from '../services/api/generated/models/ApprovalItem';
+import { ApprovalStats } from '../services/api/generated/models/ApprovalStats';
 import { ApprovalCard } from '../components/ApprovalCard';
 import { useStats } from '../contexts/StatsContext';
 
@@ -69,7 +70,7 @@ export const ApprovalsPage: React.FC = () => {
   const handleDecision = async (stepId: string, decision: string) => {
     try {
       const response = await apiClient.processApprovalDecision(stepId, decision);
-      setSuccessMessage(response.message || `Decision "${decision}" processed successfully`);
+      setSuccessMessage((response as any).message ?? `Decision "${decision}" processed successfully`);
 
       // Remove the approved/rejected item from the list
       setApprovals((prev) => prev.filter((approval) => approval.stepId !== stepId));

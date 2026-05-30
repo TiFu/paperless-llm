@@ -63,16 +63,7 @@ export const AutomatedStepsStatsCard: React.FC<AutomatedStepsStatsCardProps> = (
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
             <Box textAlign="center">
-              <Chip
-                label={stats.inFallout}
-                color="warning"
-                sx={{ fontSize: '1.5rem', height: 40, '& .MuiChip-label': { px: 2 } }}
-              />
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Fallout
-              </Typography>
-            </Box>
-            <Box textAlign="center">
+              {/* Fallout and inFallout removed: not present on QueueStats */}
               <Chip
                 label={stats.failed}
                 color="error"

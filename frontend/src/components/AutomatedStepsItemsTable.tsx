@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import { QueueItem } from '../services/api/generated/models/QueueItem';
 import { WorkItemStatus } from '../services/api/generated/models/WorkItemStatus';
-import { apiClient } from '../services/api';
+import { apiClient } from '../services/api/api';
 
 interface AutomatedStepsItemsTableProps {
   items: QueueItem[];
@@ -61,7 +61,7 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
     
     try {
       const result = await apiClient.retryStep(stepId);
-      setActionSuccess(result.message);
+      setActionSuccess(result.message ?? null);
       setTimeout(() => {
         setActionSuccess(null);
         onStatusFilter(filterStatus); // Refresh the list
@@ -80,7 +80,7 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
     
     try {
       const result = await apiClient.cancelStep(stepId);
-      setActionSuccess(result.message);
+      setActionSuccess(result.message ?? null);
       setTimeout(() => {
         setActionSuccess(null);
         onStatusFilter(filterStatus); // Refresh the list
@@ -93,22 +93,22 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
   };
 
   const canRetryOrCancel = (status: WorkItemStatus) => {
-    return status === WorkItemStatus.RETRYING || status === WorkItemStatus.IN_FALLOUT;
+    return status === WorkItemStatus.retrying || status === WorkItemStatus.in_fallout;
   };
 
   const getStatusColor = (status: WorkItemStatus) => {
     switch (status) {
-      case WorkItemStatus.PENDING:
+      case WorkItemStatus.pending:
         return 'default';
-      case WorkItemStatus.PROCESSING:
+      case WorkItemStatus.processing:
         return 'info';
-      case WorkItemStatus.COMPLETED:
+      case WorkItemStatus.completed:
         return 'success';
-      case WorkItemStatus.FAILED:
+      case WorkItemStatus.failed:
         return 'error';
-      case WorkItemStatus.RETRYING:
+      case WorkItemStatus.retrying:
         return 'warning';
-      case WorkItemStatus.IN_FALLOUT:
+      case WorkItemStatus.in_fallout:
         return 'error';
       default:
         return 'default';
@@ -200,14 +200,14 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
                 <TableCell>
                   <Chip label={item.jobState} size="small" variant="outlined" />
                 </TableCell>
-                <TableCell>{formatDate(item.createdAt)}</TableCell>
+                <TableCell>{typeof item.createdAt === 'string' ? formatDate(item.createdAt) : ''}</TableCell>
                 <TableCell>
                   {canRetryOrCancel(item.status) && (
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
                       <Tooltip title="Retry step">
                         <IconButton
                           size="small"
-                          color={item.status === WorkItemStatus.IN_FALLOUT ? 'error' : 'warning'}
+                          color={item.status === WorkItemStatus.in_fallout ? 'error' : 'warning'}
                           onClick={() => handleRetry(item.id)}
                           disabled={processingStepId === item.id}
                         >

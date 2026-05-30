@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Box, Typography, CircularProgress, Alert, Paper } from '@mui/material';
-import { apiClient } from '../services/api';
+import { apiClient } from '../services/api/api';
 import { AuditLogTimeline } from '../components/AuditLogTimeline';
-import { JobStep, AuditLogEntry } from '../types/api';
+import { JobStep } from '../services/api/generated/models/JobStep';
+import { AuditLogEntry } from '../services/api/generated/models/AuditLogEntry';
 
 export const StepDetailsPage: React.FC = () => {
   const { stepId } = useParams<{ stepId: string }>();
@@ -20,10 +21,11 @@ export const StepDetailsPage: React.FC = () => {
         // There is no direct API for a single step, so fetch all steps for the job and filter
         // Assume stepId is unique enough to find the job (if not, this will need to be improved)
         // For now, try to fetch audit log and filter by stepId
-        const auditLogResp = await apiClient.fetchAuditLog({ stepId });
-        setAuditLog(auditLogResp.entries || []);
+        const auditLogResp = await apiClient.fetchAuditLog({ stepId: String(stepId) });
+        const entries = (auditLogResp as any).entries ?? [];
+        setAuditLog(entries);
         // Try to extract step details from audit log if possible
-        const stepCreated = auditLogResp.entries.find(e => e.stepId === stepId && e.eventType.includes('STEP'));
+        const stepCreated = entries.find((e: any) => e.stepId === stepId && e.eventType && e.eventType.includes('STEP'));
         if (stepCreated) {
           setStep({
             stepId: stepCreated.stepId!,
@@ -60,9 +62,9 @@ export const StepDetailsPage: React.FC = () => {
         <Typography variant="subtitle1">Step ID: {step.stepId}</Typography>
         <Typography variant="subtitle2">Type: {step.stepType}</Typography>
         <Typography>Status: {step.stepStatus}</Typography>
-        <Typography>Started At: {step.startedAt}</Typography>
+        <Typography>Started At: {typeof step.startedAt === 'string' ? new Date(step.startedAt).toLocaleString() : ''}</Typography>
         <Typography>Retry Count: {step.retryCount}</Typography>
-        {step.retryAfter && <Typography>Retry After: {step.retryAfter}</Typography>}
+        {step.retryAfter && <Typography>Retry After: {typeof step.retryAfter === 'string' ? new Date(step.retryAfter).toLocaleString() : ''}</Typography>}
       </Paper>
       <Typography variant="h6" gutterBottom>Audit Log</Typography>
       <AuditLogTimeline entries={auditLog.filter(e => e.stepId === step.stepId)} />
