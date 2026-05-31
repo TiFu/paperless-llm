@@ -45,11 +45,17 @@ export class StepCancelApplicationService {
 
       this.logger.info(
         { stepId, stepType: step.getStepType(), currentStatus: step.getStepStatus() },
-        'Processing manual cancel request'
+        'Processing manual cancel request (here)'
       );
 
       const workflowOrchestrator = context.getWorkflowOrchestratorDomainService();
-      workflowOrchestrator.processStepCancellation(step);
+      this.logger.info(
+        'Entering process step cancellation'
+      );
+      await workflowOrchestrator.processStepCancellation(step);
+      this.logger.info(
+        'Exited process step cancellation'
+      );
 
       await context.save();
       await context.commit();
@@ -71,7 +77,7 @@ export class StepCancelApplicationService {
         uow.save();
         uow.commit();
       } catch(err) {
-        this.logger.error({err: err}, "Failed to store aduit error event")
+        this.logger.error({err: err}, "Failed to store audit error event")
       }
 
       throw error;
