@@ -23,7 +23,7 @@
     "generate:api": "npm run generate:api:openapi && npm run generate:api:clean-files",
     "generate:api:openapi": "openapi-generator-cli generate --openapitools ../openapitools.json --generator-key typescript-backend-dtos",
     "generate:api:clean-files": "find ./src/web/dtos -mindepth 1 -maxdepth 1 ! -name 'models' -exec rm -rf {} + && find ./src/web/dtos/models -type f -exec sed -i \"/import { HttpFile } from '\\.\\.\\/http\\/http\\.js';/d\" {} +",
-      "clean:api": "rm -rf src/web/dtos/"
+    "clean:api": "rm -rf src/web/dtos/"
   },
   "keywords": [
     "paperless",
@@ -33,7 +33,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@automapper/classes": "^8.8.1",
     "@automapper/core": "^8.8.1",
     "axios": "^1.6.8",
     "cors": "^2.8.5",

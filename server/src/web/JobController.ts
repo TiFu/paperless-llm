@@ -73,7 +73,7 @@ export class JobController {
     const response = {
       auditLog: AppMapper.toAuditLogEntryList(auditLog),
     };
-    this.logger.info({ "domainAuditLog": auditLog, "responseAuditLog": response.auditLog}, "Mapped audit log")
+    //this.logger.info({ "domainAuditLog": auditLog, "responseAuditLog": response.auditLog}, "Mapped audit log")
     return response
   }
 }
