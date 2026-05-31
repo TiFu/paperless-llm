@@ -292,17 +292,6 @@ export const JobDetailsPage: React.FC = () => {
             )}
           </Paper>
         </Grid>
-
-        {/* Workflow Steps */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Workflow Steps
-            </Typography>  
-            <JobStepsTimeline showStepsAsActive={true} steps={steps} />
-          </Paper>
-        </Grid>
-
         {/* Document Actions */}
         {job.documentActions && job.documentActions.length > 0 && (
           <Grid item xs={12}>
@@ -338,6 +327,15 @@ export const JobDetailsPage: React.FC = () => {
             </Paper>
           </Grid>
         )}
+        {/* Workflow Steps */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Workflow Steps
+            </Typography>  
+            <JobStepsTimeline showStepsAsActive={true} steps={steps} />
+          </Paper>
+        </Grid>
 
         {/* Audit Log */}
         <Grid item xs={12}>

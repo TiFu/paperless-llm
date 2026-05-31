@@ -835,9 +835,8 @@ components:
         - STEP_CREATED
         - STEP_EXECUTED
         - STEP_COMPLETED
-        - APPROVAL_REQUESTED
-        - APPROVAL_APPROVED
-        - APPROVAL_REJECTED
+        - DECISION_REQUESTED
+        - DECISION_SUBMITTED
         - STEP_MANUALLY_RETRIED
         - STEP_CANCELLED
         - STUCK_STEP_RESET
@@ -1153,6 +1152,12 @@ components:
               $ref: '#/components/schemas/StepType'
             retryCount:
               type: integer
+            nextRetryTime:
+              type: string
+              format: date-time
+              nullable: true
+            success:
+              type: boolean
             prompt:
               type: string
               nullable: true
@@ -1162,15 +1167,18 @@ components:
             - stepType
             - retryCount
             - message
+            - success
+            - nextRetryTime
 
-    ApprovalDecisionEntry:
+
+    DecisionSubmittedEntry:
       allOf:
         - $ref: '#/components/schemas/BaseAuditLogEntry'
         - type: object
           properties:
             eventType:
               type: string
-              enum: [APPROVAL_APPROVED, APPROVAL_REJECTED]
+              enum: [DECISION_SUBMITTED]
             decision:
               type: string
           required:
@@ -1258,14 +1266,14 @@ components:
             - success
             - stepType
 
-    ApprovalRequestedEntry:
+    DecisionRequestedEntry:
       allOf:
         - $ref: '#/components/schemas/BaseAuditLogEntry'
         - type: object
           properties:
             eventType:
               type: string
-              enum: [APPROVAL_REQUESTED]
+              enum: [DECISION_REQUESTED]
             stepType:
               $ref: '#/components/schemas/StepType'
           required:
@@ -1344,14 +1352,28 @@ components:
         - $ref: '#/components/schemas/StepCreatedEntry'
         - $ref: '#/components/schemas/StepExecutedEntry'
         - $ref: '#/components/schemas/StepCompletedEntry'
-        - $ref: '#/components/schemas/ApprovalRequestedEntry'
-        - $ref: '#/components/schemas/ApprovalDecisionEntry'
+        - $ref: '#/components/schemas/DecisionRequestedEntry'
+        - $ref: '#/components/schemas/DecisionSubmittedEntry'
         - $ref: '#/components/schemas/StepManuallyRetriedEntry'
         - $ref: '#/components/schemas/StepCancelledEntry'
         - $ref: '#/components/schemas/StuckStepResetEntry'
         - $ref: '#/components/schemas/ErrorEntry'
       discriminator:
         propertyName: eventType
+        mapping:
+          # (approval legacy mappings removed)
+          JOB_CREATED: '#/components/schemas/JobCreatedEntry'
+          JOB_COMPLETED: '#/components/schemas/JobCompletedEntry'
+          JOB_FAILED: '#/components/schemas/JobFailedEntry'
+          STEP_CREATED: '#/components/schemas/StepCreatedEntry'
+          STEP_EXECUTED: '#/components/schemas/StepExecutedEntry'
+          STEP_COMPLETED: '#/components/schemas/StepCompletedEntry'
+          DECISION_REQUESTED: '#/components/schemas/DecisionRequestedEntry'
+          DECISION_SUBMITTED: '#/components/schemas/DecisionSubmittedEntry'
+          STEP_MANUALLY_RETRIED: '#/components/schemas/StepManuallyRetriedEntry'
+          STEP_CANCELLED: '#/components/schemas/StepCancelledEntry'
+          STUCK_STEP_RESET: '#/components/schemas/StuckStepResetEntry'
+          ERROR: '#/components/schemas/ErrorEntry'
 
     JobStats:
       type: object

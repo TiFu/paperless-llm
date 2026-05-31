@@ -71,7 +71,8 @@ export class LLMGenerateDocumentTypeStep extends ExecutableStep {
       actions: [action],
       success: true,
       transition: Transition.SUCCESS,
-      message: "Document type: " + action.newValue
+      message: "Document type: " + action.newValue,
+      prompt: renderedPrompt
     };
   }
 

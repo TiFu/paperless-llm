@@ -104,13 +104,12 @@ export class AppMapper {
           success: (m as any).success,
           stepType: (m as any).stepType,
         } as any;
-      case AuditEventType.APPROVAL_REQUESTED:
+      case AuditEventType.DECISION_REQUESTED:
         return {
           ...base,
           stepType: (m as any).stepType,
         } as any;
-      case AuditEventType.APPROVAL_APPROVED:
-      case AuditEventType.APPROVAL_REJECTED:
+      case AuditEventType.DECISION_SUBMITTED:
         return {
           ...base,
           decision: (m as any).decision,

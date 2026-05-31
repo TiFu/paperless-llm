@@ -6,7 +6,8 @@ import { ILLMService } from '../domain/llm/ILLMService.js';
 import { createChildLogger } from '../utils/logger.js';
 import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
-import { UoWFactory } from '../infrastructure/UoW.js';
+import { AuditCollector, UoWFactory } from '../infrastructure/UoW.js';
+import { StepExecutorDomainService } from '../domain/services/StepExecutorDomainService.js';
 
 /**
  * StepExecutorApplicationService - executes steps and manages workflow progression.
@@ -41,13 +42,14 @@ export class StepExecutorApplicationService {
       stepLogger.info('Step already failed, skipping');
       return;
     }
+    const stepExecutionCollector = new AuditCollector()
+    const stepExecutor = new StepExecutorDomainService(stepExecutionCollector)
 
     const start = new Date();
     try {
       // (1) Load execution context
       await using uow = await this.uowFactory.createUoW();
       await uow.start();
-      const stepExecutor = uow.getStepExecutorDomainService();
       const job = await uow.getJobs().getById(step.getJobId())
       const prompt = await uow.getPromptDomainService().loadPrompt(step)
       const stepContext: StepExecutionContext = {
@@ -70,7 +72,8 @@ export class StepExecutorApplicationService {
       // (3) Execute uow updates
       await using uow2 = await this.uowFactory.createUoW();
       await uow2.start();
-      // update state for executed step -- before anything else
+      // Store Step Executed Events
+      uow2.getAuditCollector().recordAll(stepExecutionCollector.getEvents())
       await uow2.getSteps().update(step) 
       const workflowOrchestrator = uow2.getWorkflowOrchestratorDomainService();
       const output = await workflowOrchestrator.processStepExecutionResult(step, result);
@@ -85,16 +88,10 @@ export class StepExecutorApplicationService {
       try {
         await using uow3 = await this.uowFactory.createUoW();
         await uow3.start();
+        // Store Step Executed Event, - even if the execution failed
+        uow3.getAuditCollector().recordAll(stepExecutionCollector.getEvents())
         step.markExecutionFailed(this.retryConfig)
         uow3.getSteps().update(step)
-        const entry = AuditLogEntry.createStepExecuted(step, {
-          message: "Failed to execute step with error message: " + error,
-          success: false,
-          nextRetryTime: step.getRetryAfter(),
-          retryCount: step.getRetryCount(),
-          stepType: step.getStepType()
-        }, new Date(), start, new Date())
-        uow3.getAuditCollector().record(entry)
         await uow3.save();
         await uow3.commit();
       } catch (error) {

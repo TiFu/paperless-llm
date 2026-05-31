@@ -98,7 +98,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
     const query = `
       SELECT id FROM steps
       WHERE job_id = $1
-      ORDER BY created_at DESC
+      ORDER BY created_at ASC
     `;
 
     const stepIds = await this.getClient().query(query, [jobId])
@@ -379,7 +379,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
     const query = `
       SELECT id FROM steps
       WHERE job_id = $1 AND parent_id is NULL
-      ORDER BY created_at DESC
+      ORDER BY created_at ASC
     `;
 
     const result = await this.getClient().query(query, [jobId]);

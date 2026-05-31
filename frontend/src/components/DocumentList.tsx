@@ -17,8 +17,8 @@ import { Document } from '../services/api/generated/models/Document';
 
 interface DocumentListProps {
   documents: Document[];
-  selectedIds: string[];
-  onSelectionChange: (selectedIds: string[]) => void;
+  selectedIds: number[];
+  onSelectionChange: (selectedIds: number[]) => void;
   onLoadMore?: () => void;
   loadingMore?: boolean;
 }
@@ -32,13 +32,13 @@ export const DocumentList: React.FC<DocumentListProps> = ({
 }) => {
   const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked) {
-      onSelectionChange(documents.map((doc) => String(doc.id)));
+      onSelectionChange(documents.map((doc) => doc.id));
     } else {
       onSelectionChange([]);
     }
   };
 
-  const handleSelectOne = (documentId: string) => {
+  const handleSelectOne = (documentId: number) => {
     const isSelected = selectedIds.includes(documentId);
     if (isSelected) {
       onSelectionChange(selectedIds.filter((id) => id !== documentId));
@@ -80,7 +80,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           </TableHead>
           <TableBody>
             {documents.map((doc) => {
-              const docId = String(doc.id);
+              const docId = doc.id;
               const isSelected = selectedIds.includes(docId);
               return (
                 <TableRow

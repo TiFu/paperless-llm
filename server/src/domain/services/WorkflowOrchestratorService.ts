@@ -42,6 +42,7 @@ export class WorkflowOrchestratorDomainService {
   resetStuckSteps(steps: IStep[], config: RetryConfig): IStep[] {
       const auditEntries = steps.map((s) => {
         s.markExecutionFailed(config)
+        // TODO: changing this needs some database adjustments
         const auditEntry = AuditLogEntry.createStuckStepReset(s, { stepType: s.getStepType(), previousStartedAt: new Date(), stuckDurationMs: 0  })
         return auditEntry
       })
@@ -53,7 +54,7 @@ export class WorkflowOrchestratorDomainService {
   async processUserDecision(step: ManualStep, decision: string): Promise<NextStepResult> {
       // Process user decision (domain logic)
       // Now that decision has been processed, we can log the event
-      const entry = AuditLogEntry.createDecisionEntry(step, { stepType: step.getStepType(), decision: decision}, new Date())
+      const entry = AuditLogEntry.createDecisionSubmitted(step, { stepType: step.getStepType(), decision: decision}, new Date())
       this.auditCollector.record(entry)
       
       const job = await this.jobRepo.getById(step.getJobId())

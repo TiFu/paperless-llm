@@ -74,7 +74,8 @@ export class LLMGenerateTagsStep extends ExecutableStep {
       actions: [action],
       success: true,
       transition: Transition.SUCCESS,
-      message: "Generated tags: " + action.newValue
+      message: "Generated tags: " + action.newValue,
+      prompt: renderedPrompt
     };
   }
 

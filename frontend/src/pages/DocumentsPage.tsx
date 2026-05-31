@@ -25,6 +25,7 @@ import { apiClient } from '../services/api/api';
 import { Document } from '../services/api/generated/models/Document';
 import { WorkflowType } from '../services/api/generated/models/WorkflowType';
 import { JobSubmissionResponse } from '../services/api/generated/models/JobSubmissionResponse';
+import { BatchJobRequestDocumentsInnerFieldsEnum } from '@/services/api/generated';
 
 const DEFAULT_TAG = 'llm-process';
 const PAGE_LIMIT = 10;
@@ -32,13 +33,13 @@ const PAGE_LIMIT = 10;
 export const DocumentsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [availableJobTypes, setAvailableJobTypes] = useState<string[]>([]);
-  const [selectedWorkflow, setSelectedWorkflow] = useState<string>('automated');
+  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowType>(WorkflowType.automated);
   const [submissionResult, setSubmissionResult] = useState<JobSubmissionResponse | null>(null);
   const [availableFields, setAvailableFields] = useState<string[]>([ "title", "tags", "correspondent", "document_type", "created_date"]);
   const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set<string>());
@@ -119,7 +120,7 @@ export const DocumentsPage: React.FC = () => {
       fetchDocuments();
     }
     fetchJobTypes();
-    fetchDocumentFields().then((e) => {
+    apiClient.fetchDocumentFields().then((e) => {
       setAvailableFields(e)
       setSelectedFields(new Set<string>(e))
     }).catch(() => setAvailableFields([]));
@@ -168,13 +169,13 @@ export const DocumentsPage: React.FC = () => {
     setSubmitting(true);
     setSubmissionResult(null);
     try {
-      const result = await apiClient.submitJobs({
-        documents: selectedIds.map((documentId) => ({
+      const documents = selectedIds.map((documentId) => ({
           documentId,
           jobType: selectedWorkflow,
-          fields: Array.from(selectedFields)
-        })),
-      });
+          fields: Array.from(selectedFields) as BatchJobRequestDocumentsInnerFieldsEnum[]
+        }))
+
+      const result = await apiClient.submitJobs(documents);
       setSubmissionResult(result);
       setSnackbar({
         open: true,
@@ -240,7 +241,7 @@ export const DocumentsPage: React.FC = () => {
             <FormLabel component="legend">Choose Workflow Type</FormLabel>
             <RadioGroup
               value={selectedWorkflow}
-              onChange={(e) => setSelectedWorkflow(e.target.value)}
+              onChange={(e) => setSelectedWorkflow(e.target.value as WorkflowType)}
             >
               {availableJobTypes.map((workflow) => (
                 <FormControlLabel

@@ -10,9 +10,12 @@ import {
   StatsApi,
   StepsApi,
   HealthApi,
+  WorkflowType,
+  BatchJobRequestDocumentsInnerFieldsEnum,
 } from './generated';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+// TODO: make this overwritable
+const API_BASE_URL = 'http://localhost:3000/api';
 
 
 import { RequestContext } from './generated';
@@ -55,9 +58,9 @@ export const apiClient = {
   },
 
   // Jobs
-  async submitJobs(submission: any) {
+  async submitJobs(submission: Array<{ documentId: number, jobType: WorkflowType, fields: BatchJobRequestDocumentsInnerFieldsEnum[] }>) {
     try {
-      return await jobsApi.submitJob(submission);
+      return await jobsApi.submitJob({ documents: submission });
     } catch (e) {
       throw normalizeError(e);
     }
@@ -133,6 +136,15 @@ export const apiClient = {
   async updatePrompt(stepType: string, template: string) {
     try {
       return await promptsApi.updatePrompt(stepType as StepType, { template });
+    } catch (e) {
+      throw normalizeError(e);
+    }
+  },
+
+  // Document Fields
+  async fetchDocumentFields() {
+    try {
+      return await jobsApi.getAvailableFields();
     } catch (e) {
       throw normalizeError(e);
     }

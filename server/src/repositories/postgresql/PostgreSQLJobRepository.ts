@@ -84,6 +84,10 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
 
     const output = Job.fromDb(result.rows[0], []);
     this.uow.register<Job>(output, this)
+
+    const fieldsRequested = [ { jobId: output.id, fields: fields } ]
+    await this.saveFieldsBulk(fieldsRequested)
+
     return output
   }
 

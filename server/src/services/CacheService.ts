@@ -33,13 +33,30 @@ export interface IDMSSerializer {
       return JSON.stringify(t);
   }
 
+  // TODO: properly handle dates...
   deserialize(s: string): T {
       return JSON.parse(s) as T;
   }
 }
 
+class DocumentSerializer implements Serializer<IDocument> {
+  constructor(private serializer: JsonSerializer<IDocument>) {
+
+  }
+  serialize(t: IDocument): string {
+      return this.serializer.serialize(t)
+  }
+
+  deserialize(s: string): IDocument {
+      const deserialized = this.serializer.deserialize(s)
+      deserialized.createdDate = deserialized.createdDate ? new Date(deserialized.createdDate) : null;
+      deserialized.modifiedDate = deserialized.modifiedDate ? new Date(deserialized.modifiedDate) : null;
+      return deserialized
+    }
+}
+
 export const DMSSerializers = {
-  document: new JsonSerializer<IDocument>(),
+  document: new DocumentSerializer(new JsonSerializer<IDocument>()),
   tag: new JsonSerializer<ITag>(),
   correspondent: new JsonSerializer<ICorrespondent>(),
   documentType: new JsonSerializer<IDocumentType>()

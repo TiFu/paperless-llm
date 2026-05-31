@@ -18,9 +18,8 @@ export enum AuditEventType {
   STEP_COMPLETED = 'STEP_COMPLETED',
 
   // Approval events
-  APPROVAL_REQUESTED = 'APPROVAL_REQUESTED',
-  APPROVAL_APPROVED = 'APPROVAL_APPROVED',
-  APPROVAL_REJECTED = 'APPROVAL_REJECTED',
+  DECISION_REQUESTED = 'DECISION_REQUESTED',
+  DECISION_SUBMITTED = 'DECISION_SUBMITTED',
   
   // Manual operations
   STEP_MANUALLY_RETRIED = 'STEP_MANUALLY_RETRIED',
@@ -69,7 +68,7 @@ export interface StepExecutionMetadata {
   retryCount: number;
   nextRetryTime: Date | null;
   /** The rendered prompt used for this step, if applicable */
-  prompt?: string;
+  prompt: string | null;
 }
 
 export interface ManualStepDecisionMetadata {
@@ -209,32 +208,32 @@ export class AuditLogEntry {
   }
 
   /**
-   * Static creator for APPROVAL_REQUESTED event
+   * Static creator for DECISION_REQUESTED event
    */
-  public static createApprovalRequested(
+  public static createDecisionRequested(
     step: IStep,
     metadata: ManualStepDecisionMetadata,
     eventTimestamp: Date
   ): AuditLogEntry {
     return AuditLogEntry.createForStep(
       step,
-      AuditEventType.APPROVAL_REQUESTED,
+      AuditEventType.DECISION_REQUESTED,
       eventTimestamp,
       metadata
     );
   }
 
   /**
-   * Static creator for APPROVAL_APPROVED event
+   * Static creator for DECISION_SUBMITTED event
    */
-  public static createDecisionEntry(
+  public static createDecisionSubmitted(
     step: IStep,
     metadata: ManualStepDecisionMetadata,
     eventTimestamp: Date
   ): AuditLogEntry {
     return AuditLogEntry.createForStep(
       step,
-      AuditEventType.APPROVAL_APPROVED,
+      AuditEventType.DECISION_SUBMITTED,
       eventTimestamp,
       metadata
     );

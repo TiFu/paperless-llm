@@ -11,7 +11,7 @@ import { WorkflowOrchestratorDomainService } from "../domain/services/WorkflowOr
 import { IStepRepository } from "../domain/steps/IStepRepository.js";
 import { DatabaseTransactionContext, DatabaseTransactionContextFactory, DBContextWithRepositoryFactory, RepositoryRegistry, RepositoryRegistryFactory } from "./TransactionManager.js";
 
-class AuditCollector implements IAuditCollector{
+export class AuditCollector implements IAuditCollector{
     private events: AuditLogEntry[];
 
     constructor() {

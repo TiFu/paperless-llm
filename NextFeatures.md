@@ -9,12 +9,14 @@ Done
 * As a user, I would like to see the fallouts I need to respond to
 * As a user, I would like to rename the Queue tab to Automated Steps
 * As a user, I would like to see an audit log of all step executions (including retries/cancel/...)
+* Update prompts to use the new variables that are available
+* As a developer, I would like to extract the logic to transform to API Objects from the routes to web layer services
+* As a user, I want to see document details in the frontend
 
 In progress
-* As a user, I want to see document details in the frontend
 * As a user, I would like to have a properly cached DMS/Paperless Service
-* As a developer, I would like to extract the logic to transform to API Objects from the routes to web layer services
-* Update prompts to use the new variables that are available
+* Ability to update fields in the document actions (including remove)
+
 
 Feature ideas
     Design choices: 
