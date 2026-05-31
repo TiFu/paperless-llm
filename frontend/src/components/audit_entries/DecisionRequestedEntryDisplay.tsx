@@ -9,7 +9,7 @@ export class DecisionRequestedEntryDisplay implements AuditLogEntryDisplay {
     this.entry = entry;
   }
   getLabel() {
-    return 'Decision Requested';
+    return 'Decision Requested: ' + this.entry.stepType;
   }
   getColor(): AuditLogColor {
     return 'grey';

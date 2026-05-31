@@ -31,7 +31,7 @@ export class RemoveTagsStep extends ExecutableStep {
     // Return SUCCESS transition
     return {
       actions: [],
-      success: false,
+      success: true,
       transition: Transition.SUCCESS,
         message: "Tags cleaned up"
     };

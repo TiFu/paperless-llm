@@ -8,7 +8,7 @@ export class StepCancelledEntryDisplay implements AuditLogEntryDisplay {
     this.entry = entry;
   }
   getLabel() {
-    return 'Step Cancelled';
+    return 'Step Cancelled: ' + this.entry.stepType;
   }
   getColor(): AuditLogColor {
     return 'grey';

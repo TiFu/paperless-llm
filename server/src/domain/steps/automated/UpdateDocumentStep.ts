@@ -40,7 +40,7 @@ export class UpdateDocumentStep extends ExecutableStep {
     // Return the action and SUCCESS transition
     return {
       actions: [],
-      success: false,
+      success: true,
       transition: Transition.SUCCESS,
       message: "Updated document " + document.id + " with updates: " + updates
     };
