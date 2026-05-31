@@ -9,7 +9,7 @@ export class DecisionSubmittedEntryDisplay implements AuditLogEntryDisplay {
   }
   getLabel() {
     // TODO: step type is not available here...
-    return 'Decision Submitted';
+    return 'Decision Submitted: ' + this.entry.decision;
   }
   getColor(): AuditLogColor {
     return 'success';
