@@ -148,15 +148,15 @@ export class QueueApplicationService {
    * @returns StepStatus or undefined
    */
   private mapWorkItemStatusToStepStatus(status?: string): StepStatus | undefined {
-    console.log("Mapping " + status)
-    if (!status) {
-      return undefined;
-    }
-
-    const result = Object.values(StepStatus).includes(status as StepStatus) ? status as StepStatus : undefined;
-    //const result: StepStatus | undefined = (<any> StepStatus)[status]
-    console.log("Mapped " + result)
-    return result;
+    const map: Record<string, StepStatus> = {
+      pending:    StepStatus.WAITING,
+      processing: StepStatus.IN_PROGRESS,
+      completed:  StepStatus.COMPLETED,
+      failed:     StepStatus.FAILED,
+      retrying:   StepStatus.RETRYING,
+      in_fallout: StepStatus.IN_FALLOUT,
+    };
+    return status ? map[status] : undefined;
   }
 
   /**

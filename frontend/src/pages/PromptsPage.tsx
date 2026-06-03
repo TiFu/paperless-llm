@@ -21,37 +21,35 @@ import {
   Chip,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import { apiClient } from '../services/api/api';
 import { PromptResponse } from '../services/api/generated/models/PromptResponse';
 import { StepType } from '../services/api/generated/models/StepType';
-export const PromptsPage: React.FC = () => {
-  const [prompts, setPrompts] = useState<PromptResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { fetchPrompts, updatePrompt, clearSuccessMessage, clearError } from '../store/slices/promptsSlice';
 
-  // Edit dialog state
+export const PromptsPage: React.FC = () => {
+  const dispatch = useAppDispatch();
+
+  const prompts = useAppSelector((state) => state.prompts.prompts);
+  const loading = useAppSelector((state) => state.prompts.loading);
+  const error = useAppSelector((state) => state.prompts.error);
+  const successMessage = useAppSelector((state) => state.prompts.successMessage);
+  const saving = useAppSelector((state) => state.prompts.saving);
+
+  // Edit dialog state stays local
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<PromptResponse | null>(null);
   const [editedTemplate, setEditedTemplate] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const fetchPrompts = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await apiClient.fetchPrompts();
-      setPrompts(response.prompts);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch prompts');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    fetchPrompts();
-  }, []);
+    dispatch(fetchPrompts());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => dispatch(clearSuccessMessage()), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage, dispatch]);
 
   const handleEditClick = (prompt: PromptResponse) => {
     setEditingPrompt(prompt);
@@ -67,26 +65,9 @@ export const PromptsPage: React.FC = () => {
 
   const handleSave = async () => {
     if (!editingPrompt) return;
-
-    try {
-      setSaving(true);
-      setError(null);
-
-      const updatedPrompt = await apiClient.updatePrompt(editingPrompt.stepType, editedTemplate);
-
-      // Update the prompt in the list
-      setPrompts((prev) =>
-        prev.map((p) => (p.stepType === updatedPrompt.stepType ? updatedPrompt : p))
-      );
-
-      setSuccessMessage(`Prompt for "${updatedPrompt.stepType}" updated successfully (v${updatedPrompt.version})`);
-      setTimeout(() => setSuccessMessage(null), 5000);
-
+    const result = await dispatch(updatePrompt({ stepType: editingPrompt.stepType, template: editedTemplate }));
+    if (updatePrompt.fulfilled.match(result)) {
       handleCloseDialog();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update prompt');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -120,13 +101,13 @@ export const PromptsPage: React.FC = () => {
       </Typography>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => dispatch(clearError())}>
           {error}
         </Alert>
       )}
 
       {successMessage && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => dispatch(clearSuccessMessage())}>
           {successMessage}
         </Alert>
       )}
@@ -224,3 +205,5 @@ export const PromptsPage: React.FC = () => {
     </Container>
   );
 };
+
+

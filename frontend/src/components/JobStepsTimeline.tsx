@@ -24,7 +24,8 @@ import { JobStep } from '../services/api/generated/models/JobStep';
 import { StepStatus } from '../services/api/generated/models/StepStatus';
 import { StepType } from '../services/api/generated/models/StepType';
 import { apiClient } from '../services/api/api';
-import { useStats } from '../contexts/StatsContext';
+import { useAppDispatch } from '../store/hooks';
+import { falloutRetried, falloutCancelled } from '../store/slices/statsSlice';
 
 interface JobStepsTimelineProps {
   steps: JobStep[];
@@ -115,11 +116,11 @@ const formatRetryTimer = (retryAfter: string | null): string => {
 
 export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps, showStepsAsActive }) => {
   const activeStep = getActiveStep(steps);
+  const dispatch = useAppDispatch();
   const [retryingStepId, setRetryingStepId] = useState<string | null>(null);
   const [cancelingStepId, setCancelingStepId] = useState<string | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [retrySuccess, setRetrySuccess] = useState<string | null>(null);
-  const { adjustQueueStats } = useStats();
 
   // Optionally, fetch audit log entries for richer step info (if available)
   // This is a placeholder for future integration if you want to show outcome/messages from audit log
@@ -136,7 +137,7 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps, showS
       setRetrySuccess(result.message ?? null);
       
       // Optimistically adjust queue stats: failed -> processing
-      adjustQueueStats({ failed: -1, processing: 1 });
+      dispatch(falloutRetried());
       
       // Clear success message after 3 seconds
       setTimeout(() => setRetrySuccess(null), 3000);
@@ -157,7 +158,7 @@ export const JobStepsTimeline: React.FC<JobStepsTimelineProps> = ({ steps, showS
       setRetrySuccess(result.message ?? null);
       
       // Optimistically adjust queue stats: processing/retrying -> failed
-      adjustQueueStats({ processing: -1, failed: 1 });
+      dispatch(falloutCancelled());
       setRetrySuccess(result.message ?? null);
       // Clear success message after 3 seconds
       setTimeout(() => setRetrySuccess(null), 3000);

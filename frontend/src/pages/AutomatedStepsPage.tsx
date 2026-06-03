@@ -1,93 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   Container,
   Typography,
   Box,
-  CircularProgress,
   Alert,
 } from '@mui/material';
 import { AutomatedStepsStatsCard } from '../components/AutomatedStepsStatsCard';
 import { AutomatedStepsItemsTable } from '../components/AutomatedStepsItemsTable';
-import { apiClient } from '../services/api/api';
-import { QueueStats } from '../services/api/generated/models/QueueStats';
-import { QueueItem } from '../services/api/generated/models/QueueItem';
 import { WorkItemStatus } from '../services/api/generated/models/WorkItemStatus';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { fetchQueueItems, setStatusFilter, clearError } from '../store/slices/queueSlice';
+import { selectQueueStats } from '../store/slices/statsSlice';
 
 const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
 
 export const AutomatedStepsPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
 
-  // Unified Queue State
-  const [stats, setStats] = useState<QueueStats | null>(null);
-  const [items, setItems] = useState<QueueItem[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<WorkItemStatus | ''>('');
-  // Count of steps not completed or failed (include fallout as not completed)
-  const notCompletedCount = items.filter(
-    (item) =>
-      item.status !== WorkItemStatus.failed &&
-      item.status !== WorkItemStatus.completed
-  ).length + items.filter(item => item.status === WorkItemStatus.in_fallout).length;
-
-  const fetchQueue = async (cursor?: string, append = false) => {
-    try {
-      const [statsResponse, itemsResponse] = await Promise.all([
-        apiClient.fetchQueueStats(),
-        apiClient.fetchQueueItems(
-          50,
-          cursor,
-          statusFilter || undefined
-        ),
-      ]);
-
-      setStats(statsResponse);
-      if (append) {
-        setItems((prev) => [...prev, ...itemsResponse.items]);
-      } else {
-        setItems(itemsResponse.items);
-      }
-      setNextCursor(itemsResponse.pagination.nextCursor);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch queue');
-    }
-  };
-
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await fetchQueue();
-    } finally {
-      setLoading(false);
-    }
-  };
+  const items = useAppSelector((state) => state.queue.items);
+  const nextCursor = useAppSelector((state) => state.queue.nextCursor);
+  const statusFilter = useAppSelector((state) => state.queue.statusFilter);
+  const loading = useAppSelector((state) => state.queue.loading);
+  const error = useAppSelector((state) => state.queue.error);
+  const stats = useAppSelector(selectQueueStats);
 
   useEffect(() => {
-    fetchData();
-
-    // Set up auto-refresh
-    const intervalId = setInterval(() => {
-      // Only refresh if no filter is active
-      if (!statusFilter) {
-        fetchQueue();
-      }
-    }, AUTO_REFRESH_INTERVAL);
-
-    return () => clearInterval(intervalId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+    dispatch(fetchQueueItems({ statusFilter }));
+  }, [statusFilter, dispatch]);
 
   const handleLoadMore = () => {
     if (nextCursor) {
-      fetchQueue(nextCursor, true);
+      dispatch(fetchQueueItems({ cursor: nextCursor, append: true, statusFilter }));
     }
   };
 
   const handleStatusFilter = (status: WorkItemStatus | '') => {
-    setStatusFilter(status);
-    fetchQueue(undefined, false);
+    dispatch(setStatusFilter(status));
+    // fetchQueueItems is triggered by the useEffect reacting to statusFilter change
   };
 
   return (
@@ -100,41 +49,28 @@ export const AutomatedStepsPage: React.FC = () => {
         Monitor all automated processing steps across workflows.
       </Typography>
 
-      {/* Not Completed Steps Count */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="subtitle1" color="primary">
-          Not Completed Steps: {notCompletedCount}
-        </Typography>
-      </Box>
-
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => dispatch(clearError())}>
           {error}
         </Alert>
       )}
 
-      {loading && !stats ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Box>
-          {stats && (
-            <>
-              <Box sx={{ mb: 3 }}>
-                <AutomatedStepsStatsCard title="Automated Steps Statistics" stats={stats} />
-              </Box>
-              <AutomatedStepsItemsTable
-                items={items}
-                nextCursor={nextCursor}
-                onLoadMore={handleLoadMore}
-                onStatusFilter={handleStatusFilter}
-                type="unified"
-              />
-            </>
-          )}
+      {stats && (
+        <Box sx={{ mb: 3 }}>
+          <AutomatedStepsStatsCard title="Automated Steps Statistics" stats={stats} />
         </Box>
       )}
+
+      <AutomatedStepsItemsTable
+        items={items}
+        loading={loading}
+        nextCursor={nextCursor}
+        statusFilter={statusFilter}
+        onLoadMore={handleLoadMore}
+        onStatusFilter={handleStatusFilter}
+        type="unified"
+      />
     </Container>
   );
 };
+

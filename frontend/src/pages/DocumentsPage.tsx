@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Container,
@@ -24,179 +24,102 @@ import { DocumentList } from '../components/DocumentList';
 import { apiClient } from '../services/api/api';
 import { Document } from '../services/api/generated/models/Document';
 import { WorkflowType } from '../services/api/generated/models/WorkflowType';
-import { JobSubmissionResponse } from '../services/api/generated/models/JobSubmissionResponse';
 import { BatchJobRequestDocumentsInnerFieldsEnum } from '@/services/api/generated';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import {
+  fetchDocuments,
+  fetchJobTypes,
+  fetchDocumentFields,
+  submitJobs,
+  setSelectedIds,
+  setSelectedWorkflow,
+  setSelectedFields,
+  closeSnackbar,
+  setRestoredDocuments,
+} from '../store/slices/documentsSlice';
 
 const DEFAULT_TAG = 'llm-process';
 const PAGE_LIMIT = 10;
 
 export const DocumentsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [availableJobTypes, setAvailableJobTypes] = useState<string[]>([]);
-  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowType>(WorkflowType.automated);
-  const [submissionResult, setSubmissionResult] = useState<JobSubmissionResponse | null>(null);
-  const [availableFields, setAvailableFields] = useState<string[]>([ "title", "tags", "correspondent", "document_type", "created_date"]);
-  const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set<string>());
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error';
-  }>({ open: false, message: '', severity: 'success' });
+  const dispatch = useAppDispatch();
 
-  const fetchDocuments = async (cursor?: string, append = false) => {
-    if (append) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-    }
-    
-    try {
-      const response = await apiClient.fetchDocumentsByTag(
-        DEFAULT_TAG,
-        PAGE_LIMIT,
-        cursor
-      );
-      
-      if (append) {
-        setDocuments((prev) => [...prev, ...response.documents]);
-      } else {
-        setDocuments(response.documents);
-      }
-      
-      setNextCursor(response.pagination.nextCursor ?? null);
-      
-      // Only update URL for initial loads, not when appending pages
-      // This prevents URL changes from interfering with pagination state
-      if (!append) {
-        if (response.pagination.nextCursor) {
-          setSearchParams({ cursor: response.pagination.nextCursor }, { replace: true });
-        } else {
-          setSearchParams({}, { replace: true });
-        }
-      }
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error instanceof Error ? error.message : 'Failed to fetch documents',
-        severity: 'error',
-      });
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
+  const documents = useAppSelector((state) => state.documents.documents);
+  const selectedIds = useAppSelector((state) => state.documents.selectedIds);
+  const loading = useAppSelector((state) => state.documents.loading);
+  const loadingMore = useAppSelector((state) => state.documents.loadingMore);
+  const nextCursor = useAppSelector((state) => state.documents.nextCursor);
+  const submitting = useAppSelector((state) => state.documents.submitting);
+  const availableJobTypes = useAppSelector((state) => state.documents.availableJobTypes);
+  const selectedWorkflow = useAppSelector((state) => state.documents.selectedWorkflow);
+  const submissionResult = useAppSelector((state) => state.documents.submissionResult);
+  const availableFields = useAppSelector((state) => state.documents.availableFields);
+  const selectedFields = useAppSelector((state) => state.documents.selectedFields);
+  const snackbar = useAppSelector((state) => state.documents.snackbar);
 
-  const handleLoadMore = () => {
-    if (nextCursor && !loadingMore) {
-      fetchDocuments(nextCursor, true);
+  // Sync nextCursor to URL after successful fetch
+  useEffect(() => {
+    if (nextCursor) {
+      setSearchParams({ cursor: nextCursor }, { replace: true });
+    } else if (documents.length > 0) {
+      setSearchParams({}, { replace: true });
     }
-  };
-
-  const fetchJobTypes = async () => {
-    try {
-      const types = await apiClient.fetchJobTypes();
-      setAvailableJobTypes(types);
-      if (types.length > 0) {
-        setSelectedWorkflow(types[0]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch job types:', error);
-      // Set default workflow types if API call fails
-      setAvailableJobTypes([WorkflowType.automated, WorkflowType.approval]);
-    }
-  };
+  }, [nextCursor, documents.length, setSearchParams]);
 
   useEffect(() => {
     const urlCursor = searchParams.get('cursor');
     if (urlCursor) {
       restorePaginationState(urlCursor);
     } else {
-      fetchDocuments();
+      dispatch(fetchDocuments());
     }
-    fetchJobTypes();
-    apiClient.fetchDocumentFields().then((e) => {
-      setAvailableFields(e)
-      setSelectedFields(new Set<string>(e))
-    }).catch(() => setAvailableFields([]));
+    dispatch(fetchJobTypes());
+    dispatch(fetchDocumentFields());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const restorePaginationState = async (targetCursor: string) => {
-    setLoading(true);
+    // Temporarily mark loading in store by dispatching a pending signal
+    const allDocs: Document[] = [];
+    let currentCursor: string | undefined = undefined;
+
     try {
-      const allDocs: Document[] = [];
-      let currentCursor: string | undefined = undefined;
-      
-      // Fetch pages until we reach the target cursor
       while (true) {
-        const response = await apiClient.fetchDocumentsByTag(
-          DEFAULT_TAG,
-          PAGE_LIMIT,
-          currentCursor
-        );
-        
+        const response = await apiClient.fetchDocumentsByTag(DEFAULT_TAG, PAGE_LIMIT, currentCursor);
         allDocs.push(...response.documents);
-        
-        // Check if we've reached the target cursor or there are no more pages
+
         if (response.pagination.nextCursor === targetCursor || !response.pagination.nextCursor) {
-          setDocuments(allDocs);
-          setNextCursor(response.pagination.nextCursor ?? null);
+          dispatch(
+            setRestoredDocuments({
+              documents: allDocs,
+              nextCursor: response.pagination.nextCursor ?? null,
+            }),
+          );
           break;
         }
-        
         currentCursor = response.pagination.nextCursor;
       }
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error instanceof Error ? error.message : 'Failed to restore pagination state',
-        severity: 'error',
-      });
+    } catch {
       // Fall back to initial load
-      fetchDocuments();
-    } finally {
-      setLoading(false);
+      dispatch(fetchDocuments());
     }
   };
 
-  const handleSubmitJobs = async () => {
+  const handleLoadMore = () => {
+    if (nextCursor && !loadingMore) {
+      dispatch(fetchDocuments({ append: true }));
+    }
+  };
+
+  const handleSubmitJobs = () => {
     if (selectedIds.length === 0) return;
-    setSubmitting(true);
-    setSubmissionResult(null);
-    try {
-      const documents = selectedIds.map((documentId) => ({
-          documentId,
-          jobType: selectedWorkflow,
-          fields: Array.from(selectedFields) as BatchJobRequestDocumentsInnerFieldsEnum[]
-        }))
-
-      const result = await apiClient.submitJobs(documents);
-      setSubmissionResult(result);
-      setSnackbar({
-        open: true,
-        message: `Successfully submitted ${result.submitted} job(s) for ${selectedWorkflow} workflow`,
-        severity: 'success',
-      });
-      setSelectedIds([]);
-      await fetchDocuments();
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error instanceof Error ? error.message : 'Failed to submit jobs',
-        severity: 'error',
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
+    const docs = selectedIds.map((documentId) => ({
+      documentId,
+      jobType: selectedWorkflow,
+      fields: selectedFields as BatchJobRequestDocumentsInnerFieldsEnum[],
+    }));
+    dispatch(submitJobs(docs));
   };
 
   const getWorkflowLabel = (workflow: WorkflowType) => {
@@ -241,7 +164,7 @@ export const DocumentsPage: React.FC = () => {
             <FormLabel component="legend">Choose Workflow Type</FormLabel>
             <RadioGroup
               value={selectedWorkflow}
-              onChange={(e) => setSelectedWorkflow(e.target.value as WorkflowType)}
+              onChange={(e) => dispatch(setSelectedWorkflow(e.target.value as WorkflowType))}
             >
               {availableJobTypes.map((workflow) => (
                 <FormControlLabel
@@ -269,17 +192,17 @@ export const DocumentsPage: React.FC = () => {
               {availableFields.map((field) => (
                 <FormControlLabel
                   key={field}
-                  control={<Checkbox 
-                      checked={selectedFields.has(field)} 
-                      onChange={(prev) => {
-                        const updatedSet = new Set<string>(selectedFields)
-                        if (prev.target.checked) {
-                          updatedSet.add(field)
+                  control={
+                    <Checkbox
+                      checked={selectedFields.includes(field)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          dispatch(setSelectedFields([...selectedFields, field]));
                         } else {
-                          updatedSet.delete(field)
+                          dispatch(setSelectedFields(selectedFields.filter((f) => f !== field)));
                         }
-                        setSelectedFields(updatedSet)
-                      }} />
+                      }}
+                    />
                   }
                   label={field}
                 />
@@ -292,7 +215,7 @@ export const DocumentsPage: React.FC = () => {
               color="primary"
               startIcon={submitting ? <CircularProgress size={16} /> : <PlayArrowIcon />}
               onClick={handleSubmitJobs}
-              disabled={selectedIds.length === 0 || submitting || selectedFields.size === 0}
+              disabled={selectedIds.length === 0 || submitting || selectedFields.length === 0}
               size="large"
             >
               {submitting
@@ -339,7 +262,7 @@ export const DocumentsPage: React.FC = () => {
           <DocumentList
             documents={documents}
             selectedIds={selectedIds}
-            onSelectionChange={setSelectedIds}
+            onSelectionChange={(ids) => dispatch(setSelectedIds(ids))}
             onLoadMore={nextCursor ? handleLoadMore : undefined}
             loadingMore={loadingMore}
           />
@@ -349,13 +272,14 @@ export const DocumentsPage: React.FC = () => {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
+        onClose={() => dispatch(closeSnackbar())}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert onClose={() => dispatch(closeSnackbar())} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
     </Container>
   );
 };
+

@@ -42,8 +42,12 @@ export class CreatedDateUpdateAction extends DocumentAction {
 
   apply(document: IDocument): Partial<IDocument> {
     const dateValue = this.newValue || null;
-    return {
-      createdDate: dateValue ? new Date(dateValue) : null
-    };
+    if (dateValue) {
+      return {
+        createdDate: new Date(dateValue)
+      }
+    } else {
+      return {}
+    }
   }
 }

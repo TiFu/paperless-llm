@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -20,89 +20,48 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { apiClient } from '../services/api/api';
-import { JobResponse } from '../services/api/generated/models/JobResponse';
 import { JobState } from '../services/api/generated/models/JobState';
-import { Document } from '../services/api/generated/models/Document';
-import { JobStep } from '../services/api/generated/models/JobStep';
-import { AuditLogEntry } from '../services/api/generated/models/AuditLogEntry';
 import { JobStepsTimeline } from '../components/JobStepsTimeline';
 import { AuditLogTimeline } from '../components/AuditLogTimeline';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import {
+  fetchJobDetails,
+  clearJobDetails,
+  setAutoRefresh,
+} from '../store/slices/jobsSlice';
 
 export const JobDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
 
-  const [job, setJob] = useState<JobResponse | null>(null);
-  const [document, setDocument] = useState<Document | null>(null);
-  const [steps, setSteps] = useState<JobStep[]>([]);
-  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const job = useAppSelector((state) => state.jobs.detail.job);
+  const steps = useAppSelector((state) => state.jobs.detail.steps);
+  const auditLog = useAppSelector((state) => state.jobs.detail.auditLog);
+  const loading = useAppSelector((state) => state.jobs.detail.loading);
+  const error = useAppSelector((state) => state.jobs.detail.error);
+  const autoRefresh = useAppSelector((state) => state.jobs.detail.autoRefresh);
 
-  const isTerminalState = (state: JobState) => {
-    return [JobState.completed, JobState.failed, JobState.rejected].includes(state);
-  };
+  const document = job?.document ?? null;
 
-  const fetchJobDetails = async () => {
-    if (!id) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const jobData = await apiClient.fetchJobById(id);
-      setJob(jobData);
-
-      // Fetch job steps
-      try {
-        const stepsData = await apiClient.fetchJobSteps(id);
-        setSteps(stepsData.steps);
-      } catch (err) {
-        console.error('Failed to fetch steps:', err);
-      }
-
-      // Fetch audit log
-      try {
-        const auditData = await apiClient.fetchJobAuditLog(id);
-        setAuditLog(auditData.auditLog);
-      } catch (auditErr) {
-        console.error('Failed to fetch audit log:', auditErr);
-      }
-
-      // Use document info from job response if available
-      if (jobData.document) {
-        setDocument(jobData.document);
-      } else {
-        setDocument(null);
-      }
-
-      // Stop auto-refresh if job is in terminal state
-      if (isTerminalState(jobData.status)) {
-        setAutoRefresh(false);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch job details');
-      setAutoRefresh(false);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (id) {
+      dispatch(fetchJobDetails(id));
     }
-  };
+    return () => {
+      dispatch(clearJobDetails());
+    };
+  }, [id, dispatch]);
 
   useEffect(() => {
-    fetchJobDetails();
-  }, [id]);
-
-  useEffect(() => {
-    if (!autoRefresh || !job) return;
+    if (!autoRefresh || !job || !id) return;
 
     const interval = setInterval(() => {
-      fetchJobDetails();
+      dispatch(fetchJobDetails(id));
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [autoRefresh, job]);
+  }, [autoRefresh, job, id, dispatch]);
 
   const getStatusColor = (state: JobState) => {
     switch (state) {
@@ -122,6 +81,17 @@ export const JobDetailsPage: React.FC = () => {
         return 'default';
     }
   };
+
+  if (loading && !job) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
+
   if (error && !job) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -167,7 +137,7 @@ export const JobDetailsPage: React.FC = () => {
           <Button
             size="small"
             startIcon={<RefreshIcon />}
-            onClick={fetchJobDetails}
+            onClick={() => id && dispatch(fetchJobDetails(id))}
             disabled={loading}
           >
             Refresh
@@ -261,7 +231,6 @@ export const JobDetailsPage: React.FC = () => {
                       <TableCell sx={{ fontWeight: 'bold' }}>Title</TableCell>
                       <TableCell>{document.title || '(No title)'}</TableCell>
                     </TableRow>
-                    {/* Tags, createdDate, and modifiedDate removed: not present on Document */}
                     <TableRow>
                       <TableCell sx={{ fontWeight: 'bold' }}>Content Preview</TableCell>
                       <TableCell>
@@ -345,3 +314,4 @@ export const JobDetailsPage: React.FC = () => {
     </Container>
   );
 };
+

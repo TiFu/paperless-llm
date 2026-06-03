@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -20,9 +20,15 @@ import {
   InputLabel,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { apiClient } from '../services/api/api';
-import { JobResponse } from '../services/api/generated/models/JobResponse';
 import { JobState } from '../services/api/generated/models/JobState';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import {
+  fetchJobs,
+  setStateFilter,
+  selectHasActiveJobs,
+  TERMINAL_STATES,
+} from '../store/slices/jobsSlice';
+
 const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
 
 const getStatusColor = (status: JobState): 'default' | 'info' | 'warning' | 'success' | 'error' => {
@@ -44,61 +50,36 @@ const getStatusColor = (status: JobState): 'default' | 'info' | 'warning' | 'suc
   }
 };
 
-const isTerminalState = (status: JobState): boolean => {
-  return [JobState.completed, JobState.failed, JobState.rejected].includes(status);
-};
-
 export const JobsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [jobs, setJobs] = useState<JobResponse[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [stateFilter, setStateFilter] = useState<JobState | ''>('');
-  const [hasLoadedMore, setHasLoadedMore] = useState(false);
+  const dispatch = useAppDispatch();
 
-  const fetchJobs = async (cursor?: string, append = false) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const jobsResponse = await apiClient.fetchJobs(20, cursor, stateFilter || undefined);
+  const jobs = useAppSelector((state) => state.jobs.list.jobs);
+  const nextCursor = useAppSelector((state) => state.jobs.list.nextCursor);
+  const stateFilter = useAppSelector((state) => state.jobs.list.stateFilter);
+  const loading = useAppSelector((state) => state.jobs.list.loading);
+  const error = useAppSelector((state) => state.jobs.list.error);
+  const hasLoadedMore = useAppSelector((state) => state.jobs.list.hasLoadedMore);
+  const hasActiveJobs = useAppSelector(selectHasActiveJobs);
 
-      if (append) {
-        setJobs((prev) => [...prev, ...jobsResponse.jobs]);
-      } else {
-        setJobs(jobsResponse.jobs);
-        setHasLoadedMore(false); // Reset pagination tracking when fetching first page
-      }
-      setNextCursor(jobsResponse.nextCursor);
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch jobs');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Initial load + reload when filter changes
   useEffect(() => {
-    fetchJobs();
-  }, [stateFilter]);
+    dispatch(fetchJobs({ stateFilter }));
+  }, [stateFilter, dispatch]);
 
+  // Auto-refresh when there are active jobs and user hasn't paginated
   useEffect(() => {
-    // Auto-refresh if there are non-terminal jobs and user hasn't paginated
-    // Disable auto-refresh when paginated to avoid losing loaded items
-    const hasActiveJobs = jobs.some((job) => !isTerminalState(job.status));
-    
     if (hasActiveJobs && !hasLoadedMore) {
       const interval = setInterval(() => {
-        fetchJobs();
+        dispatch(fetchJobs({ stateFilter }));
       }, AUTO_REFRESH_INTERVAL);
-
       return () => clearInterval(interval);
-    } 
-  }, [jobs, hasLoadedMore]);
+    }
+  }, [hasActiveJobs, hasLoadedMore, stateFilter, dispatch]);
 
   const handleLoadMore = () => {
     if (nextCursor) {
-      fetchJobs(nextCursor, true);
+      dispatch(fetchJobs({ cursor: nextCursor, append: true, stateFilter }));
     }
   };
 
@@ -117,7 +98,7 @@ export const JobsPage: React.FC = () => {
       </Typography>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
@@ -128,7 +109,7 @@ export const JobsPage: React.FC = () => {
             <Select
               value={stateFilter}
               label="Filter by State"
-              onChange={(e) => setStateFilter(e.target.value as JobState | '')}
+              onChange={(e) => dispatch(setStateFilter(e.target.value as JobState | ''))}
             >
               <MenuItem value="">All States</MenuItem>
               {Object.values(JobState).map((state) => (
@@ -138,7 +119,7 @@ export const JobsPage: React.FC = () => {
               ))}
             </Select>
           </FormControl>
-        <Button variant="outlined" onClick={() => fetchJobs()} disabled={loading}>
+        <Button variant="outlined" onClick={() => dispatch(fetchJobs({ stateFilter }))} disabled={loading}>
           Refresh
         </Button>
       </Box>
@@ -225,3 +206,4 @@ export const JobsPage: React.FC = () => {
     </Container>
   );
 };
+

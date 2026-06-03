@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -8,86 +8,50 @@ import {
   Button,
   Paper,
 } from '@mui/material';
-import { apiClient } from '../services/api/api';
-import { ApprovalItem } from '../services/api/generated/models/ApprovalItem';
-import { ApprovalStats } from '../services/api/generated/models/ApprovalStats';
 import { ApprovalCard } from '../components/ApprovalCard';
-import { useStats } from '../contexts/StatsContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import {
+  fetchApprovals,
+  processApprovalDecision,
+  clearSuccessMessage,
+} from '../store/slices/approvalsSlice';
 
 export const ApprovalsPage: React.FC = () => {
-  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
-  const [stats, setStats] = useState<ApprovalStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const { decrementApprovalCount } = useStats();
+  const dispatch = useAppDispatch();
 
-  const fetchApprovals = async (cursor?: string, append: boolean = false) => {
-    try {
-      if (!append) {
-        setLoading(true);
-      } else {
-        setLoadingMore(true);
-      }
-      setError(null);
-
-      const [approvalsResponse, statsResponse] = await Promise.all([
-        apiClient.fetchPendingApprovals(50, cursor),
-        cursor ? Promise.resolve(stats) : apiClient.fetchApprovalStats(),
-      ]);
-
-      if (append) {
-        setApprovals((prev) => [...prev, ...approvalsResponse.items]);
-      } else {
-        setApprovals(approvalsResponse.items);
-      }
-      setNextCursor(approvalsResponse.nextCursor);
-      
-      if (!cursor && statsResponse) {
-        setStats(statsResponse);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch approvals');
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
+  const approvals = useAppSelector((state) => state.approvals.approvals);
+  const loading = useAppSelector((state) => state.approvals.loading);
+  const loadingMore = useAppSelector((state) => state.approvals.loadingMore);
+  const error = useAppSelector((state) => state.approvals.error);
+  const nextCursor = useAppSelector((state) => state.approvals.nextCursor);
+  const successMessage = useAppSelector((state) => state.approvals.successMessage);
 
   useEffect(() => {
-    fetchApprovals();
+    dispatch(fetchApprovals());
 
-    // Auto-refresh every 10 seconds
+    /*
     const interval = setInterval(() => {
-      fetchApprovals();
+      dispatch(fetchApprovals());
     }, 10000);
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => clearInterval(interval);*/
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => dispatch(clearSuccessMessage()), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage, dispatch]);
 
   const handleDecision = async (stepId: string, decision: string) => {
-    try {
-      const response = await apiClient.processApprovalDecision(stepId, decision);
-      setSuccessMessage((response as any).message ?? `Decision "${decision}" processed successfully`);
-
-      // Remove the approved/rejected item from the list
-      setApprovals((prev) => prev.filter((approval) => approval.stepId !== stepId));
-
-      // Optimistically decrement the approval count in global stats
-      decrementApprovalCount();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      throw err; // Let ApprovalCard handle the error display
-    }
+    await dispatch(processApprovalDecision({ stepId, decision })).unwrap();
+    // unwrap() re-throws on rejection so ApprovalCard can handle the error
   };
 
   const handleLoadMore = () => {
     if (nextCursor) {
-      fetchApprovals(nextCursor, true);
+      dispatch(fetchApprovals({ append: true }));
     }
   };
 
@@ -158,3 +122,4 @@ export const ApprovalsPage: React.FC = () => {
     </Container>
   );
 };
+

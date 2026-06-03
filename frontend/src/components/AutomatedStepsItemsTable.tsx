@@ -10,6 +10,7 @@ import {
   Chip,
   Button,
   Box,
+  CircularProgress,
   FormControl,
   InputLabel,
   Select,
@@ -27,30 +28,46 @@ import {
 } from '@mui/icons-material';
 import { QueueItem } from '../services/api/generated/models/QueueItem';
 import { WorkItemStatus } from '../services/api/generated/models/WorkItemStatus';
+import { JobState } from '../services/api/generated/models/JobState';
 import { apiClient } from '../services/api/api';
 
 interface AutomatedStepsItemsTableProps {
   items: QueueItem[];
+  loading: boolean;
   nextCursor: string | null;
+  statusFilter: WorkItemStatus | '';
   onLoadMore: () => void;
   onStatusFilter: (status: WorkItemStatus | '') => void;
   type: 'unified';
 }
 
+const getJobStateColor = (state: string): 'default' | 'info' | 'success' | 'error' | 'warning' => {
+  switch (state) {
+    case JobState.completed: return 'success';
+    case JobState.failed:
+    case JobState.rejected: return 'error';
+    case JobState.pending_approval: return 'warning';
+    case JobState.llm_processing:
+    case JobState.updating_document:
+    case JobState.removing_tags: return 'info';
+    default: return 'default';
+  }
+};
+
 export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> = ({
   items,
+  loading,
   nextCursor,
+  statusFilter,
   onLoadMore,
   onStatusFilter,
 }) => {
-  const [filterStatus, setFilterStatus] = useState<WorkItemStatus | ''>('');
   const [processingStepId, setProcessingStepId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const handleStatusChange = (event: { target: { value: string } }) => {
     const value = event.target.value as WorkItemStatus | '';
-    setFilterStatus(value);
     onStatusFilter(value);
   };
 
@@ -115,17 +132,60 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString();
+  const fmt = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const formatDate = (value: Date | string | null | undefined) => {
+    if (!value) return '-';
+    return fmt.format(typeof value === 'string' ? new Date(value) : value);
   };
 
   if (items.length === 0) {
     return (
-      <Box sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="body1" color="text.secondary">
-          No automated steps found.
-        </Typography>
+      <Box>
+        {actionError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
+            {actionError}
+          </Alert>
+        )}
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Status Filter</InputLabel>
+            <Select value={statusFilter} label="Status Filter" onChange={handleStatusChange}>
+              <MenuItem value="">All</MenuItem>
+              {Object.values(WorkItemStatus).map((status) => (
+                <MenuItem key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+        <TableContainer component={Paper}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Step ID</TableCell>
+                <TableCell>Job ID</TableCell>
+                <TableCell>Document</TableCell>
+                <TableCell>Step Type</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Job State</TableCell>
+                <TableCell>Created At</TableCell>
+                <TableCell>Updated At</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              <TableRow>
+                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  {loading ? (
+                    <CircularProgress size={24} />
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">No automated steps found.</Typography>
+                  )}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Box>
     );
   }
@@ -147,7 +207,7 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
       <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Status Filter</InputLabel>
-          <Select value={filterStatus} label="Status Filter" onChange={handleStatusChange}>
+          <Select value={statusFilter} label="Status Filter" onChange={handleStatusChange}>
             <MenuItem value="">All</MenuItem>
             {Object.values(WorkItemStatus).map((status) => (
               <MenuItem key={status} value={status}>
@@ -164,13 +224,12 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
             <TableRow>
               <TableCell>Step ID</TableCell>
               <TableCell>Job ID</TableCell>
-              <TableCell>Document ID</TableCell>
+              <TableCell>Document</TableCell>
               <TableCell>Step Type</TableCell>
-              <TableCell>Job Type</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Job State</TableCell>
               <TableCell>Created At</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>Updated At</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -187,46 +246,22 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
                   </Link>
                 </TableCell>
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                  {item.jobId.substring(0, 8)}...
+                  <Link component={RouterLink} to={`/jobs/${item.jobId}`} underline="hover" color="primary">
+                    {item.jobId.substring(0, 8)}...
+                  </Link>
                 </TableCell>
-                <TableCell>{item.documentId}</TableCell>
+                <TableCell>{item.document?.title ?? item.documentId}</TableCell>
                 <TableCell>
                   <Chip label={item.stepType} size="small" variant="outlined" />
                 </TableCell>
-                <TableCell>{item.jobType}</TableCell>
                 <TableCell>
                   <Chip label={item.status} color={getStatusColor(item.status)} size="small" />
                 </TableCell>
                 <TableCell>
-                  <Chip label={item.jobState} size="small" variant="outlined" />
+                  <Chip label={item.jobState} color={getJobStateColor(item.jobState)} size="small" />
                 </TableCell>
-                <TableCell>{typeof item.createdAt === 'string' ? formatDate(item.createdAt) : ''}</TableCell>
-                <TableCell>
-                  {canRetryOrCancel(item.status) && (
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Tooltip title="Retry step">
-                        <IconButton
-                          size="small"
-                          color={item.status === WorkItemStatus.in_fallout ? 'error' : 'warning'}
-                          onClick={() => handleRetry(item.id)}
-                          disabled={processingStepId === item.id}
-                        >
-                          <RefreshIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Cancel step">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleCancel(item.id)}
-                          disabled={processingStepId === item.id}
-                        >
-                          <CancelIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  )}
-                </TableCell>
+                <TableCell>{formatDate(item.createdAt)}</TableCell>
+                <TableCell>{formatDate(item.updatedAt)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

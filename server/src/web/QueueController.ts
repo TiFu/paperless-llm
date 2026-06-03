@@ -16,9 +16,9 @@ export class QueueController {
   }
 
   /**
-   * List queue items with pagination and status filter (default: in_fallout)
+   * List queue items with pagination and optional status filter (default: all)
    */
-  async listQueueItems(limit: number = 50, cursor?: string, status: string = 'in_fallout'): Promise<QueueItemsResponse> {
+  async listQueueItems(limit: number = 50, cursor?: string, status?: string): Promise<QueueItemsResponse> {
     const { items, nextCursor } = await this.queueAppService.getQueueItems(limit, cursor, status);
     return {
       items: AppMapper.toQueueItemList(items),

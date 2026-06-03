@@ -41,8 +41,11 @@ export class CorrespondentUpdateAction extends DocumentAction {
   }
  
   apply(document: IDocument): Partial<IDocument> {
-    return {
-      correspondent: this.newValue
-    };
+    if (this.newValue)
+      return {
+        correspondent: this.newValue
+      };
+    else 
+        return {}
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, Link as RouterLink } from 'react-router-dom';
 import {
   Drawer,
@@ -24,7 +24,8 @@ import {
   TextSnippet as TextSnippetIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material';
-import { useStats } from '../contexts/StatsContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { selectQueueStats, selectApprovalStats, selectJobStats, fetchDashboardStats } from '../store/slices/statsSlice';
 import { HealthStatusIndicator } from './HealthStatusIndicator';
 
 const DRAWER_WIDTH = 280;
@@ -43,7 +44,17 @@ export const Sidebar: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { queueStats, approvalStats, jobStats } = useStats();
+  const dispatch = useAppDispatch();
+  const queueStats = useAppSelector(selectQueueStats);
+  const approvalStats = useAppSelector(selectApprovalStats);
+  const jobStats = useAppSelector(selectJobStats);
+
+  // Global stats polling — replaces StatsProvider
+  useEffect(() => {
+    dispatch(fetchDashboardStats());
+    const interval = setInterval(() => dispatch(fetchDashboardStats()), 10000);
+    return () => clearInterval(interval);
+  }, [dispatch]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

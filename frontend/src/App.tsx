@@ -8,14 +8,16 @@ import {
   ThemeProvider,
   createTheme,
 } from '@mui/material';
+import { Provider } from 'react-redux';
+import { store } from './store/store';
 import { DocumentsPage } from './pages/DocumentsPage';
 import { JobsPage } from './pages/JobsPage';
 import { JobDetailsPage } from './pages/JobDetailsPage';
-import { ApprovalsPage } from './pages/ApprovalsPage';import { FalloutsPage } from './pages/FalloutsPage';import { PromptsPage } from './pages/PromptsPage';
+import { ApprovalsPage } from './pages/ApprovalsPage';
+import { FalloutsPage } from './pages/FalloutsPage';
+import { PromptsPage } from './pages/PromptsPage';
 import { Sidebar } from './components/Sidebar';
-import { StatsProvider } from './contexts/StatsContext';
 import { AutomatedStepsPage } from './pages/AutomatedStepsPage';
-import { StepDetailsPage } from './pages/StepDetailsPage';
 
 const theme = createTheme({
   palette: {
@@ -76,7 +78,7 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ErrorBoundary>
-        <StatsProvider>
+        <Provider store={store}>
           <BrowserRouter>
             <Box sx={{ display: 'flex', minHeight: '100vh' }}>
               <Sidebar />
@@ -93,7 +95,6 @@ function App() {
                   <Route path="/jobs" element={<JobsPage />} />
                   <Route path="/jobs/:id" element={<JobDetailsPage />} />
                   <Route path="/queues" element={<AutomatedStepsPage />} />
-                  <Route path="/steps/:stepId" element={<StepDetailsPage />} />
                   <Route path="/approvals" element={<ApprovalsPage />} />
                   <Route path="/fallouts" element={<FalloutsPage />} />
                   <Route path="/prompts" element={<PromptsPage />} />
@@ -102,7 +103,7 @@ function App() {
               </Box>
             </Box>
           </BrowserRouter>
-        </StatsProvider>
+        </Provider>
       </ErrorBoundary>
     </ThemeProvider>
   );

@@ -42,8 +42,11 @@ export class DocumentTypeUpdateAction extends DocumentAction {
 
   apply(document: IDocument): Partial<IDocument> {
     const documentTypeId = this.newValue ? parseInt(this.newValue, 10) : null;
-    return {
-      documentType: this.newValue
-    };
+    if (this.newValue)
+      return {
+        documentType: this.newValue
+      };
+    else 
+      return {}
   }
 }

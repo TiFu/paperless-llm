@@ -34,7 +34,10 @@ export class StepExecutedEntryDisplay implements AuditLogEntryDisplay {
     }
 
     if (!this.entry.success) {
-        result.push({ label: 'Next Retry: ', value: this.entry.nextRetryTime})
+        const formatted = this.entry.nextRetryTime
+          ? new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(this.entry.nextRetryTime))
+          : '';
+        result.push({ label: 'Next Retry', value: formatted });
     }
 
     return result

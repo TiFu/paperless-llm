@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -8,95 +8,58 @@ import {
   Button,
   Paper,
 } from '@mui/material';
-import { apiClient } from '../services/api/api';
-import { QueueItem } from '../services/api/generated/models/QueueItem';
-import { WorkItemStatus } from '../services/api/generated/models/WorkItemStatus';
 import { FalloutCard } from '../components/FalloutCard';
-import { useStats } from '../contexts/StatsContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import {
+  fetchFallouts,
+  retryFallout,
+  cancelFallout,
+  clearSuccessMessage,
+} from '../store/slices/falloutsSlice';
 
 export const FalloutsPage: React.FC = () => {
-  const [fallouts, setFallouts] = useState<QueueItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const { adjustQueueStats } = useStats();
+  const dispatch = useAppDispatch();
 
-  const fetchFallouts = async (cursor?: string, append: boolean = false) => {
-    try {
-      if (!append) {
-        setLoading(true);
-      } else {
-        setLoadingMore(true);
-      }
-      setError(null);
-
-      const response = await apiClient.fetchQueueItems(50, cursor, WorkItemStatus.in_fallout);
-      if (append) {
-        setFallouts((prev) => [...prev, ...response.items]);
-      } else {
-        setFallouts(response.items);
-      }
-      setNextCursor(response.pagination.nextCursor);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch fallouts');
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
+  const fallouts = useAppSelector((state) => state.fallouts.fallouts);
+  const loading = useAppSelector((state) => state.fallouts.loading);
+  const loadingMore = useAppSelector((state) => state.fallouts.loadingMore);
+  const error = useAppSelector((state) => state.fallouts.error);
+  const nextCursor = useAppSelector((state) => state.fallouts.nextCursor);
+  const successMessage = useAppSelector((state) => state.fallouts.successMessage);
 
   useEffect(() => {
-    fetchFallouts();
+    dispatch(fetchFallouts());
 
-    // Auto-refresh every 10 seconds
+    // TODO: the refresh is a bit awkward due to the cursor scrolling... 
+    // we disable for now
+    /*
     const interval = setInterval(() => {
-      fetchFallouts();
+      dispatch(fetchFallouts());
     }, 10000);
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => clearInterval(interval);*/
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => dispatch(clearSuccessMessage()), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage, dispatch]);
 
   const handleRetry = async (stepId: string) => {
-    try {
-      const response = await apiClient.retryStep(stepId);
-      setSuccessMessage(response.message || 'Step retry initiated successfully');
-
-      // Remove the retried item from the list
-      setFallouts((prev) => prev.filter((fallout) => fallout.id !== stepId));
-
-      // Optimistically update queue stats (one less in fallout, one more processing)
-      adjustQueueStats({ failed: -1, processing: 1 });
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      throw err; // Let FalloutCard handle the error display
-    }
+    await dispatch(retryFallout(stepId)).unwrap();
+    // unwrap() re-throws on rejection so FalloutCard can handle the error
   };
 
   const handleCancel = async (stepId: string) => {
-    try {
-      const response = await apiClient.cancelStep(stepId);
-      setSuccessMessage(response.message || 'Step cancelled successfully');
-
-      // Remove the cancelled item from the list
-      setFallouts((prev) => prev.filter((fallout) => fallout.id !== stepId));
-
-      // Optimistically update queue stats (one less in fallout)
-      adjustQueueStats({ failed: -1 });
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      throw err; // Let FalloutCard handle the error display
-    }
+    await dispatch(cancelFallout(stepId)).unwrap();
+    // unwrap() re-throws on rejection so FalloutCard can handle the error
   };
 
   const handleLoadMore = () => {
     if (nextCursor) {
-      fetchFallouts(nextCursor, true);
+      dispatch(fetchFallouts({ append: true }));
     }
   };
 
@@ -172,3 +135,4 @@ export const FalloutsPage: React.FC = () => {
     </Container>
   );
 };
+
