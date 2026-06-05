@@ -193,13 +193,21 @@ export class JobApplicationService {
     const logger = getLogger();
     
     try {
+      const start = Date.now();
       await using context = await this.uowFactory.createUoW();
       await context.start();
 
       const result = await context.getJobs().list(limit, cursor, state);
 
       await context.commit();
+      const end2 = Date.now();
       const output = await enrichAllWithDocument(result.items, this.dmsService)
+      const end3 = Date.now();
+      logger.info({ 
+        joblistMs: end2 - start,
+        documentMs: end3 - end2,
+        totalMs: end3 - start
+      }, "Time measurement for job list")
       return { items: output, nextCursor: result.nextCursor};
     } catch (error) {
       logger.error({ error, limit, cursor, state }, 'Failed to list jobs');

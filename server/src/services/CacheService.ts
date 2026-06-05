@@ -129,6 +129,7 @@ export class RedisCacheService<T> implements CacheService<T> {
     for (let object of objects) {
       promises.push(this.cache(object.key, object.object))
     }
+    this.logger.info({ keys: objects.map(a => a.key)}, "Cached objects")
     return Promise.all(promises).then(() => {})
   }
 
@@ -136,8 +137,10 @@ export class RedisCacheService<T> implements CacheService<T> {
       if (key.length == 0) 
         return [];
 
-      this.logger.info({ keys: key }, "Keys requested in getAll")
-      const results = await this.client.mGet(key) as (string | null)[]
+      const namespacedKeys = key.map((k) => this.getKey(k));
+      this.logger.info({ keys: namespacedKeys }, "Keys requested in getAll")
+      const results = await this.client.mGet(namespacedKeys) as (string | null)[]
+      this.logger.info({ keys: namespacedKeys, results}, "Hit cached objects")
       return results.map((r) => {
         if (!r) {
           return null;

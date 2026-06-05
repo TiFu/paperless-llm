@@ -3,6 +3,8 @@ import { AvailableFields, ICorrespondent, IDocumentType, ITag } from '../domain/
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { PaperlessService } from './PaperlessService.js';
 import { CacheService, DMSCacheService } from './CacheService.js';
+import pino from 'pino';
+import { createChildLogger } from '../utils/logger.js';
 
 interface IDable {
   id: string | number
@@ -14,10 +16,12 @@ export class CachedPaperlessServiceAdapter implements IDocumentManagementSystem 
   static readonly ALL_KEY = 'all';
   private readonly cache: DMSCacheService;
   private readonly service: PaperlessService;
+  private readonly logger: pino.Logger;
 
   constructor(service: PaperlessService, cacheService: DMSCacheService) {
     this.service = service;
     this.cache = cacheService;
+    this.logger = createChildLogger({name: "CachedPaperlessServiceAdapter"})
   }
 
   async getDocument(documentId: number): Promise<IDocument> {
@@ -41,14 +45,26 @@ export class CachedPaperlessServiceAdapter implements IDocumentManagementSystem 
       return {id: ids[ind], index: ind, isNull: val == null}
     }).filter((a) => a.isNull)
 
+    this.logger.info({ cacheHits: cachedDocuments.length - missingIds.length, cacheMiss: missingIds.length}, "Document cache")
+
     const missingDocuments = await this.service.getDocumentsByIds(missingIds.map((a) => a.id));
     const promises = missingDocuments.map(async (val, idx) => {
       const initialIndex = missingIds[idx].index
       cachedDocuments[initialIndex] = val
-      await this.cache.documentCache.cache(this.getCacheKey(val), val)
+      //this.cache.documentCache.cache(this.getCacheKey(val), val).catch((err) => { this.logger.error(err, "Failed to cache document " + val.id) })
     })
 
+
     await Promise.all(promises)
+    const documentsToCache = cachedDocuments.filter((c) => c != null).map((c) => { return {
+      key: this.getCacheKey(c),
+      object: c
+    }})
+    this.cache.documentCache.cacheAll(documentsToCache).then(() => {
+      this.logger.info({ ids: documentsToCache.map((c) => c.key)}, "Cached objects")
+    }).catch((err) => {
+      this.logger.error(err, "Failed to cache")
+    })
     return cachedDocuments as IDocument[]
   }
 

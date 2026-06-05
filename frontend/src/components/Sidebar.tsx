@@ -17,7 +17,6 @@ import {
 import {
   Description as DescriptionIcon,
   Queue as QueueIcon,
-  History as HistoryIcon,
   Work as WorkIcon,
   CheckCircle as CheckCircleIcon,
   Menu as MenuIcon,
@@ -123,11 +122,6 @@ export const Sidebar: React.FC = () => {
       path: '/prompts',
       label: 'Prompts',
       icon: <TextSnippetIcon />,
-    },
-    {
-      path: '/audit',
-      label: 'Audit Log',
-      icon: <HistoryIcon />,
     },
   ];
 
