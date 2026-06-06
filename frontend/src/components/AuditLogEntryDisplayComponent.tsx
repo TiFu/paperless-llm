@@ -77,13 +77,13 @@ export const AuditLogEntryDisplayComponent: React.FC<AuditLogEntryDisplayCompone
         </Box>
         <Box>
           {fields.filter(f => alwaysDisplayFields.includes(f.label)).map(f => (
-            <Box key={f.label} sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>{f.label}: {String(f.value)}</Box>
+            <Box key={f.label} sx={{ fontSize: '0.875rem', color: 'text.secondary', wordBreak: 'break-word' }}>{f.label}: {String(f.value)}</Box>
           ))}
         </Box>
         <Collapse in={expanded}>
           <Box>
             {fields.filter(f => !alwaysDisplayFields.includes(f.label)).map(f => (
-              <Box key={f.label} sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>{f.label}: {String(f.value)}</Box>
+              <Box key={f.label} sx={{ fontSize: '0.875rem', color: 'text.secondary', wordBreak: 'break-word' }}>{f.label}: {String(f.value)}</Box>
             ))}
           </Box>
         </Collapse>

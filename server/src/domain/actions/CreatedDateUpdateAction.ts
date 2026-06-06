@@ -21,6 +21,9 @@ export class CreatedDateUpdateAction extends DocumentAction {
     );
   }
 
+  get fieldType(): 'date' { return 'date'; }
+  get isMultiple(): false { return false; }
+
   /**
    * Create a new CreatedDateUpdateAction (not yet persisted to DB)
    * @param jobId Job ID

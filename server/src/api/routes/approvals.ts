@@ -75,10 +75,10 @@ export function createApprovalsRouter(
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { stepId } = req.params;
-        const { decision } = req.body;
+        const { decision, actions } = req.body;
 
         const approvalAppService = appFactory.createApprovalApplicationService();
-        await approvalAppService.processApprovalDecision(stepId, decision);
+        await approvalAppService.processApprovalDecision(stepId, decision, actions);
 
         logger.info({ stepId, decision }, 'Approval decision processed');
         res.json({ success: true, message: 'Decision processed' });

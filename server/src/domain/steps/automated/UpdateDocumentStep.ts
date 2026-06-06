@@ -42,7 +42,7 @@ export class UpdateDocumentStep extends ExecutableStep {
       actions: [],
       success: true,
       transition: Transition.SUCCESS,
-      message: "Updated document " + document.id + " with updates: " + updates
+      message: `Updated document ${document.id} with updates: ${JSON.stringify(updates)}`
     };
   }
 }

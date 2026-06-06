@@ -71,4 +71,18 @@ export class DocumentActionFactory {
         throw new Error(`Unknown action type: ${actionType}`);
     }
   }
+
+  /**
+   * Create a copy of an existing action with a different newValue.
+   * Used when a user edits a proposed action value before approving.
+   */
+  static cloneWithNewValue(action: DocumentAction, newValue: string): DocumentAction {
+    return DocumentActionFactory.fromDb({
+      id: action.id,
+      job_id: action.jobId,
+      action_type: action.actionType,
+      old_value: action.oldValue,
+      new_value: newValue,
+    });
+  }
 }

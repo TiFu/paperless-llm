@@ -21,6 +21,9 @@ export class TagRemoveAction extends DocumentAction {
     );
   }
 
+  get fieldType(): 'tag' { return 'tag'; }
+  get isMultiple(): true { return true; }
+
   /**
    * Create a new TagRemoveAction (not yet persisted to DB)
    * @param jobId The job ID

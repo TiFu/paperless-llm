@@ -122,5 +122,46 @@ export function createDocumentsRouter(
     }
   });
 
+  const VALID_ENTITY_TYPES = ['tag', 'correspondent', 'document_type'] as const;
+  type EntityValueType = typeof VALID_ENTITY_TYPES[number];
+
+  /**
+   * GET /api/documents/entity-values/:type
+   * Generic endpoint returning id/name pairs for a given entity type.
+   * type must be one of: tag, correspondent, document_type
+   */
+  router.get('/entity-values/:type', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { type } = req.params;
+      if (!VALID_ENTITY_TYPES.includes(type as EntityValueType)) {
+        throw new ApiError(400, 'Invalid entity type', `type must be one of: ${VALID_ENTITY_TYPES.join(', ')}`);
+      }
+
+      let items: { id: number; name: string }[];
+      switch (type as EntityValueType) {
+        case 'tag': {
+          const tags = await paperlessService.getTags();
+          items = tags.map(t => ({ id: t.id, name: t.name }));
+          break;
+        }
+        case 'correspondent': {
+          const correspondents = await paperlessService.getCorrespondents();
+          items = correspondents.map(c => ({ id: c.id, name: c.name }));
+          break;
+        }
+        case 'document_type': {
+          const types = await paperlessService.getDocumentTypes();
+          items = types.map(t => ({ id: t.id, name: t.name }));
+          break;
+        }
+      }
+
+      res.json({ items });
+    } catch (error) {
+      logger.error({ error, type: req.params.type }, 'Failed to fetch entity values');
+      next(error);
+    }
+  });
+
   return router;
 }

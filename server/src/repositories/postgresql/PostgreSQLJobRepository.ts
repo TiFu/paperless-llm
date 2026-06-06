@@ -36,33 +36,43 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
   }
 
   private async saveActions(jobId: string, actions: DocumentAction[]): Promise<void> {
+    const client = this.getClient();
 
-    // Insert new actions
-    if (actions.length > 0) {
-      const values = actions.map((action, idx) => {
-        const base = idx * 5;
-        return `(COALESCE($${base + 1}, gen_random_uuid()), $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`;
-      }).join(', ');
-
-      const params = actions.flatMap((action) => [
-        action.id || null,  // Pass null for new actions
-        jobId,
-        action.actionType,
-        action.oldValue,
-        action.newValue,
-      ]);
-
-      const query = `
-        INSERT INTO document_actions (id, job_id, action_type, old_value, new_value)
-        VALUES ${values}
-        ON CONFLICT (id) DO UPDATE SET
-          action_type = EXCLUDED.action_type,
-          old_value = EXCLUDED.old_value,
-          new_value = EXCLUDED.new_value
-      `;
-
-      await this.getClient().query(query, params);
+    if (actions.length === 0) {
+      await client.query('DELETE FROM document_actions WHERE job_id = $1', [jobId]);
+      return;
     }
+
+    const ids = actions.map((a) => a.id).filter(Boolean);
+    if (ids.length > 0) {
+      const placeholders = ids.map((_, i) => `$${i + 2}`).join(', ');
+      await client.query(
+        `DELETE FROM document_actions WHERE job_id = $1 AND id NOT IN (${placeholders})`,
+        [jobId, ...ids],
+      );
+    }
+
+    const values = actions.map((action, idx) => {
+      const base = idx * 5;
+      return `(COALESCE($${base + 1}, gen_random_uuid()), $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`;
+    }).join(', ');
+
+    const params = actions.flatMap((action) => [
+      action.id || null,
+      jobId,
+      action.actionType,
+      action.oldValue,
+      action.newValue,
+    ]);
+
+    await client.query(`
+      INSERT INTO document_actions (id, job_id, action_type, old_value, new_value)
+      VALUES ${values}
+      ON CONFLICT (id) DO UPDATE SET
+        action_type = EXCLUDED.action_type,
+        old_value = EXCLUDED.old_value,
+        new_value = EXCLUDED.new_value
+    `, params);
   }
 
   async create(

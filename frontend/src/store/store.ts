@@ -6,6 +6,7 @@ import approvalsReducer from './slices/approvalsSlice';
 import falloutsReducer from './slices/falloutsSlice';
 import documentsReducer from './slices/documentsSlice';
 import promptsReducer from './slices/promptsSlice';
+import documentEntitiesReducer from './slices/documentEntitiesSlice';
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     fallouts: falloutsReducer,
     documents: documentsReducer,
     prompts: promptsReducer,
+    documentEntities: documentEntitiesReducer,
   },
   // The generated API client returns class instances; suppress the serializable
   // check warnings rather than forcing conversion everywhere.

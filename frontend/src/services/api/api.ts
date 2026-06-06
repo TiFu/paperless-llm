@@ -12,6 +12,7 @@ import {
   HealthApi,
   WorkflowType,
   BatchJobRequestDocumentsInnerFieldsEnum,
+  EntityValueType,
 } from './generated';
 
 // TODO: make this overwritable
@@ -52,6 +53,13 @@ export const apiClient = {
   async fetchDocumentsByTag(tag: string, limit?: number, cursor?: string) {
     try {
       return await documentsApi.listDocuments(tag, limit, cursor);
+    } catch (e) {
+      throw normalizeError(e);
+    }
+  },
+  async fetchEntityValues(type: EntityValueType) {
+    try {
+      return await documentsApi.getEntityValues(type);
     } catch (e) {
       throw normalizeError(e);
     }
@@ -117,9 +125,13 @@ export const apiClient = {
       throw normalizeError(e);
     }
   },
-  async processApprovalDecision(stepId: string, decision: string) {
+  async processApprovalDecision(
+    stepId: string,
+    decision: string,
+    actions?: { id: string; newValue: string | null }[]
+  ) {
     try {
-      return await approvalsApi.makeApprovalDecision(stepId, { decision });
+      return await approvalsApi.makeApprovalDecision(stepId, { decision, actions });
     } catch (e) {
       throw normalizeError(e);
     }

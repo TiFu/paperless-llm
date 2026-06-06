@@ -21,6 +21,9 @@ export class TitleUpdateAction extends DocumentAction {
     );
   }
 
+  get fieldType(): 'string' { return 'string'; }
+  get isMultiple(): false { return false; }
+
   /**
    * Create a new TitleUpdateAction (not yet persisted to DB)
    */

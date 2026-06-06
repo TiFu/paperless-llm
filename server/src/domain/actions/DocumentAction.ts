@@ -17,6 +17,17 @@ export abstract class DocumentAction {
   ) {}
 
   /**
+   * The data type of this action's value field — used by the frontend to render
+   * the appropriate editor control (text field, date picker, autocomplete, etc.)
+   */
+  abstract get fieldType(): 'string' | 'tag' | 'correspondent' | 'document_type' | 'date';
+
+  /**
+   * Whether this action's value represents multiple items (e.g. a tag array)
+   */
+  abstract get isMultiple(): boolean;
+
+  /**
    * Execute the action against the document management system
    * @param dms The document management system to update
    */

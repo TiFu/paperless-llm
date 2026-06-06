@@ -44,8 +44,12 @@ export const ApprovalsPage: React.FC = () => {
     }
   }, [successMessage, dispatch]);
 
-  const handleDecision = async (stepId: string, decision: string) => {
-    await dispatch(processApprovalDecision({ stepId, decision })).unwrap();
+  const handleDecision = async (
+    stepId: string,
+    decision: string,
+    actions?: { id: string; newValue: string | null }[]
+  ) => {
+    await dispatch(processApprovalDecision({ stepId, decision, actions })).unwrap();
     // unwrap() re-throws on rejection so ApprovalCard can handle the error
   };
 

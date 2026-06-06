@@ -21,6 +21,9 @@ export class DocumentTypeUpdateAction extends DocumentAction {
     );
   }
 
+  get fieldType(): 'document_type' { return 'document_type'; }
+  get isMultiple(): false { return false; }
+
   /**
    * Create a new DocumentTypeUpdateAction (not yet persisted to DB)
    * @param jobId Job ID

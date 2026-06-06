@@ -21,6 +21,9 @@ export class TagUpdateAction extends DocumentAction {
     );
   }
 
+  get fieldType(): 'tag' { return 'tag'; }
+  get isMultiple(): true { return true; }
+
   /**
    * Create a new TagUpdateAction (not yet persisted to DB)
    * @param jobId Job ID

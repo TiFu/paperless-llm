@@ -8,6 +8,7 @@ import pino from "pino";
 import { IDocument } from '../domain/document/IDocument.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { enrichAllWithDocument, DocumentEnriched } from './util/documentEnrichment.js';
+import { DocumentActionFactory } from '../domain/actions/DocumentActionFactory.js';
 
 /**
  * Enriched approval item with full context for UI display
@@ -19,7 +20,10 @@ export interface ApprovalItem {
   paperlessUrl: string;
   jobType: string;
   proposedActions: Array<{
+    id: string;
     actionType: string;
+    fieldType: 'string' | 'tag' | 'correspondent' | 'document_type' | 'date';
+    isMultiple: boolean;
     oldValue: string;
     newValue: string;
   }>;
@@ -111,7 +115,10 @@ export class ManualStepApplicationService {
           paperlessUrl: `${this.paperlessBaseUrl}/documents/${job.documentId}`,
           jobType: job.jobType,
           proposedActions: job.documentActions.map(action => ({
+            id: action.id as string,
             actionType: action.actionType,
+            fieldType: action.fieldType,
+            isMultiple: action.isMultiple,
             oldValue: action.oldValue,
             newValue: action.newValue,
           })),
@@ -140,7 +147,11 @@ export class ManualStepApplicationService {
    * @param stepId The step ID awaiting approval
    * @param decision User's decision data (e.g., "APPROVED" or "REJECTED")
    */
-  async processApprovalDecision(stepId: string, decision: string): Promise<void> {
+  async processApprovalDecision(
+    stepId: string,
+    decision: string,
+    actionOverrides?: { id: string; newValue: string | null }[]
+  ): Promise<void> {
     let jobId = null;
     try {
       await using context = await this.uowFactory.createUoW();
@@ -159,6 +170,23 @@ export class ManualStepApplicationService {
         throw new Error(`Job ${step.getJobId()} not found`);
       }
       jobId = job.id
+
+      // Apply user-supplied action overrides before processing the decision.
+      // Only relevant for approve decisions; overrides filter the action list
+      // and allow editing individual newValues before Paperless-NGX is updated.
+      if (actionOverrides) {
+        const overrideMap = new Map(actionOverrides.map(o => [o.id, o.newValue]));
+        job.documentActions = job.documentActions
+          .filter(a => a.id != null && overrideMap.has(a.id as string))
+          .map(a => {
+            const overrideValue = overrideMap.get(a.id as string);
+            if (overrideValue != null && overrideValue !== a.newValue) {
+              return DocumentActionFactory.cloneWithNewValue(a, overrideValue);
+            }
+            return a;
+          });
+        await jobsRepo.update(job);
+      }
 
       this.logger.info(
         {

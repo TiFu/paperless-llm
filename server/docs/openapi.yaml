@@ -444,13 +444,42 @@ paths:
                   type: string
                   description: Decision value (must match possibleDecisions)
                   example: approve
+                actions:
+                  type: array
+                  nullable: true
+                  description: |
+                    Optional override of the proposed action list. If provided, only actions
+                    whose IDs appear here are applied, using the supplied newValue.
+                    Omitting an action ID removes it. If this field is omitted entirely,
+                    all original LLM-proposed actions are applied unchanged.
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                        description: ID of the proposed action to retain
+                      newValue:
+                        type: string
+                        nullable: true
+                        description: User-edited value (null keeps the original newValue)
+                    required:
+                      - id
+                      - newValue
               required:
                 - decision
             examples:
               approve:
-                summary: Approve the proposed changes
+                summary: Approve all proposed changes
                 value:
                   decision: approve
+              approve-with-edits:
+                summary: Approve with edited and removed actions
+                value:
+                  decision: approve
+                  actions:
+                    - id: "d5e6f7a8-b9c0-1234-ef01-234567890123"
+                      newValue: "My Edited Title"
               reject:
                 summary: Reject the proposed changes
                 value:
@@ -693,6 +722,35 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /documents/entity-values/{type}:
+    get:
+      tags:
+        - Documents
+      summary: Get available values for an entity type
+      description: |
+        Retrieve all available values for a given entity type (tags, correspondents,
+        document types). Returns a uniform list of id/name pairs regardless of entity
+        type, keeping the frontend decoupled from entity-type-specific endpoints.
+      operationId: getEntityValues
+      parameters:
+        - name: type
+          in: path
+          required: true
+          description: The entity type to retrieve values for
+          schema:
+            $ref: '#/components/schemas/EntityValueType'
+      responses:
+        '200':
+          description: List of available entity values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityValuesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /steps/{id}/retry:
     post:
       tags:
@@ -866,6 +924,47 @@ components:
         - healthy
         - degraded
       description: Overall system health status
+
+    ProposedActionFieldType:
+      type: string
+      enum:
+        - string
+        - tag
+        - correspondent
+        - document_type
+        - date
+      description: Data type of the proposed action field — determines how it is rendered and edited in the UI
+
+    EntityValueType:
+      type: string
+      enum:
+        - tag
+        - correspondent
+        - document_type
+      description: Entity types for which a list of selectable values can be fetched
+
+    EntityValue:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 42
+        name:
+          type: string
+          example: "Invoice"
+      required:
+        - id
+        - name
+
+    EntityValuesResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntityValue'
+      required:
+        - items
 
     # Request Schemas
     BatchJobRequest:
@@ -1460,17 +1559,31 @@ components:
           items:
             type: object
             properties:
+              id:
+                type: string
+                format: uuid
+                example: "d5e6f7a8-b9c0-1234-ef01-234567890123"
               actionType:
                 type: string
                 example: update_title
+              fieldType:
+                $ref: '#/components/schemas/ProposedActionFieldType'
+              isMultiple:
+                type: boolean
+                example: false
               oldValue:
                 type: string
+                nullable: true
                 example: "Untitled"
               newValue:
                 type: string
+                nullable: true
                 example: "Invoice 2026-05-11"
             required:
+              - id
               - actionType
+              - fieldType
+              - isMultiple
               - oldValue
               - newValue
         possibleDecisions:

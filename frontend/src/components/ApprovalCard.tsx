@@ -6,49 +6,59 @@ import {
   Button,
   Box,
   Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   CircularProgress,
   Alert,
   Link,
 } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
 import { ApprovalItem } from '../services/api/generated/models/ApprovalItem';
+import { ApprovalItemProposedActionsInner } from '../services/api/generated/models/ApprovalItemProposedActionsInner';
+import { DocumentActionViewer } from './DocumentActionViewer';
 
 interface ApprovalCardProps {
   approval: ApprovalItem;
-  onDecision: (stepId: string, decision: string) => Promise<void>;
+  onDecision: (
+    stepId: string,
+    decision: string,
+    actions?: { id: string; newValue: string | null }[]
+  ) => Promise<void>;
 }
 
 export const ApprovalCard: React.FC<ApprovalCardProps> = ({ approval, onDecision }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editedActions, setEditedActions] = useState<ApprovalItemProposedActionsInner[]>(
+    () => [...approval.proposedActions]
+  );
+
+  const handleActionsUpdate = async (updated: ApprovalItemProposedActionsInner[]) => {
+    setEditedActions(updated);
+  };
 
   const handleDecision = async (decision: string) => {
     setLoading(true);
     setError(null);
     try {
-      await onDecision(approval.stepId, decision);
+      const isApprove = decision.toLowerCase().includes('approve');
+      const actions = isApprove
+        ? editedActions.map((a) => ({ id: a.id, newValue: a.newValue ?? null }))
+        : undefined;
+      await onDecision(approval.stepId, decision, actions);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process decision');
       setLoading(false);
     }
   };
 
-  const formatActionType = (actionType: string) => {
-    return actionType.replace(/_/g, ' ').toUpperCase();
-  };
 
   const getDecisionColor = (decision: string): 'success' | 'error' | 'primary' => {
     if (decision.toLowerCase().includes('approve')) return 'success';
     if (decision.toLowerCase().includes('reject')) return 'error';
     return 'primary';
   };
+
+  const isApproveDisabled = (decision: string) =>
+    decision.toLowerCase().includes('approve') && editedActions.length === 0;
 
   return (
     <Card sx={{ mb: 2 }}>
@@ -76,36 +86,12 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({ approval, onDecision
         <Typography variant="subtitle2" gutterBottom>
           Proposed Changes
         </Typography>
-        <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Action Type</TableCell>
-                <TableCell>Current Value</TableCell>
-                <TableCell>Proposed Value</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {approval.proposedActions.map((action, index) => (
-                <TableRow key={index}>
-                  <TableCell>
-                    <Chip label={formatActionType(action.actionType)} size="small" />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ textDecoration: 'line-through', color: 'text.secondary' }}>
-                      {action.oldValue || '(empty)'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                      {action.newValue}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+
+        <DocumentActionViewer
+          actions={editedActions}
+          editable
+          onUpdate={handleActionsUpdate}
+        />
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -120,7 +106,7 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({ approval, onDecision
               variant="contained"
               color={getDecisionColor(decision)}
               onClick={() => handleDecision(decision)}
-              disabled={loading}
+              disabled={loading || isApproveDisabled(decision)}
               startIcon={loading ? <CircularProgress size={16} /> : undefined}
             >
               {decision}

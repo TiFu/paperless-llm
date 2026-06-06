@@ -21,6 +21,9 @@ export class CorrespondentUpdateAction extends DocumentAction {
     );
   }
 
+  get fieldType(): 'correspondent' { return 'correspondent'; }
+  get isMultiple(): false { return false; }
+
   /**
    * Create a new CorrespondentUpdateAction (not yet persisted to DB)
    * @param jobId Job ID

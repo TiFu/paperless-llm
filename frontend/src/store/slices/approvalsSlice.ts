@@ -47,8 +47,15 @@ export const fetchApprovals = createAsyncThunk<
 
 export const processApprovalDecision = createAsyncThunk(
   'approvals/processDecision',
-  async ({ stepId, decision }: { stepId: string; decision: string }, { dispatch }) => {
-    const response = await apiClient.processApprovalDecision(stepId, decision);
+  async (
+    { stepId, decision, actions }: {
+      stepId: string;
+      decision: string;
+      actions?: { id: string; newValue: string | null }[];
+    },
+    { dispatch }
+  ) => {
+    const response = await apiClient.processApprovalDecision(stepId, decision, actions);
     dispatch(approvalProcessed());
     return {
       stepId,
