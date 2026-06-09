@@ -11,6 +11,8 @@ import { CachedPaperlessServiceAdapter } from './services/CachedPaperlessService
 import { DMSCacheService, DMSSerializers } from './services/CacheService.js';
 import { OllamaService } from './services/OllamaService.js';
 import { ApplicationServiceFactory } from './application/ApplicationServiceFactory.js';
+import { EntitySyncApplicationService } from './application/EntitySyncApplicationService.js';
+import { PostgreSQLEntityDescriptionsRepository } from './repositories/postgresql/PostgreSQLEntityDescriptionsRepository.js';
 import { UoWFactory } from './infrastructure/UoW.js';
 import { PostgresqlDatabaseTransactionContext, PostgresqlTransactionManager } from './repositories/postgresql/PostgresqlTransactionContext.js';
 
@@ -57,7 +59,6 @@ async function main(): Promise<void> {
 
   const paperlessService = new PaperlessService(config.paperless);
   const cachedPaperlessService = new CachedPaperlessServiceAdapter(paperlessService, dmsCacheService);
-  const uowFactory = new UoWFactory(txManager, cachedPaperlessService);
 
   // Check Paperless connectivity
   const paperlessHealthy = await cachedPaperlessService.healthCheck();
@@ -75,6 +76,12 @@ async function main(): Promise<void> {
   } else {
     logger.info('Ollama connection established');
   }
+
+  // Initialize entity descriptions repository and sync service
+  const entityDescriptionsRepo = new PostgreSQLEntityDescriptionsRepository(pool);
+  const entitySyncService = new EntitySyncApplicationService(cachedPaperlessService, entityDescriptionsRepo);
+
+  const uowFactory = new UoWFactory(txManager, cachedPaperlessService, entityDescriptionsRepo);
 
   // Initialize service factories
   const applicationServiceFactory = new ApplicationServiceFactory(
@@ -103,6 +110,8 @@ async function main(): Promise<void> {
     uowFactory,
     cachedPaperlessService,
     ollamaService,
+    entityDescriptionsRepo,
+    entitySyncService,
     logger,
   );
 
@@ -142,6 +151,15 @@ async function main(): Promise<void> {
     logger.child({ component: 'StuckStepResetWorker' }),
   );
 
+  // Create entity sync worker
+  const entitySyncWorker = new WorkerExecutor(
+    async () => {
+      await entitySyncService.syncAll();
+    },
+    config.entitySync.pollIntervalMs,
+    logger.child({ component: 'EntitySyncWorker' }),
+  );
+
   // Create document auto-queue worker (if enabled)
   let documentAutoQueueWorker: WorkerExecutor | null = null;
   if (config.autoQueue.enabled) {
@@ -174,6 +192,9 @@ async function main(): Promise<void> {
     'Starting workflow step processor',
   );
   stepProcessorWorker.start();
+
+  logger.info({ pollIntervalMs: config.entitySync.pollIntervalMs }, 'Starting entity sync worker');
+  entitySyncWorker.start();
 
   logger.info(
     {
@@ -209,6 +230,7 @@ async function main(): Promise<void> {
     logger.info('Stopping workers...');
     stepProcessorWorker.stop();
     stuckStepResetWorker.stop();
+    entitySyncWorker.stop();
     if (documentAutoQueueWorker) {
       documentAutoQueueWorker.stop();
     }

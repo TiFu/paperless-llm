@@ -49,6 +49,8 @@ tags:
     description: Document retrieval from Paperless-NGX
   - name: Steps
     description: Step-level operations (retry, cancel)
+  - name: EntityDescriptions
+    description: Entity description management (tags, correspondents, document types)
 
 paths:
   /stats/dashboard:
@@ -810,6 +812,73 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /entity-descriptions:
+    get:
+      tags:
+        - EntityDescriptions
+      summary: Get all entity types with descriptions
+      description: Returns all registered entity types (tags, correspondents, document types) with their entities and descriptions. All types are always present; entities may be empty if sync has not yet run.
+      responses:
+        '200':
+          description: Entity descriptions grouped by type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDescriptionsResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /entity-descriptions/sync:
+    post:
+      tags:
+        - EntityDescriptions
+      summary: Trigger manual entity sync
+      description: Fetches all entities from Paperless and syncs them into the local database.
+      responses:
+        '200':
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /entity-descriptions/{type}/{id}:
+    put:
+      tags:
+        - EntityDescriptions
+      summary: Update entity description
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [tag, correspondent, document_type]
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEntityDescriptionRequest'
+      responses:
+        '200':
+          description: Description updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -1981,6 +2050,49 @@ components:
         - type
         - title
         - status
+
+    EntityDescriptionEntity:
+      type: object
+      required: [paperlessId, name, description]
+      properties:
+        paperlessId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+
+    EntityDescriptionType:
+      type: object
+      required: [type, label, entities]
+      properties:
+        type:
+          type: string
+          enum: [tag, correspondent, document_type]
+        label:
+          type: string
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntityDescriptionEntity'
+
+    EntityDescriptionsResponse:
+      type: object
+      required: [entityTypes]
+      properties:
+        entityTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntityDescriptionType'
+
+    UpdateEntityDescriptionRequest:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+          nullable: true
 
   responses:
     BadRequest:

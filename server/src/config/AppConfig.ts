@@ -99,6 +99,13 @@ export interface RetryConfig {
 }
 
 /**
+ * Entity sync configuration
+ */
+export interface EntitySyncConfig {
+  readonly pollIntervalMs: number;
+}
+
+/**
  * Automated document queue configuration
  */
 export interface AutoQueueConfig {
@@ -144,6 +151,9 @@ interface RawConfig {
     tag?: string;
     fields?: DocumentField[]
   };
+  entitySync?: {
+    pollIntervalMs?: number;
+  };
   redis: RedisConfig;
 }
 
@@ -161,6 +171,7 @@ export class AppConfig {
   public readonly api: ApiConfig;
   public readonly retry: RetryConfig;
   public readonly autoQueue: AutoQueueConfig;
+  public readonly entitySync: EntitySyncConfig;
 
   constructor(configPath?: string) {
     const rawConfig = this.loadConfig(configPath);
@@ -201,6 +212,11 @@ export class AppConfig {
       workflowType: this.parseWorkflowType(rawConfig.autoQueue?.workflowType) ?? WorkflowType.AUTOMATED, // Default: AUTOMATED
       tag: rawConfig.autoQueue?.tag ?? 'llm-auto-process', // Default: llm-auto-process
       fields: rawConfig.autoQueue?.fields ?? [ 'title' ]
+    };
+
+    // Entity Sync Configuration
+    this.entitySync = {
+      pollIntervalMs: rawConfig.entitySync?.pollIntervalMs ?? 900000, // Default: 15 minutes
     };
 
     // Redis Configuration (optional)

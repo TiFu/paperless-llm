@@ -22,6 +22,7 @@ import {
   Menu as MenuIcon,
   TextSnippet as TextSnippetIcon,
   Error as ErrorIcon,
+  Label as LabelIcon,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectQueueStats, selectApprovalStats, selectJobStats, fetchDashboardStats } from '../store/slices/statsSlice';
@@ -122,6 +123,11 @@ export const Sidebar: React.FC = () => {
       path: '/prompts',
       label: 'Prompts',
       icon: <TextSnippetIcon />,
+    },
+    {
+      path: '/entities',
+      label: 'Entities',
+      icon: <LabelIcon />,
     },
   ];
 

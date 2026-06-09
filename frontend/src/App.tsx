@@ -18,6 +18,7 @@ import { FalloutsPage } from './pages/FalloutsPage';
 import { PromptsPage } from './pages/PromptsPage';
 import { Sidebar } from './components/Sidebar';
 import { AutomatedStepsPage } from './pages/AutomatedStepsPage';
+import { EntityDescriptionsPage } from './pages/EntityDescriptionsPage';
 
 const theme = createTheme({
   palette: {
@@ -98,6 +99,7 @@ function App() {
                   <Route path="/approvals" element={<ApprovalsPage />} />
                   <Route path="/fallouts" element={<FalloutsPage />} />
                   <Route path="/prompts" element={<PromptsPage />} />
+                  <Route path="/entities" element={<EntityDescriptionsPage />} />
                   <Route path="*" element={<Navigate to="/documents" replace />} />
                 </Routes>
               </Box>

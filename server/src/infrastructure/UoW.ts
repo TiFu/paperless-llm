@@ -6,6 +6,7 @@ import { ILLMService } from "../domain/llm/ILLMService.js";
 import { IPromptDomainService } from "../domain/prompt/IPromptDomainService.js";
 import { IPromptsRepository } from "../domain/prompt/IPromptsRepository.js";
 import { PromptService } from "../domain/prompt/PromptDomainService.js";
+import { IEntityDescriptionsRepository } from "../domain/entityDescriptions/IEntityDescriptionsRepository.js";
 import { StepExecutorDomainService } from "../domain/services/StepExecutorDomainService.js";
 import { WorkflowOrchestratorDomainService } from "../domain/services/WorkflowOrchestratorService.js";
 import { IStepRepository } from "../domain/steps/IStepRepository.js";
@@ -72,12 +73,13 @@ interface UoWRegistryEntry<T> {
 export class UoWFactory {
     constructor(
         private readonly txManager: DatabaseTransactionContextFactory,
-        private readonly dms: IDocumentManagementSystem
+        private readonly dms: IDocumentManagementSystem,
+        private readonly entityDescriptionsRepo?: IEntityDescriptionsRepository,
     ) {}
 
     public async createUoW(): Promise<UoW> {
         const context = await this.txManager.createContext();
-        return new UoWImplementation(context, this.dms);
+        return new UoWImplementation(context, this.dms, this.entityDescriptionsRepo);
     }
 }
 
@@ -88,17 +90,19 @@ export class UoWImplementation implements UoW {
     private context: DatabaseTransactionContext;
     private auditCollector: IAuditCollector;
     private dms: IDocumentManagementSystem;
+    private entityDescriptionsRepo?: IEntityDescriptionsRepository;
 
     getAuditCollector(): IAuditCollector {
         return this.auditCollector
     }
-    constructor(context: DBContextWithRepositoryFactory, dms: IDocumentManagementSystem) {
+    constructor(context: DBContextWithRepositoryFactory, dms: IDocumentManagementSystem, entityDescriptionsRepo?: IEntityDescriptionsRepository) {
         this.objectRegistry = new Set<UoWRegistryEntry<any>>();
         this.context = context.ctx;
         this.repositoryRegistry = context.repositoryFactory.create(this);
         this.promptDomainService = null;
         this.auditCollector = new AuditCollector();
         this.dms = dms;
+        this.entityDescriptionsRepo = entityDescriptionsRepo;
     }
     getStepExecutorDomainService(): StepExecutorDomainService {
         return new StepExecutorDomainService(this.auditCollector)
@@ -109,7 +113,16 @@ export class UoWImplementation implements UoW {
 
     getPromptDomainService(): IPromptDomainService {
         if (!this.promptDomainService) {
-            const obtainer = () => this.dms.getAvailableFields();
+            const obtainer = this.entityDescriptionsRepo
+                ? () => this.entityDescriptionsRepo!.findAllGrouped()
+                : async () => {
+                    const fields = await this.dms.getAvailableFields();
+                    return {
+                        tags: fields.tags.map(t => ({ ...t, description: null })),
+                        correspondents: fields.correspondents.map(c => ({ ...c, description: null })),
+                        documentTypes: fields.documentTypes.map(dt => ({ ...dt, description: null })),
+                    };
+                };
             this.promptDomainService = new PromptService(this.getPrompts(), obtainer);
         }
         return this.promptDomainService;

@@ -19,8 +19,11 @@ import { createApprovalsRouter } from './routes/approvals.js';
 import { createStepsRouter } from './routes/steps.js';
 import { createStatsRouter } from './routes/stats.js';
 import { createDocsRouter } from './routes/docs.js';
+import { createEntityDescriptionsRouter } from './routes/entityDescriptions.js';
 import * as OpenAPIValidator from 'express-openapi-validator';
 import { UoWFactory } from '../infrastructure/UoW.js';
+import { IEntityDescriptionsRepository } from '../domain/entityDescriptions/IEntityDescriptionsRepository.js';
+import { EntitySyncApplicationService } from '../application/EntitySyncApplicationService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +41,8 @@ export function createApiServer(
   uowFactory: UoWFactory,
   paperlessService: IDocumentManagementSystem,
   llmService: ILLMService,
+  entityDescriptionsRepo: IEntityDescriptionsRepository,
+  entitySyncService: EntitySyncApplicationService,
   logger: pino.Logger,
 ): Express {
   const apiSpec = config.apiSpec
@@ -91,6 +96,8 @@ export function createApiServer(
   app.use('/api/steps', createStepsRouter(appFactory));
   app.use('/api/stats', createStatsRouter(appFactory));
   app.use('/api/queue', createQueueRouter(appFactory));
+
+  app.use('/api/entity-descriptions', createEntityDescriptionsRouter(entityDescriptionsRepo, entitySyncService));
 
   // API Docs and OpenAPI spec
   app.use('/api/docs', createDocsRouter());

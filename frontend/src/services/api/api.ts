@@ -10,6 +10,7 @@ import {
   StatsApi,
   StepsApi,
   HealthApi,
+  EntityDescriptionsApi,
   WorkflowType,
   BatchJobRequestDocumentsInnerFieldsEnum,
   EntityValueType,
@@ -40,6 +41,7 @@ const queueApi = new QueueApi(config);
 const statsApi = new StatsApi(config);
 const stepsApi = new StepsApi(config);
 const healthApi = new HealthApi(config);
+const entityDescriptionsApi = new EntityDescriptionsApi(config);
 
 function normalizeError(error: any): Error {
       if (error?.response?.data?.detail) return new Error(error.response.data.detail);
@@ -214,6 +216,29 @@ export const apiClient = {
   async checkHealth() {
     try {
       return await healthApi.getHealth();
+    } catch (e) {
+      throw normalizeError(e);
+    }
+  },
+
+  // Entity Descriptions
+  async fetchEntityDescriptions() {
+    try {
+      return await entityDescriptionsApi.entityDescriptionsGet();
+    } catch (e) {
+      throw normalizeError(e);
+    }
+  },
+  async updateEntityDescription(type: 'tag' | 'correspondent' | 'document_type', paperlessId: number, description: string | null) {
+    try {
+      return await entityDescriptionsApi.entityDescriptionsTypeIdPut({ type, id: paperlessId, updateEntityDescriptionRequest: { description } });
+    } catch (e) {
+      throw normalizeError(e);
+    }
+  },
+  async syncEntityDescriptions() {
+    try {
+      return await entityDescriptionsApi.entityDescriptionsSyncPost();
     } catch (e) {
       throw normalizeError(e);
     }

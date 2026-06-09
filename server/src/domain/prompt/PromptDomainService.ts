@@ -6,7 +6,7 @@ import { ExecutableStep } from '../steps/automated/ExecutableStep.js';
 import pino from 'pino';
 import { createChildLogger } from '../../utils/logger.js';
 import { IPromptsRepository } from './IPromptsRepository.js';
-import { AvailableFieldsObtainer } from '../document/IDocumentEntities.js';
+import { DescribedAvailableFieldsObtainer } from '../entityDescriptions/IDescribedEntities.js';
 
 /**
  * PromptDomainService - handles prompt rendering with document and job context.
@@ -14,7 +14,7 @@ import { AvailableFieldsObtainer } from '../document/IDocumentEntities.js';
  */
 export class PromptService implements IPromptDomainService {
   private readonly logger: pino.Logger
-  public constructor(private readonly repo: IPromptsRepository, private readonly fieldsObtainer: AvailableFieldsObtainer) {
+  public constructor(private readonly repo: IPromptsRepository, private readonly fieldsObtainer: DescribedAvailableFieldsObtainer) {
     this.logger = createChildLogger({ name: "PromptService"})
   }
 
@@ -39,9 +39,21 @@ export class PromptService implements IPromptDomainService {
       const { tags: availableTags, correspondents: availableCorrespondents, documentTypes: availableDocumentTypes } = await this.fieldsObtainer();
 
       // Prepare variables for rendering
-      const tags = availableTags.map(t => `<availableTag>${t.name}</availableTag>`).join('\n');
-      const correspondents = availableCorrespondents.map(c => `<availableCorrespondent>${c.name}</availableCorrespondent>`).join('\n');
-      const documentTypes = availableDocumentTypes.map(dt => `<availableDocumentType>${dt.name}</availableDocumentType>`).join('\n');
+      const tags = availableTags.map(t =>
+        t.description
+          ? `<availableTag description="${t.description}">${t.name}</availableTag>`
+          : `<availableTag>${t.name}</availableTag>`
+      ).join('\n');
+      const correspondents = availableCorrespondents.map(c =>
+        c.description
+          ? `<availableCorrespondent description="${c.description}">${c.name}</availableCorrespondent>`
+          : `<availableCorrespondent>${c.name}</availableCorrespondent>`
+      ).join('\n');
+      const documentTypes = availableDocumentTypes.map(dt =>
+        dt.description
+          ? `<availableDocumentType description="${dt.description}">${dt.name}</availableDocumentType>`
+          : `<availableDocumentType>${dt.name}</availableDocumentType>`
+      ).join('\n');
 
       const variables: Record<string, string> = {
         documentContent: `<content>${document.content}</content>`,
