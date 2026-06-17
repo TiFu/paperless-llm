@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, Link as RouterLink } from 'react-router-dom';
+import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Drawer,
   Box,
@@ -23,9 +23,11 @@ import {
   TextSnippet as TextSnippetIcon,
   Error as ErrorIcon,
   Label as LabelIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectQueueStats, selectApprovalStats, selectJobStats, fetchDashboardStats } from '../store/slices/statsSlice';
+import { logout, selectUsername } from '../store/slices/authSlice';
 import { HealthStatusIndicator } from './HealthStatusIndicator';
 
 const DRAWER_WIDTH = 280;
@@ -41,6 +43,7 @@ interface NavItem {
 
 export const Sidebar: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -48,6 +51,12 @@ export const Sidebar: React.FC = () => {
   const queueStats = useAppSelector(selectQueueStats);
   const approvalStats = useAppSelector(selectApprovalStats);
   const jobStats = useAppSelector(selectJobStats);
+  const username = useAppSelector(selectUsername);
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate('/login', { replace: true });
+  };
 
   // Global stats polling — replaces StatsProvider
   useEffect(() => {
@@ -212,9 +221,31 @@ export const Sidebar: React.FC = () => {
       {/* Spacer to push health indicator to bottom */}
       <Box sx={{ flexGrow: 1 }} />
 
-      {/* Health Status at Bottom */}
+      {/* Health Status + Logout at Bottom */}
       <Box>
-        <Divider sx={{ mb: 2, borderColor: 'rgba(255, 255, 255, 0.12)' }} />
+        <Divider sx={{ mb: 1, borderColor: 'rgba(255, 255, 255, 0.12)' }} />
+        <List sx={{ py: 0 }}>
+          <ListItemButton
+            onClick={handleLogout}
+            sx={{
+              mx: 1,
+              borderRadius: 1,
+              color: 'rgba(255, 255, 255, 0.7)',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+              },
+              '& .MuiListItemIcon-root': {
+                color: 'rgba(255, 255, 255, 0.7)',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <LogoutIcon />
+            </ListItemIcon>
+            <ListItemText primary={username ? `Logout (${username})` : 'Logout'} />
+          </ListItemButton>
+        </List>
+        <Divider sx={{ my: 1, borderColor: 'rgba(255, 255, 255, 0.12)' }} />
         <Box sx={{ px: 2, pb: 2 }}>
           <Typography variant="caption" sx={{ mb: 1, display: 'block', color: 'rgba(255, 255, 255, 0.7)' }}>
             System Status

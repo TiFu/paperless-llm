@@ -11,6 +11,7 @@ import { StepCancelApplicationService } from './StepCancelApplicationService.js'
 import { DocumentAutoQueueApplicationService } from './DocumentAutoQueueApplicationService.js';
 import { AuditLogApplicationService } from './AuditLogApplicationService.js';
 import { DashboardStatsApplicationService } from './DashboardStatsApplicationService.js';
+import { DocumentApplicationService } from './DocumentApplicationService.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { RetryConfig } from '../domain/steps/IStep.js';
@@ -143,6 +144,14 @@ export class ApplicationServiceFactory {
    */
   createAuditLogApplicationService(): AuditLogApplicationService {
     return new AuditLogApplicationService(this.uowFactory);
+  }
+
+  /**
+   * Create a new DocumentApplicationService instance.
+   * Accesses Paperless documents/entities scoped to the requesting user's own token.
+   */
+  createDocumentApplicationService(): DocumentApplicationService {
+    return new DocumentApplicationService(this.uowFactory);
   }
 
 }

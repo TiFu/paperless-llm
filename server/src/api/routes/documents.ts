@@ -1,23 +1,19 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import pino from 'pino';
-import { PaperlessService } from '../../services/PaperlessService.js';
+import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { createChildLogger } from '../../utils/logger.js';
-import { UoWFactory } from '../../infrastructure/UoW.js';
-import { IDocumentManagementSystem } from '../../domain/document/IDocumentManagementSystem.js';
+import { DocumentController } from '../../web/DocumentController.js';
+import { EntityValueType } from '../../application/DocumentApplicationService.js';
 
-export function createDocumentsRouter(
-  paperlessService: IDocumentManagementSystem,
-  uowFactory: UoWFactory,
-): Router {
-  const logger = createChildLogger({ name: "document-router"})
-
+export function createDocumentsRouter(appFactory: ApplicationServiceFactory): Router {
+  const logger = createChildLogger({ name: "document-router" })
   const router = Router();
+  const controller = new DocumentController(appFactory);
 
   /**
    * GET /api/documents
    * List documents by tag with pagination
-   * Query params: 
+   * Query params:
    *   - tag (required)
    *   - limit (optional, default 50, must be 10, 50, or 100)
    *   - cursor (optional, for pagination)
@@ -35,7 +31,7 @@ export function createDocumentsRouter(
       // Validate and parse limit
       const allowedLimits = [10, 50, 100];
       let limit = 50; // default
-      
+
       if (limitStr) {
         const parsedLimit = parseInt(limitStr, 10);
         if (isNaN(parsedLimit) || !allowedLimits.includes(parsedLimit)) {
@@ -48,32 +44,8 @@ export function createDocumentsRouter(
         limit = parsedLimit;
       }
 
-      // 1. Fetch paginated documents from Paperless
-      const paginatedResult = await paperlessService.getDocumentsByTag(tag, limit, cursor);
-
-      // 2. Extract document IDs
-      const documentIds = paginatedResult.documents.map(doc => doc.id);
-
-      // 3. Query database to find which documents have jobs in progress
-      let inProgressIds: number[] = [];
-      if (documentIds.length > 0) {
-        await using context = await uowFactory.createSystemUoW();
-        await context.start();
-        inProgressIds = await context.getJobs().filterInProgressDocuments(documentIds);
-      }
-
-      // 4. Filter out documents that are currently being processed
-      const availableDocuments = paginatedResult.documents.filter(
-        doc => !inProgressIds.includes(doc.id)
-      );
-
-      res.json({
-        documents: availableDocuments,
-        pagination: {
-          limit,
-          nextCursor: paginatedResult.nextCursor,
-        },
-      });
+      const result = await controller.listDocuments(req.user!, tag, limit, cursor);
+      res.json(result);
     } catch (error) {
       logger.error({ error, tag: req.query.tag }, 'Failed to fetch documents');
       next(error);
@@ -86,8 +58,8 @@ export function createDocumentsRouter(
    */
   router.get('/tags', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const tags = await paperlessService.getTags();
-      res.json({ tags });
+      const result = await controller.getTags(req.user!);
+      res.json(result);
     } catch (error) {
       logger.error({ error }, 'Failed to fetch tags');
       next(error);
@@ -100,8 +72,8 @@ export function createDocumentsRouter(
    */
   router.get('/correspondents', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const correspondents = await paperlessService.getCorrespondents();
-      res.json({ correspondents });
+      const result = await controller.getCorrespondents(req.user!);
+      res.json(result);
     } catch (error) {
       logger.error({ error }, 'Failed to fetch correspondents');
       next(error);
@@ -114,16 +86,15 @@ export function createDocumentsRouter(
    */
   router.get('/document-types', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const documentTypes = await paperlessService.getDocumentTypes();
-      res.json({ documentTypes });
+      const result = await controller.getDocumentTypes(req.user!);
+      res.json(result);
     } catch (error) {
       logger.error({ error }, 'Failed to fetch document types');
       next(error);
     }
   });
 
-  const VALID_ENTITY_TYPES = ['tag', 'correspondent', 'document_type'] as const;
-  type EntityValueType = typeof VALID_ENTITY_TYPES[number];
+  const VALID_ENTITY_TYPES: EntityValueType[] = ['tag', 'correspondent', 'document_type'];
 
   /**
    * GET /api/documents/entity-values/:type
@@ -137,26 +108,8 @@ export function createDocumentsRouter(
         throw new ApiError(400, 'Invalid entity type', `type must be one of: ${VALID_ENTITY_TYPES.join(', ')}`);
       }
 
-      let items: { id: number; name: string }[];
-      switch (type as EntityValueType) {
-        case 'tag': {
-          const tags = await paperlessService.getTags();
-          items = tags.map(t => ({ id: t.id, name: t.name }));
-          break;
-        }
-        case 'correspondent': {
-          const correspondents = await paperlessService.getCorrespondents();
-          items = correspondents.map(c => ({ id: c.id, name: c.name }));
-          break;
-        }
-        case 'document_type': {
-          const types = await paperlessService.getDocumentTypes();
-          items = types.map(t => ({ id: t.id, name: t.name }));
-          break;
-        }
-      }
-
-      res.json({ items });
+      const result = await controller.getEntityValues(req.user!, type as EntityValueType);
+      res.json(result);
     } catch (error) {
       logger.error({ error, type: req.params.type }, 'Failed to fetch entity values');
       next(error);

@@ -43,6 +43,10 @@ api:
   corsOrigins:
     - "*"
 
+auth:
+  jwtSecret: change_me_to_a_long_random_secret   # required - used to sign/verify login JWTs
+  jwtExpiresIn: 8h                               # optional, defaults to 8h
+
 retry:
   maxRetries: 3                 # Maximum retry attempts for automated steps
   retryDelayInMs: 30000         # Base delay in milliseconds (30 seconds)

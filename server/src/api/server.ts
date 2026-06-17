@@ -103,7 +103,7 @@ export function createApiServer(
   app.use('/', createHealthRouter(uowFactory, paperlessService, llmService));
 
   // API routes
-  app.use('/api/documents', createDocumentsRouter(paperlessService, uowFactory));
+  app.use('/api/documents', createDocumentsRouter(appFactory));
   app.use('/api/prompts', createPromptsRouter(appFactory));
   app.use('/api/jobs', createJobsRouter(appFactory));
   app.use('/api/approvals', createApprovalsRouter(appFactory));

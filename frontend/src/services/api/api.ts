@@ -11,16 +11,32 @@ import {
   StepsApi,
   HealthApi,
   EntityDescriptionsApi,
+  AuthApi,
   WorkflowType,
   BatchJobRequestDocumentsInnerFieldsEnum,
   EntityValueType,
 } from './generated';
+import { BearerAuthAuthentication } from './generated/auth/auth';
+import { PromiseMiddleware } from './generated/middleware';
+import { getToken, emitUnauthorized } from '../auth/tokenStorage';
 
 // TODO: make this overwritable
 const API_BASE_URL = 'http://localhost:3000/api';
 
 
 import { RequestContext } from './generated';
+
+const bearerAuth = new BearerAuthAuthentication({ getToken: () => getToken() ?? '' });
+
+const unauthorizedMiddleware: PromiseMiddleware = {
+  pre: async context => context,
+  post: async context => {
+    if (context.httpStatusCode === 401) {
+      emitUnauthorized();
+    }
+    return context;
+  },
+};
 
 const config: Configuration = createConfiguration({
   baseServer: {
@@ -31,6 +47,11 @@ const config: Configuration = createConfiguration({
       return new RequestContext(`${base}/${ep}`, httpMethod);
     },
   },
+  authMethods: {
+    default: bearerAuth,
+    bearerAuth: { tokenProvider: { getToken: () => getToken() ?? '' } },
+  },
+  promiseMiddleware: [unauthorizedMiddleware],
 });
 
 const documentsApi = new DocumentsApi(config);
@@ -42,15 +63,34 @@ const statsApi = new StatsApi(config);
 const stepsApi = new StepsApi(config);
 const healthApi = new HealthApi(config);
 const entityDescriptionsApi = new EntityDescriptionsApi(config);
+const authApi = new AuthApi(config);
 
 function normalizeError(error: any): Error {
       if (error?.response?.data?.detail) return new Error(error.response.data.detail);
       if (error?.response?.data?.title) return new Error(error.response.data.title);
+      if (error?.body?.detail) return new Error(error.body.detail);
+      if (error?.body?.title) return new Error(error.body.title);
       if (error?.message) return new Error(error.message);
       return new Error('Unknown API error');
 }
 
 export const apiClient = {
+  // Auth
+  async login(username: string, password: string) {
+    try {
+      return await authApi.authLoginPost({ username, password });
+    } catch (e) {
+      throw normalizeError(e);
+    }
+  },
+  async fetchMe() {
+    try {
+      return await authApi.authMeGet();
+    } catch (e) {
+      throw normalizeError(e);
+    }
+  },
+
   // Documents
   async fetchDocumentsByTag(tag: string, limit?: number, cursor?: string) {
     try {

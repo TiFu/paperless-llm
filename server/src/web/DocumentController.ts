@@ -1,47 +1,53 @@
-
 import { AppMapper } from '../map/Mapper.js';
 import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory.js';
+import { UserContext } from '../domain/auth/UserContext.js';
+import { EntityValueType } from '../application/DocumentApplicationService.js';
 import type { DocumentsListWithPagination } from './dtos/models/DocumentsListWithPagination.js';
 import type { TagsList } from './dtos/models/TagsList.js';
 import type { CorrespondentsList } from './dtos/models/CorrespondentsList.js';
 import type { DocumentTypesList } from './dtos/models/DocumentTypesList.js';
+import type { EntityValuesResponse } from './dtos/models/EntityValuesResponse.js';
 
 export class DocumentController {
-  private dmsService;
+  private documentAppService;
 
   constructor(appFactory: ApplicationServiceFactory) {
-    this.dmsService = appFactory["dmsService"];
+    this.documentAppService = appFactory.createDocumentApplicationService();
   }
 
   /**
-   * List documents with pagination (by tag, or all if no tag provided)
+   * List documents by tag with pagination, scoped to the requesting user's Paperless token
    */
-  async listDocuments(tag?: string, limit: number = 50, cursor?: string): Promise<DocumentsListWithPagination> {
-    let paged;
-    if (tag) {
-      paged = await this.dmsService.getDocumentsByTag(tag, limit, cursor);
-    } else {
-      // If you have a getAllDocuments or similar, use it; otherwise, return empty
-      paged = { documents: [], nextCursor: null };
-    }
+  async listDocuments(
+    user: UserContext,
+    tag: string,
+    limit: number = 50,
+    cursor?: string,
+  ): Promise<DocumentsListWithPagination> {
+    const { documents, nextCursor } = await this.documentAppService.listByTag(user, tag, limit, cursor);
     return AppMapper.toDocumentsListWithPagination({
-      documents: paged.documents,
-      pagination: { limit, nextCursor: paged.nextCursor },
+      documents,
+      pagination: { limit, nextCursor },
     });
   }
 
-  async getTags(): Promise<TagsList> {
-    const tags = await this.dmsService.getTags();
+  async getTags(user: UserContext): Promise<TagsList> {
+    const tags = await this.documentAppService.getTags(user);
     return { tags: AppMapper.toTagList(tags) };
   }
 
-  async getCorrespondents(): Promise<CorrespondentsList> {
-    const correspondents = await this.dmsService.getCorrespondents();
+  async getCorrespondents(user: UserContext): Promise<CorrespondentsList> {
+    const correspondents = await this.documentAppService.getCorrespondents(user);
     return { correspondents: AppMapper.toCorrespondentList(correspondents) };
   }
 
-  async getDocumentTypes(): Promise<DocumentTypesList> {
-    const types = await this.dmsService.getDocumentTypes();
+  async getDocumentTypes(user: UserContext): Promise<DocumentTypesList> {
+    const types = await this.documentAppService.getDocumentTypes(user);
     return { documentTypes: AppMapper.toDocumentTypeList(types) };
+  }
+
+  async getEntityValues(user: UserContext, type: EntityValueType): Promise<EntityValuesResponse> {
+    const items = await this.documentAppService.getEntityValues(user, type);
+    return { items };
   }
 }

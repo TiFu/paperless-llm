@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -7,15 +7,20 @@ import {
   CssBaseline,
   ThemeProvider,
   createTheme,
+  CircularProgress,
 } from '@mui/material';
 import { Provider } from 'react-redux';
 import { store } from './store/store';
+import { useAppDispatch, useAppSelector } from './store/hooks';
+import { bootstrap, logout, selectAuthStatus } from './store/slices/authSlice';
+import { onUnauthorized } from './services/auth/tokenStorage';
 import { DocumentsPage } from './pages/DocumentsPage';
 import { JobsPage } from './pages/JobsPage';
 import { JobDetailsPage } from './pages/JobDetailsPage';
 import { ApprovalsPage } from './pages/ApprovalsPage';
 import { FalloutsPage } from './pages/FalloutsPage';
 import { PromptsPage } from './pages/PromptsPage';
+import { LoginPage } from './pages/LoginPage';
 import { Sidebar } from './components/Sidebar';
 import { AutomatedStepsPage } from './pages/AutomatedStepsPage';
 import { EntityDescriptionsPage } from './pages/EntityDescriptionsPage';
@@ -74,6 +79,46 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+const AuthenticatedLayout: React.FC = () => (
+  <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Sidebar />
+    <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+      <Outlet />
+    </Box>
+  </Box>
+);
+
+const RequireAuth: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const status = useAppSelector(selectAuthStatus);
+
+  useEffect(() => {
+    if (status === 'idle') {
+      dispatch(bootstrap());
+    }
+  }, [status, dispatch]);
+
+  useEffect(() => {
+    return onUnauthorized(() => {
+      dispatch(logout());
+    });
+  }, [dispatch]);
+
+  if (status === 'idle' || status === 'loading') {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (status === 'unauthenticated') {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <AuthenticatedLayout />;
+};
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -81,29 +126,21 @@ function App() {
       <ErrorBoundary>
         <Provider store={store}>
           <BrowserRouter>
-            <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-              <Sidebar />
-              <Box
-                component="main"
-                sx={{
-                  flexGrow: 1,
-                  p: 3,
-                }}
-              >
-                <Routes>
-                  <Route path="/" element={<Navigate to="/documents" replace />} />
-                  <Route path="/documents" element={<DocumentsPage />} />
-                  <Route path="/jobs" element={<JobsPage />} />
-                  <Route path="/jobs/:id" element={<JobDetailsPage />} />
-                  <Route path="/queues" element={<AutomatedStepsPage />} />
-                  <Route path="/approvals" element={<ApprovalsPage />} />
-                  <Route path="/fallouts" element={<FalloutsPage />} />
-                  <Route path="/prompts" element={<PromptsPage />} />
-                  <Route path="/entities" element={<EntityDescriptionsPage />} />
-                  <Route path="*" element={<Navigate to="/documents" replace />} />
-                </Routes>
-              </Box>
-            </Box>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route element={<RequireAuth />}>
+                <Route path="/" element={<Navigate to="/documents" replace />} />
+                <Route path="/documents" element={<DocumentsPage />} />
+                <Route path="/jobs" element={<JobsPage />} />
+                <Route path="/jobs/:id" element={<JobDetailsPage />} />
+                <Route path="/queues" element={<AutomatedStepsPage />} />
+                <Route path="/approvals" element={<ApprovalsPage />} />
+                <Route path="/fallouts" element={<FalloutsPage />} />
+                <Route path="/prompts" element={<PromptsPage />} />
+                <Route path="/entities" element={<EntityDescriptionsPage />} />
+                <Route path="*" element={<Navigate to="/documents" replace />} />
+              </Route>
+            </Routes>
           </BrowserRouter>
         </Provider>
       </ErrorBoundary>
