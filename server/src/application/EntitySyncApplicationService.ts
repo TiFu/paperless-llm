@@ -1,44 +1,59 @@
-import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { IEntityDescriptionsRepository, EntityDescription } from '../domain/entityDescriptions/IEntityDescriptionsRepository.js';
 import { EntityType } from '../domain/entityDescriptions/EntityType.js';
+import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
+import { UoWFactory } from '../infrastructure/UoW.js';
 import { getLogger } from '../utils/logger.js';
 
 export class EntitySyncApplicationService {
   constructor(
-    private readonly dms: IDocumentManagementSystem,
-    private readonly repo: IEntityDescriptionsRepository,
+    private readonly usersRepo: IUsersRepository,
+    private readonly entityDescRepo: IEntityDescriptionsRepository,
+    private readonly uowFactory: UoWFactory,
   ) {}
 
   async syncAll(): Promise<void> {
     const logger = getLogger();
+    const users = await this.usersRepo.findAll();
 
-    await Promise.all([
-      this.syncType('tag', () => this.dms.getTags()),
-      this.syncType('correspondent', () => this.dms.getCorrespondents()),
-      this.syncType('document_type', () => this.dms.getDocumentTypes()),
-    ]);
+    if (users.length === 0) {
+      logger.debug('No users found, skipping entity sync');
+      return;
+    }
 
-    logger.debug('Entity descriptions sync completed');
+    await Promise.all(users.map(user => this.syncForUser(user.username)));
+    logger.debug({ userCount: users.length }, 'Entity sync completed for all users');
   }
 
-  private async syncType(
-    type: EntityType,
-    fetch: () => Promise<{ id: number; name: string }[]>,
-  ): Promise<void> {
+  async syncForUser(username: string): Promise<void> {
     const logger = getLogger();
-    const items = await fetch();
+    const dms = await this.uowFactory.createDMSForUser({ username });
 
-    const entities: EntityDescription[] = items.map(item => ({
-      entityType: type,
-      paperlessId: item.id,
-      name: item.name,
-      description: null,
-      syncedAt: new Date(),
-    }));
+    const [tags, correspondents, documentTypes] = await Promise.all([
+      dms.getTags(),
+      dms.getCorrespondents(),
+      dms.getDocumentTypes(),
+    ]);
 
-    await this.repo.upsertMany(entities);
-    await this.repo.deleteByTypeExcluding(type, items.map(i => i.id));
+    const entities: EntityDescription[] = [
+      ...tags.map(t => ({ entityType: 'tag' as EntityType, paperlessId: t.id, name: t.name, description: null, syncedAt: new Date() })),
+      ...correspondents.map(c => ({ entityType: 'correspondent' as EntityType, paperlessId: c.id, name: c.name, description: null, syncedAt: new Date() })),
+      ...documentTypes.map(dt => ({ entityType: 'document_type' as EntityType, paperlessId: dt.id, name: dt.name, description: null, syncedAt: new Date() })),
+    ];
+    await this.entityDescRepo.upsertMany(entities);
 
-    logger.debug({ type, count: items.length }, 'Synced entity type');
+    const visibilityEntries = [
+      ...tags.map(t => ({ type: 'tag' as EntityType, paperlessId: t.id })),
+      ...correspondents.map(c => ({ type: 'correspondent' as EntityType, paperlessId: c.id })),
+      ...documentTypes.map(dt => ({ type: 'document_type' as EntityType, paperlessId: dt.id })),
+    ];
+    await using context = await this.uowFactory.createSystemUoW();
+    await context.start();
+    await context.getPermissions().setEntityVisibility(username, visibilityEntries);
+    await context.commit();
+
+    logger.debug(
+      { username, tags: tags.length, correspondents: correspondents.length, documentTypes: documentTypes.length },
+      'Entity sync completed for user',
+    );
   }
 }

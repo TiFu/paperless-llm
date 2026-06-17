@@ -45,10 +45,8 @@ export class HealthController {
     try {
       // Use a unit of work to check DB connectivity
       // (matches original route logic)
-      // @ts-ignore: using context syntax
-      await using context = await this.uowFactory.createUoW();
+      await using context = await this.uowFactory.createSystemUoW();
       await context.start();
-      await context.getJobs().list(1);
       await context.rollback();
       return true;
     } catch {

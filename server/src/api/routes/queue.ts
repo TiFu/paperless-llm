@@ -13,9 +13,9 @@ export function createQueueRouter(appFactory: ApplicationServiceFactory): Router
   const controller = new QueueController(appFactory);
 
   // GET /api/queue/stats
-  router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
+  router.get('/stats', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const stats = await controller.getQueueStats();
+      const stats = await controller.getQueueStats(req.user!);
       res.json(stats);
     } catch (error) {
       logger.error({ error }, 'Failed to fetch queue stats');
@@ -43,7 +43,7 @@ export function createQueueRouter(appFactory: ApplicationServiceFactory): Router
       }
 
       logger.info({ limit, cursor, status }, "Requesting queue items");
-      const result = await controller.listQueueItems(limit, cursor, status);
+      const result = await controller.listQueueItems(req.user!, limit, cursor, status);
       res.json(result);
     } catch (error) {
       logger.error({ error }, 'Failed to fetch queue items');

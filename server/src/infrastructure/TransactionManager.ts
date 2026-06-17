@@ -2,6 +2,7 @@ import { IPromptsRepository } from '../domain/prompt/IPromptsRepository.js';
 import { IJobRepository } from '../domain/job/IJobRepository.js';
 import { IStepRepository } from '../domain/steps/IStepRepository.js';
 import { IAuditLogRepository } from '../domain/audit/IAuditLogRepository.js';
+import { IPermissionsRepository } from '../domain/authorization/IPermissionsRepository.js';
 import { UoW } from './UoW.js';
 
 /**
@@ -27,6 +28,7 @@ export interface RepositoryRegistry {
   getSteps(): IStepRepository;
 
   getAuditLog(): IAuditLogRepository;
+  getPermissions(): IPermissionsRepository;
 }
 
 export type DBContextWithRepositoryFactory = { ctx: DatabaseTransactionContext, repositoryFactory: RepositoryRegistryFactory}

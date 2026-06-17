@@ -10,9 +10,9 @@ export function createFalloutsRouter(appFactory: ApplicationServiceFactory): Rou
   const controller = new FalloutController(appFactory);
 
   // GET /fallouts - List fallout steps (in_fallout) with audit log attached
-  router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
+  router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await controller.listFallouts();
+      const result = await controller.listFallouts(req.user!);
       res.json(result);
     } catch (err) {
       logger.error({ err }, 'Failed to fetch fallout items');

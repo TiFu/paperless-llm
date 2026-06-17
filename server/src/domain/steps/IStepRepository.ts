@@ -77,17 +77,20 @@ export interface IStepRepository {
   updateAll(step: IStep[]): Promise<void>;
 
   /**
-   * Get aggregated statistics for all automated steps (excluding REQUIRE_APPROVAL)
+   * Get aggregated statistics for all automated steps (excluding REQUIRE_APPROVAL).
+   * Scoped to the UoW user when a user context is present; returns all for system UoW.
    */
   getAutomatedStepStatistics(): Promise<AutomatedStepStatistics>;
 
   /**
-   * Count pending user interaction steps (REQUIRE_APPROVAL steps in WAITING status)
+   * Count pending user interaction steps (REQUIRE_APPROVAL steps in WAITING status).
+   * Scoped to the UoW user when a user context is present; returns all for system UoW.
    */
   countPendingUserInteractionSteps(): Promise<number>;
 
   /**
-   * List automated steps with job information for queue display
+   * List automated steps with job information for queue display.
+   * Scoped to the UoW user when a user context is present; returns all for system UoW.
    * @param limit Maximum number of items to return
    * @param cursor Optional cursor for pagination (step ID)
    * @param stepStatus Optional filter by step status

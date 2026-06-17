@@ -11,16 +11,12 @@ import { StepType } from '../../web/dtos/models/StepType.js';
 
 export function createPromptsRouter(appFactory: ApplicationServiceFactory): Router {
   const promptController = new PromptController(appFactory);
-  const logger = createChildLogger({ name: "prompt-router"})
+  const logger = createChildLogger({ name: "prompt-router"});
   const router = Router();
 
-  /**
-   * GET /api/prompts
-   * List all prompts
-   */
-  router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
+  router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await promptController.listPrompts();
+      const result = await promptController.listPrompts(req.user!);
       res.json(result);
     } catch (error) {
       logger.error({ error }, 'Failed to fetch prompts');
@@ -28,10 +24,6 @@ export function createPromptsRouter(appFactory: ApplicationServiceFactory): Rout
     }
   });
 
-  /**
-   * PUT /api/prompts/:stepType
-   * Update or create a prompt for a specific step type
-   */
   router.put(
     '/:stepType',
     [
@@ -45,7 +37,6 @@ export function createPromptsRouter(appFactory: ApplicationServiceFactory): Rout
         const { stepType } = req.params;
         const body: UpdatePromptRequest = req.body;
 
-        // Validate step type
         if (!Object.values(StepType).includes(stepType as StepType)) {
           throw new ApiError(
             400,
@@ -54,7 +45,7 @@ export function createPromptsRouter(appFactory: ApplicationServiceFactory): Rout
           );
         }
 
-        const result = await promptController.updatePrompt(stepType as StepType, body);
+        const result = await promptController.updatePrompt(stepType as StepType, body, req.user!);
         res.json(result);
       } catch (error) {
         logger.error({ error, stepType: req.params.stepType }, 'Failed to update prompt');

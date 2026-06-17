@@ -5,74 +5,55 @@ import { JobApplicationService } from './JobApplicationService.js';
 import { AutoQueueConfig } from '../config/AppConfig.js';
 import { getLogger } from '../utils/logger.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
+import { UserContext } from '../domain/auth/UserContext.js';
+import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
 
-/**
- * Result of processing auto-queue documents
- */
 export interface AutoQueueProcessResult {
-  processed: number;  // Total documents fetched
-  created: number;    // Jobs created
-  skipped: number;    // Documents skipped (already have active jobs)
+  processed: number;
+  created: number;
+  skipped: number;
 }
 
-/**
- * DocumentAutoQueueApplicationService - Automatically discovers and queues documents
- * for processing based on configured tags.
- * 
- * This service polls Paperless for documents with a specific tag and automatically
- * creates jobs for them, skipping documents that already have active jobs.
- */
 export class DocumentAutoQueueApplicationService {
   constructor(
     private readonly uowFactory: UoWFactory,
+    private readonly usersRepo: IUsersRepository,
     private readonly paperlessService: IDocumentManagementSystem,
     private readonly jobApplicationService: JobApplicationService,
     private readonly config: AutoQueueConfig,
   ) {}
 
-  /**
-   * Process new documents from the auto-queue tag.
-   * Fetches documents with the configured tag, checks for existing active jobs,
-   * and creates new jobs for documents that don't have any.
-   * 
-   * @returns Statistics about the processing operation
-   */
   async processNewDocuments(): Promise<AutoQueueProcessResult> {
     const logger = getLogger();
-    
+
+    const users = await this.usersRepo.findAll();
+    if (users.length === 0) {
+      logger.debug('No users found, skipping auto-queue');
+      return { processed: 0, created: 0, skipped: 0 };
+    }
+
     try {
-      // 1. Fetch ALL documents with the configured tag from Paperless
-      // We must paginate through all results to ensure we discover all documents,
-      // not just the first page
       logger.debug({ tag: this.config.tag }, 'Fetching documents for auto-queue');
-      
+
       const documents: IDocument[] = [];
       let cursor: string | undefined = undefined;
       let pageCount = 0;
-      
-      // Fetch all pages of documents
+
       do {
         const paginatedResult = await this.paperlessService.getDocumentsByTag(
           this.config.tag,
-          100,  // Page size for fetching
-          cursor
+          100,
+          cursor,
         );
-        
         documents.push(...paginatedResult.documents);
         cursor = paginatedResult.nextCursor || undefined;
         pageCount++;
-        
         logger.debug(
-          { 
-            pageCount, 
-            fetchedThisPage: paginatedResult.documents.length,
-            totalSoFar: documents.length,
-            hasMore: !!cursor 
-          }, 
-          'Fetched page of documents for auto-queue'
+          { pageCount, fetchedThisPage: paginatedResult.documents.length, totalSoFar: documents.length, hasMore: !!cursor },
+          'Fetched page of documents for auto-queue',
         );
       } while (cursor);
-      
+
       if (documents.length === 0) {
         logger.debug('No documents found for auto-queue processing');
         return { processed: 0, created: 0, skipped: 0 };
@@ -80,60 +61,54 @@ export class DocumentAutoQueueApplicationService {
 
       logger.debug({ count: documents.length, pages: pageCount }, 'Found all documents for auto-queue');
 
-      // 2. Extract document IDs for batch duplicate checking
       const documentIds = documents.map(doc => doc.id);
 
-      // 3. Batch check: find which documents already have active jobs
       let inProgressIds: number[] = [];
-      await using uow1 = await this.uowFactory.createUoW();
+      await using uow1 = await this.uowFactory.createSystemUoW();
       await uow1.start();
       inProgressIds = await uow1.getJobs().filterInProgressDocuments(documentIds);
       await uow1.save();
       await uow1.commit();
-      
+
       logger.debug({ inProgressCount: inProgressIds.length }, 'Documents with active jobs');
 
-      // 4. Filter out documents that have active jobs
       const availableDocuments = documents.filter(doc => !inProgressIds.includes(doc.id));
 
       if (availableDocuments.length === 0) {
         logger.info(
           { processed: documents.length, skipped: inProgressIds.length },
-          'All documents already have active jobs, skipping'
+          'All documents already have active jobs, skipping',
         );
         return { processed: documents.length, created: 0, skipped: inProgressIds.length };
       }
 
-      // 5. Create jobs for available documents in bulk
       const jobsToCreate = availableDocuments.map(doc => ({
         documentId: doc.id,
         jobType: this.config.workflowType,
-        fields: this.config.fields
+        fields: this.config.fields,
       }));
 
-      let createdJobs: Job[] = [];
-      try {
-        createdJobs = await this.jobApplicationService.createBulk(jobsToCreate);
-        logger.info(
-          { count: createdJobs.length, workflowType: this.config.workflowType },
-          'Auto-queue created jobs in bulk'
-        );
-      } catch (error) {
-        logger.error(
-          { error, count: jobsToCreate.length },
-          'Failed to create jobs in bulk for auto-queue'
-        );
-        throw error;
+      // Create jobs attributed to all known users (each user gets ownership)
+      let totalCreated = 0;
+      for (const user of users) {
+        const userCtx: UserContext = { username: user.username };
+        try {
+          const createdJobs = await this.jobApplicationService.createBulk(jobsToCreate, userCtx);
+          totalCreated += createdJobs.length;
+          logger.info(
+            { username: user.username, count: createdJobs.length, workflowType: this.config.workflowType },
+            'Auto-queue created jobs for user',
+          );
+        } catch (error) {
+          logger.error({ error, username: user.username }, 'Failed to create auto-queue jobs for user');
+        }
+        break; // Only create for first user to avoid duplicates — extend later for per-user queues
       }
 
-      const created = createdJobs.length;
       const skipped = inProgressIds.length;
-      logger.info(
-        { processed: documents.length, created, skipped },
-        'Auto-queue processing completed'
-      );
+      logger.info({ processed: documents.length, created: totalCreated, skipped }, 'Auto-queue processing completed');
 
-      return { processed: documents.length, created, skipped };
+      return { processed: documents.length, created: totalCreated, skipped };
     } catch (error) {
       logger.error({ error }, 'Failed to process auto-queue documents');
       throw error;

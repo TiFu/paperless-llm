@@ -11,6 +11,14 @@ import { StepExecutorDomainService } from "../domain/services/StepExecutorDomain
 import { WorkflowOrchestratorDomainService } from "../domain/services/WorkflowOrchestratorService.js";
 import { IStepRepository } from "../domain/steps/IStepRepository.js";
 import { DatabaseTransactionContext, DatabaseTransactionContextFactory, DBContextWithRepositoryFactory, RepositoryRegistry, RepositoryRegistryFactory } from "./TransactionManager.js";
+import { UserContext } from "../domain/auth/UserContext.js";
+import { IUsersRepository } from "../domain/auth/IUsersRepository.js";
+import { PaperlessService } from "../services/PaperlessService.js";
+import { CachedPaperlessServiceAdapter } from "../services/CachedPaperlessServiceAdapter.js";
+import { DMSCacheService } from "../services/CacheService.js";
+import { PaperlessConfig } from "../config/AppConfig.js";
+import { IPermissionsRepository } from "../domain/authorization/IPermissionsRepository.js";
+import { CachedPermissionsRepositoryAdapter } from "../domain/authorization/CachedPermissionsRepositoryAdapter.js";
 
 export class AuditCollector implements IAuditCollector{
     private events: AuditLogEntry[];
@@ -45,6 +53,9 @@ export interface UoW {
   [Symbol.asyncDispose](): Promise<void>
 
   getAuditCollector(): IAuditCollector;
+  getUser(): UserContext | undefined;
+  getDMS(): IDocumentManagementSystem;
+  getPermissions(): IPermissionsRepository;
 
   register<T>(object: T, repo: Saveable<T>): void;
   registerAll<T>(object: T[], repo: Saveable<T>): void;
@@ -57,7 +68,7 @@ export interface UoW {
   getPromptDomainService(): IPromptDomainService
   getStepExecutorDomainService(): StepExecutorDomainService
   getWorkflowOrchestratorDomainService(): WorkflowOrchestratorDomainService
-  
+
 }
 
 export interface Saveable<T> {
@@ -73,13 +84,35 @@ interface UoWRegistryEntry<T> {
 export class UoWFactory {
     constructor(
         private readonly txManager: DatabaseTransactionContextFactory,
-        private readonly dms: IDocumentManagementSystem,
+        private readonly usersRepo: IUsersRepository,
+        private readonly paperlessConfig: PaperlessConfig,
+        private readonly dmsCacheService: DMSCacheService,
         private readonly entityDescriptionsRepo?: IEntityDescriptionsRepository,
     ) {}
 
-    public async createUoW(): Promise<UoW> {
+    public async createUoW(user: UserContext): Promise<UoW> {
+        const token = await this.usersRepo.getPaperlessToken(user.username);
+        if (!token) {
+            throw new Error(`No Paperless token found for user: ${user.username}`);
+        }
+        const paperlessService = new PaperlessService({ ...this.paperlessConfig, token });
+        const dms = new CachedPaperlessServiceAdapter(paperlessService, this.dmsCacheService);
         const context = await this.txManager.createContext();
-        return new UoWImplementation(context, this.dms, this.entityDescriptionsRepo);
+        return new UoWImplementation(context, dms, this.entityDescriptionsRepo, user);
+    }
+
+    public async createSystemUoW(): Promise<UoW> {
+        const context = await this.txManager.createContext();
+        return new UoWImplementation(context, undefined, this.entityDescriptionsRepo, undefined);
+    }
+
+    public async createDMSForUser(user: UserContext): Promise<IDocumentManagementSystem> {
+        const token = await this.usersRepo.getPaperlessToken(user.username);
+        if (!token) {
+            throw new Error(`No Paperless token found for user: ${user.username}`);
+        }
+        const paperlessService = new PaperlessService({ ...this.paperlessConfig, token });
+        return new CachedPaperlessServiceAdapter(paperlessService, this.dmsCacheService);
     }
 }
 
@@ -89,13 +122,36 @@ export class UoWImplementation implements UoW {
     private repositoryRegistry: RepositoryRegistry;
     private context: DatabaseTransactionContext;
     private auditCollector: IAuditCollector;
-    private dms: IDocumentManagementSystem;
+    private dms: IDocumentManagementSystem | undefined;
     private entityDescriptionsRepo?: IEntityDescriptionsRepository;
+    private user: UserContext | undefined;
+    private permissions: IPermissionsRepository;
 
     getAuditCollector(): IAuditCollector {
         return this.auditCollector
     }
-    constructor(context: DBContextWithRepositoryFactory, dms: IDocumentManagementSystem, entityDescriptionsRepo?: IEntityDescriptionsRepository) {
+
+    getUser(): UserContext | undefined {
+        return this.user;
+    }
+
+    getDMS(): IDocumentManagementSystem {
+        if (!this.dms) {
+            throw new Error('No DMS available on system UoW — use createUoW(user) for operations requiring Paperless access');
+        }
+        return this.dms;
+    }
+
+    getPermissions(): IPermissionsRepository {
+        return this.permissions;
+    }
+
+    constructor(
+        context: DBContextWithRepositoryFactory,
+        dms: IDocumentManagementSystem | undefined,
+        entityDescriptionsRepo?: IEntityDescriptionsRepository,
+        user?: UserContext,
+    ) {
         this.objectRegistry = new Set<UoWRegistryEntry<any>>();
         this.context = context.ctx;
         this.repositoryRegistry = context.repositoryFactory.create(this);
@@ -103,10 +159,14 @@ export class UoWImplementation implements UoW {
         this.auditCollector = new AuditCollector();
         this.dms = dms;
         this.entityDescriptionsRepo = entityDescriptionsRepo;
+        this.user = user;
+        this.permissions = new CachedPermissionsRepositoryAdapter(this.repositoryRegistry.getPermissions());
     }
+
     getStepExecutorDomainService(): StepExecutorDomainService {
         return new StepExecutorDomainService(this.auditCollector)
     }
+
     getWorkflowOrchestratorDomainService(): WorkflowOrchestratorDomainService {
         return new WorkflowOrchestratorDomainService(this.getJobs(), this.getSteps(), this.auditCollector)
     }
@@ -116,7 +176,7 @@ export class UoWImplementation implements UoW {
             const obtainer = this.entityDescriptionsRepo
                 ? () => this.entityDescriptionsRepo!.findAllGrouped()
                 : async () => {
-                    const fields = await this.dms.getAvailableFields();
+                    const fields = await this.getDMS().getAvailableFields();
                     return {
                         tags: fields.tags.map(t => ({ ...t, description: null })),
                         correspondents: fields.correspondents.map(c => ({ ...c, description: null })),
@@ -140,7 +200,6 @@ export class UoWImplementation implements UoW {
     getAuditLog(): IAuditLogRepository {
         return this.repositoryRegistry.getAuditLog()
     }
-
 
     register<T>(object: T, repo: Saveable<T>): void {
         this.registerAll([object], repo)
@@ -183,6 +242,6 @@ export class UoWImplementation implements UoW {
 
         this.objectRegistry.clear();
         this.auditCollector.clear();
-        return Promise.all(promises).then((e) => {}) // Map to empty promise
+        return Promise.all(promises).then((e) => {})
     }
 }

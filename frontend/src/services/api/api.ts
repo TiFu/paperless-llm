@@ -231,7 +231,7 @@ export const apiClient = {
   },
   async updateEntityDescription(type: 'tag' | 'correspondent' | 'document_type', paperlessId: number, description: string | null) {
     try {
-      return await entityDescriptionsApi.entityDescriptionsTypeIdPut({ type, id: paperlessId, updateEntityDescriptionRequest: { description } });
+      return await entityDescriptionsApi.entityDescriptionsTypeIdPut(type, paperlessId, { description });
     } catch (e) {
       throw normalizeError(e);
     }

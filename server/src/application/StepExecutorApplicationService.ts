@@ -1,177 +1,145 @@
 import pino from 'pino';
 import { RetryConfig, StepExecutionContext } from '../domain/steps/IStep.js';
-import { WorkflowOrchestratorDomainService } from '../domain/services/WorkflowOrchestratorService.js';
-import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { createChildLogger } from '../utils/logger.js';
 import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 import { AuditCollector, UoWFactory } from '../infrastructure/UoW.js';
 import { StepExecutorDomainService } from '../domain/services/StepExecutorDomainService.js';
+import { UserContext } from '../domain/auth/UserContext.js';
 
-/**
- * StepExecutorApplicationService - executes steps and manages workflow progression.
- * Core of the async workflow system with transaction management.
- */
 export class StepExecutorApplicationService {
   private readonly logger: pino.Logger;
 
   constructor(
     private readonly uowFactory: UoWFactory,
-    private readonly dmsService: IDocumentManagementSystem,
     private readonly llmService: ILLMService,
     private readonly retryConfig: RetryConfig,
   ) {
     this.logger = createChildLogger({ service: 'StepExecutorApplicationService' });
   }
 
-  /**
-   * Execute a step by ID.
-   * Implements idempotency and workflow progression.
-   */
-  private async executeStep(step: ExecutableStep): Promise<void> {
+  private async executeStep(step: ExecutableStep, user: UserContext): Promise<void> {
     const stepLogger = this.logger.child({ name: 'Step ' + step.getStepId() });
 
-    // Check if already completed (idempotency)
-    if (step.isCompleted()) {
-      stepLogger.info('Step already completed, skipping');
-      return;
-    }
+    if (step.isCompleted()) { stepLogger.info('Step already completed, skipping'); return; }
+    if (step.isFailed()) { stepLogger.info('Step already failed, skipping'); return; }
 
-    if (step.isFailed()) {
-      stepLogger.info('Step already failed, skipping');
-      return;
-    }
-    const stepExecutionCollector = new AuditCollector()
-    const stepExecutor = new StepExecutorDomainService(stepExecutionCollector)
+    const stepExecutionCollector = new AuditCollector();
+    const stepExecutor = new StepExecutorDomainService(stepExecutionCollector);
 
-    const start = new Date();
     try {
-      // (1) Load execution context
-      await using uow = await this.uowFactory.createUoW();
+      // (1) Load execution context in user UoW
+      await using uow = await this.uowFactory.createUoW(user);
       await uow.start();
-      const job = await uow.getJobs().getById(step.getJobId())
-      const prompt = await uow.getPromptDomainService().loadPrompt(step)
+      const job = await uow.getJobs().getById(step.getJobId());
+      const prompt = await uow.getPromptDomainService().loadPrompt(step);
       const stepContext: StepExecutionContext = {
-              job: job,
-              prompt: prompt,
-              services: {
-                  dms: this.dmsService,
-                  llm: this.llmService,
-                  promptDomainService: uow.getPromptDomainService()
-              }
-          }
+        job,
+        prompt,
+        services: {
+          dms: uow.getDMS(),
+          llm: this.llmService,
+          promptDomainService: uow.getPromptDomainService(),
+        },
+      };
       await uow.save();
       await uow.commit();
       await uow.dispose();
 
-      // (2) Execute outside transaction boundary!
-      const result = await stepExecutor.executeStep(step, stepContext, this.retryConfig)
+      // (2) Execute outside transaction boundary
+      const result = await stepExecutor.executeStep(step, stepContext, this.retryConfig);
 
-      // This all also applies for result failed --> 
-      // (3) Execute uow updates
-      await using uow2 = await this.uowFactory.createUoW();
+      // (3) Persist results in user UoW
+      await using uow2 = await this.uowFactory.createUoW(user);
       await uow2.start();
-      // Store Step Executed Events
-      uow2.getAuditCollector().recordAll(stepExecutionCollector.getEvents())
-      await uow2.getSteps().update(step) 
+      uow2.getAuditCollector().recordAll(stepExecutionCollector.getEvents());
+      await uow2.getSteps().update(step);
       const workflowOrchestrator = uow2.getWorkflowOrchestratorDomainService();
       const output = await workflowOrchestrator.processStepExecutionResult(step, result);
-      if (output.jobAdvancement.step)
-        await uow2.getSteps().create(output.jobAdvancement.step)
+      if (output.jobAdvancement.step) await uow2.getSteps().create(output.jobAdvancement.step);
       await uow2.save();
       await uow2.commit();
       await uow2.dispose();
 
     } catch (error) {
-      // Try marking as failed -- if it fails, so be it
       try {
-        await using uow3 = await this.uowFactory.createUoW();
+        await using uow3 = await this.uowFactory.createUoW(user);
         await uow3.start();
-        // Store Step Executed Event, - even if the execution failed
-        uow3.getAuditCollector().recordAll(stepExecutionCollector.getEvents())
-        step.markExecutionFailed(this.retryConfig)
-        uow3.getSteps().update(step)
+        uow3.getAuditCollector().recordAll(stepExecutionCollector.getEvents());
+        step.markExecutionFailed(this.retryConfig);
+        uow3.getSteps().update(step);
         await uow3.save();
         await uow3.commit();
-      } catch (error) {
-        stepLogger.error({ error }, "Failed to mark step execution as failed!")
+      } catch (innerError) {
+        stepLogger.error({ innerError }, 'Failed to mark step execution as failed!');
       }
-
       throw error;
     }
   }
 
-  /**
-   * Poll and execute pending steps.
-   * Called by worker service.
-   * @param batchSize Maximum number of steps to process
-   * @returns Number of steps successfully processed
-   */
   async processPendingSteps(batchSize: number = 10): Promise<number> {
-    const logger = this.logger.child({ name: "StepExecutiorApplicationService.processPendingSteps" });
+    const logger = this.logger.child({ name: 'StepExecutorApplicationService.processPendingSteps' });
 
-    // Fetch and mark steps as in-progress in a transaction
-    await using context = await this.uowFactory.createUoW();
-
+    // (1) System UoW: fetch and claim pending steps, resolve job owners
     let pendingSteps: ExecutableStep[];
-    // 1) move Automated Steps to in progress
+    const ownerMap = new Map<string, string>();
     try {
-        await context.start();
-        const stepRepo= context.getSteps();
-        pendingSteps = await stepRepo.getPendingExecutableSteps(batchSize);
-        pendingSteps.forEach((s) => s.moveToInProgress());
-        await context.save()
-        await context.commit();
+      await using context = await this.uowFactory.createSystemUoW();
+      await context.start();
+      pendingSteps = await context.getSteps().getPendingExecutableSteps(batchSize);
+      pendingSteps.forEach(s => s.moveToInProgress());
+
+      const jobIds = [...new Set(pendingSteps.map(s => s.getJobId()))];
+      await Promise.all(
+        jobIds.map(async jobId => {
+          const owner = await context.getPermissions().getOwner('job', jobId);
+          if (owner) ownerMap.set(jobId, owner);
+        }),
+      );
+
+      await context.save();
+      await context.commit();
     } catch (error) {
-        logger.error({ error }, 'Failed to load pending steps');
-        context.rollback();
-        return 0;
+      logger.error({ error }, 'Failed to load pending steps');
+      return 0;
     }
 
-    // 2) Process steps
-    logger.info({ steps: pendingSteps.map((v) => v.getStepId())}, "Found " + pendingSteps.length + " steps")
-    const results: Array<[ExecutableStep, Boolean]> = []
+    logger.info({ steps: pendingSteps.map(v => v.getStepId()) }, `Found ${pendingSteps.length} steps`);
+
+    // (2) Execute each step in its owner's user context
+    const results: Array<[ExecutableStep, boolean]> = [];
     for (const step of pendingSteps) {
-        const result = await this.executeStep(step).then(() => { return [step, true] }).catch((error) => {
-            logger.error("Failed to process step "+ step.getStepId() + ": " + error)
-            return [step, false]
-        }) as [ExecutableStep, Boolean];
-        results.push(result)
+      const owner = ownerMap.get(step.getJobId());
+      if (!owner) {
+        logger.warn({ stepId: step.getStepId(), jobId: step.getJobId() }, 'No owner found for job, skipping step');
+        results.push([step, false]);
+        continue;
+      }
+      const result = await this.executeStep(step, { username: owner })
+        .then(() => [step, true] as [ExecutableStep, boolean])
+        .catch(error => {
+          logger.error({ error }, `Failed to process step ${step.getStepId()}`);
+          return [step, false] as [ExecutableStep, boolean];
+        });
+      results.push(result);
     }
 
-    const processed = results.reduce((prev, current) => {
-        if (current[1]) {
-            return prev + 1
-        } else {
-            return prev;
-        }
-    }, 0);
-    return processed;
+    return results.filter(([, ok]) => ok).length;
   }
 
-  /**
-   * Process retry queue - execute steps that are ready for retry
-   * Called by worker service alongside processPendingSteps
-   * @param batchSize Maximum number of steps to process
-   * @returns Number of steps successfully processed
-   */
   async processRetryQueue(batchSize: number = 10): Promise<void> {
-    const logger = this.logger.child({ name: "StepExecutorApplicationService.processRetryQueue" });
-
-    // Fetch steps ready for retry and mark them as waiting -> picked up again
-    let retrySteps: ExecutableStep[];
+    const logger = this.logger.child({ name: 'StepExecutorApplicationService.processRetryQueue' });
     try {
-        await using context = await this.uowFactory.createUoW();
-        await context.start();
-        const steps = context.getSteps();
-        const now = new Date();
-        retrySteps = await steps.getPendingRetries(now, batchSize);
-        retrySteps.forEach((s) => s.moveToWaiting());
-        await context.save();
-        await context.commit();
+      await using context = await this.uowFactory.createSystemUoW();
+      await context.start();
+      const steps = context.getSteps();
+      const retrySteps = await steps.getPendingRetries(new Date(), batchSize);
+      retrySteps.forEach(s => s.moveToWaiting());
+      await context.save();
+      await context.commit();
     } catch (error) {
-        logger.error({ error }, 'Failed to load retry steps');
+      logger.error({ error }, 'Failed to load retry steps');
     }
   }
 }

@@ -3,10 +3,9 @@ import { StepStatus } from '../domain/steps/IStep.js';
 import { StepWithJob } from '../domain/steps/IStepRepository.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { getLogger } from '../utils/logger.js';
-import { PaperlessService } from '../services/PaperlessService.js';
-import { enrichWithDocument, DocumentEnriched, enrichAllWithDocument } from './util/documentEnrichment.js';
-import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
+import { DocumentEnriched, enrichAllWithDocument } from './util/documentEnrichment.js';
 import { AuditLogApplicationService } from './AuditLogApplicationService.js';
+import { UserContext } from '../domain/auth/UserContext.js';
 
 /**
  * Queue statistics response
@@ -48,15 +47,17 @@ export type QueueItemWithDocument = DocumentEnriched<QueueItem>;
  */
 
 export class QueueApplicationService {
-  constructor(private readonly uowFactory: UoWFactory, private paperlessService: IDocumentManagementSystem) {}
+  constructor(
+    private readonly uowFactory: UoWFactory,
+  ) {}
 
   /**
    * Get all fallout steps (in_fallout) enriched with audit log
    * @param auditLogService Instance of AuditLogApplicationService
    * @returns Array of fallout items with audit log
    */
-  async getFallouts(auditLogService: AuditLogApplicationService): Promise<(QueueItemWithDocument & { auditLog: any[] })[]> {
-    const { items: falloutItems } = await this.getQueueItems(100, undefined, 'in_fallout');
+  async getFallouts(user: UserContext, auditLogService: AuditLogApplicationService): Promise<(QueueItemWithDocument & { auditLog: any[] })[]> {
+    const { items: falloutItems } = await this.getQueueItems(user, 100, undefined, 'in_fallout');
     const enriched = await Promise.all(
       falloutItems.map(async (item) => {
         const auditLog = await auditLogService.getAuditLogForStep(item.id);
@@ -66,26 +67,19 @@ export class QueueApplicationService {
     return enriched;
   }
 
-  /**
-   * Get queue statistics for all automated steps
-   * @returns Aggregated statistics by status
-   */
-  async getQueueStats(): Promise<QueueStats> {
+  async getQueueStats(user: UserContext): Promise<QueueStats> {
     const logger = getLogger();
 
     try {
-      await using context = await this.uowFactory.createUoW();
+      await using context = await this.uowFactory.createUoW(user);
       await context.start();
-
       const stats = await context.getSteps().getAutomatedStepStatistics();
-
       await context.commit();
 
-      // Map StepStatus counts to WorkItemStatus names expected by frontend
       return {
         total: stats.total,
-        pending: stats.waiting, // WAITING -> pending
-        processing: stats.inProgress, // IN_PROGRESS -> processing
+        pending: stats.waiting,
+        processing: stats.inProgress,
         completed: stats.completed,
         failed: stats.failed,
         inFallout: stats.inFallout,
@@ -104,6 +98,7 @@ export class QueueApplicationService {
    * @returns Paginated list of queue items
    */
   async getQueueItems(
+    user: UserContext,
     limit: number,
     cursor?: string,
     status?: string
@@ -111,26 +106,17 @@ export class QueueApplicationService {
     const logger = getLogger();
 
     try {
-      await using context = await this.uowFactory.createUoW();
+      await using context = await this.uowFactory.createUoW(user);
       await context.start();
 
-      // Map WorkItemStatus to StepStatus for repository query
       const stepStatus = this.mapWorkItemStatusToStepStatus(status);
-      logger.info({ "limit": limit, "cursor": cursor, "stepStatus": stepStatus},"Requesting automated steps for queue")
-      const result = await context.getSteps().listAutomatedStepsWithJob(
-        limit,
-        cursor,
-        stepStatus
-      );
+      logger.info({ limit, cursor, stepStatus }, 'Requesting automated steps for queue');
+      const result = await context.getSteps().listAutomatedStepsWithJob(limit, cursor, stepStatus);
 
       await context.commit();
 
-      // Map StepWithJob domain objects to QueueItem DTOs
       const items = result.items.map((step) => this.mapStepToQueueItem(step));
-
-      // Enrich with document metadata if service provided
-      let enrichedItems: QueueItemWithDocument[];
-      enrichedItems = await enrichAllWithDocument(items, this.paperlessService);
+      const enrichedItems = await enrichAllWithDocument(items, context.getDMS());
 
       return {
         items: enrichedItems,

@@ -51,9 +51,10 @@ export interface IJobRepository {
   ): Promise<void>;
 
   /**
-   * List jobs with pagination
+   * List jobs with pagination. Scoped to the UoW user when a user context is present;
+   * returns all jobs for system UoW.
    */
-  list(
+  listForUser(
     limit: number,
     cursor?: string,
     state?: JobState,
@@ -65,7 +66,8 @@ export interface IJobRepository {
   getByDocumentId(documentId: string): Promise<Job[]>;
 
   /**
-   * Get job counts grouped by state
+   * Get job counts grouped by state. Scoped to the UoW user when a user context is present;
+   * returns counts across all jobs for system UoW.
    */
   getJobCountsByState(): Promise<{ [state: string]: number }>;
 

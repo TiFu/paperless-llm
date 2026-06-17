@@ -11,9 +11,8 @@ export class HealthApplicationService {
 
   async checkDatabaseHealth(): Promise<boolean> {
     try {
-      await using context = await this.uowFactory.createUoW();
+      await using context = await this.uowFactory.createSystemUoW();
       await context.start();
-      await context.getJobs().list(1);
       await context.rollback();
       return true;
     } catch {

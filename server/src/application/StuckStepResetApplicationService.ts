@@ -27,7 +27,7 @@ export class StuckStepResetApplicationService {
   async resetStuckSteps(): Promise<{ reset: number; fallout: number }> {
 
     try {
-      await using context = await this.uowFactoyr.createUoW();
+      await using context = await this.uowFactoyr.createSystemUoW();
       await context.start();
 
       // Find stuck steps

@@ -10,7 +10,6 @@ import { JobController } from '../../web/JobController.js';
 
 
 
-
 export function createJobsRouter(appFactory: ApplicationServiceFactory): Router {
   const router = Router();
   const controller = new JobController(appFactory);
@@ -24,9 +23,9 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
     }
   });
 
-  router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
+  router.get('/stats', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const stats = await controller.getJobStats();
+      const stats = await controller.getJobStats(req.user!);
       res.json(stats);
     } catch (error) {
       next(error);
@@ -65,7 +64,7 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { documents } = req.body;
-        const result = await controller.submitJob(documents);
+        const result = await controller.submitJob(documents, req.user!);
         res.status(201).json(result);
       } catch (error) {
         next(error);
@@ -95,7 +94,7 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
         const limit = (req.query.limit as number | undefined) || 20;
         const cursor = req.query.cursor as string | undefined;
         const state = req.query.state as JobState | undefined;
-        const result = await controller.listJobs(limit, cursor, state);
+        const result = await controller.listJobs(limit, req.user!, cursor, state);
         res.json(result);
       } catch (error) {
         next(error);
@@ -108,7 +107,7 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
     [param('id').isString().notEmpty().withMessage('id must be a non-empty string')],
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const job = await controller.getJob(req.params.id);
+        const job = await controller.getJob(req.params.id, req.user!);
         if (!job) {
           throw new ApiError(404, 'Job not found');
         }
@@ -124,7 +123,7 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
     [param('id').isString().notEmpty().withMessage('id must be a non-empty string')],
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const steps = await controller.getJobSteps(req.params.id);
+        const steps = await controller.getJobSteps(req.params.id, req.user!);
         if (!steps) {
           throw new ApiError(404, 'Job not found');
         }
@@ -140,7 +139,7 @@ export function createJobsRouter(appFactory: ApplicationServiceFactory): Router 
     [param('id').isString().notEmpty().withMessage('id must be a non-empty string')],
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const auditLog = await controller.getJobAuditLog(req.params.id);
+        const auditLog = await controller.getJobAuditLog(req.params.id, req.user!);
         if (!auditLog) {
           throw new ApiError(404, 'Job not found');
         }

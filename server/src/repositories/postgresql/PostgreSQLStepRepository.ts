@@ -140,32 +140,40 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
   }
 
   async getPendingManualSteps(limit: number, cursor?: Cursor): Promise<ManualStep[]> {
+    const allowedJobIds = await this.resolveAllowedJobIds();
+    if (allowedJobIds !== null && allowedJobIds.length === 0) return [];
+
+    const jobFilter = allowedJobIds !== null ? `AND job_id = ANY($3)` : '';
     let query: string;
     let params: any[];
 
     if (cursor) {
-      // With cursor: fetch steps after the cursor position
       query = `
         SELECT * FROM steps
-        WHERE status = $1 AND type = $2 AND id < $3
+        WHERE status = $1 AND type = $2 AND id < $${allowedJobIds !== null ? 4 : 3}
+          ${jobFilter}
         ORDER BY created_at DESC, id DESC
-        LIMIT $4
+        LIMIT $${allowedJobIds !== null ? 5 : 4}
       `;
-      params = [StepStatus.WAITING, StepType.REQUIRE_APPROVAL, cursor.stepId, limit];
+      params = allowedJobIds !== null
+        ? [StepStatus.WAITING, StepType.REQUIRE_APPROVAL, allowedJobIds, cursor.stepId, limit]
+        : [StepStatus.WAITING, StepType.REQUIRE_APPROVAL, cursor.stepId, limit];
     } else {
-      // Without cursor: fetch first page
       query = `
         SELECT * FROM steps
         WHERE status = $1 AND type = $2
+          ${jobFilter}
         ORDER BY created_at DESC, id DESC
-        LIMIT $3
+        LIMIT $${allowedJobIds !== null ? 4 : 3}
       `;
-      params = [StepStatus.WAITING, StepType.REQUIRE_APPROVAL, limit];
+      params = allowedJobIds !== null
+        ? [StepStatus.WAITING, StepType.REQUIRE_APPROVAL, allowedJobIds, limit]
+        : [StepStatus.WAITING, StepType.REQUIRE_APPROVAL, limit];
     }
 
     const result = await this.getClient().query(query, params);
     const steps = result.rows.map((row) => StepFactory.fromDb(row, [])) as ManualStep[];
-    this.uow.registerAll(steps, this)
+    this.uow.registerAll(steps, this);
     return steps;
   }
 
@@ -202,9 +210,25 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
     }
   }
 
+  /**
+   * Returns the list of allowed job IDs for the current UoW user,
+   * or null when operating in system context (no user = no filter).
+   */
+  private async resolveAllowedJobIds(): Promise<string[] | null> {
+    const user = this.uow.getUser();
+    if (!user) return null;
+    return this.uow.getPermissions().listObjectIdsForUser('job', user.username);
+  }
+
   async getAutomatedStepStatistics(): Promise<AutomatedStepStatistics> {
+    const allowedJobIds = await this.resolveAllowedJobIds();
+    if (allowedJobIds !== null && allowedJobIds.length === 0) {
+      return { total: 0, waiting: 0, inProgress: 0, completed: 0, failed: 0, inFallout: 0 };
+    }
+
+    const jobFilter = allowedJobIds !== null ? `AND job_id = ANY($7)` : '';
     const query = `
-      SELECT 
+      SELECT
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE status = $1) as waiting,
         COUNT(*) FILTER (WHERE status = $2) as in_progress,
@@ -213,17 +237,20 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
         COUNT(*) FILTER (WHERE status = $5) as in_fallout
       FROM steps
       WHERE type != $6
+        ${jobFilter}
     `;
 
-    const result = await this.getClient().query(query, [
+    const params: any[] = [
       StepStatus.WAITING,
       StepStatus.IN_PROGRESS,
       StepStatus.COMPLETED,
       StepStatus.FAILED,
       StepStatus.IN_FALLOUT,
       StepType.REQUIRE_APPROVAL,
-    ]);
+    ];
+    if (allowedJobIds !== null) params.push(allowedJobIds);
 
+    const result = await this.getClient().query(query, params);
     const row = result.rows[0];
     return {
       total: parseInt(row.total, 10),
@@ -236,17 +263,21 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
   }
 
   async countPendingUserInteractionSteps(): Promise<number> {
+    const allowedJobIds = await this.resolveAllowedJobIds();
+    if (allowedJobIds !== null && allowedJobIds.length === 0) return 0;
+
+    const jobFilter = allowedJobIds !== null ? `AND job_id = ANY($3)` : '';
     const query = `
       SELECT COUNT(*) as count
       FROM steps
       WHERE status = $1 AND type = $2
+        ${jobFilter}
     `;
 
-    const result = await this.getClient().query(query, [
-      StepStatus.WAITING,
-      StepType.REQUIRE_APPROVAL,
-    ]);
+    const params: any[] = [StepStatus.WAITING, StepType.REQUIRE_APPROVAL];
+    if (allowedJobIds !== null) params.push(allowedJobIds);
 
+    const result = await this.getClient().query(query, params);
     return parseInt(result.rows[0].count, 10);
   }
 
@@ -255,8 +286,12 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
     cursor?: string,
     stepStatus?: StepStatus
   ): Promise<{ items: StepWithJob[]; nextCursor: string | null }> {
+    const allowedJobIds = await this.resolveAllowedJobIds();
+    if (allowedJobIds !== null && allowedJobIds.length === 0) return { items: [], nextCursor: null };
+
+    const jobFilter = allowedJobIds !== null ? `AND s.job_id = ANY($2)` : '';
     let query = `
-      SELECT 
+      SELECT
         s.id as step_id,
         s.type as step_type,
         s.status as step_status,
@@ -270,32 +305,30 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
       FROM steps s
       INNER JOIN jobs j ON s.job_id = j.id
       WHERE s.type != $1
+        ${jobFilter}
     `;
 
     const params: any[] = [StepType.REQUIRE_APPROVAL];
-    let paramIndex = 2;
+    if (allowedJobIds !== null) params.push(allowedJobIds);
+    let paramIndex = params.length + 1;
 
-    // Add cursor filter if provided
     if (cursor) {
       query += ` AND s.id > $${paramIndex}`;
       params.push(cursor);
       paramIndex++;
     }
 
-    // Add status filter if provided
     if (stepStatus) {
       query += ` AND s.status = $${paramIndex}`;
       params.push(stepStatus);
       paramIndex++;
     }
 
-    // Order by created_at DESC (LIFO queue) and limit
     query += ` ORDER BY s.created_at DESC, s.id DESC LIMIT $${paramIndex}`;
-    params.push(limit + 1); // Fetch one extra to determine if there's a next page
+    params.push(limit + 1);
 
     const result = await this.getClient().query(query, params);
 
-    // Check if there are more items
     const hasMore = result.rows.length > limit;
     const items = result.rows.slice(0, limit);
 
@@ -312,14 +345,11 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
       jobState: row.job_state,
     }));
 
-    const nextCursor = hasMore && items.length > 0 
-      ? items[items.length - 1].step_id 
+    const nextCursor = hasMore && items.length > 0
+      ? items[items.length - 1].step_id
       : null;
 
-    return {
-      items: stepWithJobItems,
-      nextCursor,
-    };
+    return { items: stepWithJobItems, nextCursor };
   }
 
   async getStuckInProgressExecutableSteps(olderThanMs: number, limit?: number): Promise<IStep[]> {

@@ -256,17 +256,32 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     ]);
   }
 
-  async list(
+  private async resolveAllowedJobIds(): Promise<string[] | null> {
+    const user = this.uow.getUser();
+    if (!user) return null;
+    return this.uow.getPermissions().listObjectIdsForUser('job', user.username);
+  }
+
+  async listForUser(
     limit: number,
     cursor?: string,
     state?: JobState,
   ): Promise<{ items: Job[]; nextCursor: string | null }> {
+    const allowedIds = await this.resolveAllowedJobIds();
+    if (allowedIds !== null && allowedIds.length === 0) return { items: [], nextCursor: null };
+
     const conditions: string[] = [];
-    const params: (number | string)[] = [limit];
+    const params: any[] = [limit];
     let paramIndex = 2;
 
+    if (allowedIds !== null) {
+      conditions.push(`id = ANY($${paramIndex})`);
+      params.push(allowedIds);
+      paramIndex++;
+    }
+
     if (cursor) {
-      conditions.push(`id > $${paramIndex}`);
+      conditions.push(`created_at < (SELECT created_at FROM jobs WHERE id = $${paramIndex})`);
       params.push(cursor);
       paramIndex++;
     }
@@ -316,21 +331,22 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
   }
 
   async getJobCountsByState(): Promise<{ [state: string]: number }> {
+    const allowedIds = await this.resolveAllowedJobIds();
+    if (allowedIds !== null && allowedIds.length === 0) return {};
+
+    const whereClause = allowedIds !== null ? 'WHERE id = ANY($1)' : '';
+    const params = allowedIds !== null ? [allowedIds] : [];
+
     const query = `
-      SELECT 
-        state,
-        COUNT(*) as count
+      SELECT state, COUNT(*) as count
       FROM jobs
+      ${whereClause}
       GROUP BY state
     `;
 
-    const result = await this.getClient().query(query);
+    const result = await this.getClient().query(query, params);
     const counts: { [state: string]: number } = {};
-    
-    result.rows.forEach((row) => {
-      counts[row.state] = parseInt(row.count, 10);
-    });
-
+    result.rows.forEach(row => { counts[row.state] = parseInt(row.count, 10); });
     return counts;
   }
 

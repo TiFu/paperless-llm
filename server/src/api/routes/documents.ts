@@ -57,7 +57,7 @@ export function createDocumentsRouter(
       // 3. Query database to find which documents have jobs in progress
       let inProgressIds: number[] = [];
       if (documentIds.length > 0) {
-        await using context = await uowFactory.createUoW();
+        await using context = await uowFactory.createSystemUoW();
         await context.start();
         inProgressIds = await context.getJobs().filterInProgressDocuments(documentIds);
       }

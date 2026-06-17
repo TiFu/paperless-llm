@@ -26,7 +26,7 @@ export class StepCancelApplicationService {
   async cancelStep(stepId: string): Promise<void> {
     let jobId = null;
     try {
-      await using context = await this.uowFactory.createUoW();
+      await using context = await this.uowFactory.createSystemUoW();
       await context.start();
       const steps = context.getSteps();
       
@@ -71,7 +71,7 @@ export class StepCancelApplicationService {
           throw error;
 
       try {
-        await using uow = await this.uowFactory.createUoW();
+        await using uow = await this.uowFactory.createSystemUoW();
         const entry = AuditLogEntry.createError(jobId, stepId, { message: "" + error })
         uow.getAuditCollector().record(entry)
         uow.save();

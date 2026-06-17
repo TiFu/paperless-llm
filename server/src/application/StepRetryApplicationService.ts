@@ -26,7 +26,7 @@ export class StepRetryApplicationService {
   async retryStep(stepId: string): Promise<void> {
 
     try {
-      await using context = await this.uowFactory.createUoW();
+      await using context = await this.uowFactory.createSystemUoW();
       await context.start();
 
       // Load step

@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
+import { IPaperlessAuthService } from '../domain/auth/IPaperlessAuthService.js';
 import { PaperlessConfig } from '../config/AppConfig.js';
 import { IDocument, PaginatedDocuments } from '../domain/document/IDocument.js';
 import { ITag, ICorrespondent, IDocumentType } from '../domain/document/IDocumentEntities.js';
@@ -76,9 +77,9 @@ class BidirectionalMap<A, B> {
 
 }
 
-export class PaperlessService implements IDocumentManagementSystem {
+export class PaperlessService implements IDocumentManagementSystem, IPaperlessAuthService {
   private readonly client: AxiosInstance;
-  // Removed in-memory caches; caching is now handled by adapter
+  private readonly authClient: AxiosInstance;
   private readonly paperlessConfig: PaperlessConfig;
   private readonly logger: pino.Logger;
 
@@ -92,7 +93,24 @@ export class PaperlessService implements IDocumentManagementSystem {
       },
       timeout: 30000,
     });
+    this.authClient = axios.create({
+      baseURL: config.url,
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000,
+    });
     this.logger = createChildLogger({"name": "PaperlessService"})
+  }
+
+  async authenticate(username: string, password: string): Promise<string> {
+    try {
+      const response = await this.authClient.post<{ token: string }>('/api/token/', { username, password });
+      return response.data.token;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 400) {
+        throw new Error('Invalid Paperless credentials');
+      }
+      throw error;
+    }
   }
 
   async getAvailableFields() {

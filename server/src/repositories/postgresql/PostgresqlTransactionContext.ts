@@ -10,6 +10,8 @@ import { PostgreSQLPromptsRepository } from "./PostgreSQLPromptsRepository.js";
 import { PostgreSQLJobRepository } from "./PostgreSQLJobRepository.js";
 import { PostgreSQLStepRepository } from "./PostgreSQLStepRepository.js";
 import { PostgreSQLAuditLogRepository } from "./PostgreSQLAuditLogRepository.js";
+import { IPermissionsRepository } from "../../domain/authorization/IPermissionsRepository.js";
+import { PostgreSQLPermissionsRepository } from "./PostgreSQLPermissionsRepository.js";
 
 export class PostgresqlDatabaseTransactionContext implements DatabaseTransactionContext {
   static contextNo: number = 0;
@@ -122,6 +124,7 @@ export class PostgresqlRepositoryRegistry implements RepositoryRegistry {
     private jobRepo: IJobRepository
     private stepRepo: IStepRepository
     private auditRepo: IAuditLogRepository
+    private permissionsRepo: IPermissionsRepository
 
     constructor(context: PostgresqlDatabaseTransactionContext, uow: UoW) {
         const client = context.getClient();
@@ -129,6 +132,7 @@ export class PostgresqlRepositoryRegistry implements RepositoryRegistry {
         this.jobRepo = new PostgreSQLJobRepository(client, uow)
         this.stepRepo = new PostgreSQLStepRepository(client, uow)
         this.auditRepo = new PostgreSQLAuditLogRepository(client)
+        this.permissionsRepo = new PostgreSQLPermissionsRepository(client)
     }
     getPrompts(): IPromptsRepository {
         return this.promptRepo
@@ -142,7 +146,10 @@ export class PostgresqlRepositoryRegistry implements RepositoryRegistry {
     getAuditLog(): IAuditLogRepository {
         return this.auditRepo
     }
-    
+    getPermissions(): IPermissionsRepository {
+        return this.permissionsRepo
+    }
+
 }
 
 export class PostgresqlTransactionManager implements DatabaseTransactionContextFactory {

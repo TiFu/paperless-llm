@@ -10,6 +10,7 @@ import { ApplicationServiceFactory } from '../application/ApplicationServiceFact
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { createAuthMiddleware } from './middleware/authenticate.js';
 import { createPromptsRouter } from './routes/prompts.js';
 import { createJobsRouter } from './routes/jobs.js';
 import { createQueueRouter } from './routes/queue.js';
@@ -20,10 +21,14 @@ import { createStepsRouter } from './routes/steps.js';
 import { createStatsRouter } from './routes/stats.js';
 import { createDocsRouter } from './routes/docs.js';
 import { createEntityDescriptionsRouter } from './routes/entityDescriptions.js';
+import { createAuthRouter } from './routes/auth.js';
 import * as OpenAPIValidator from 'express-openapi-validator';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { IEntityDescriptionsRepository } from '../domain/entityDescriptions/IEntityDescriptionsRepository.js';
 import { EntitySyncApplicationService } from '../application/EntitySyncApplicationService.js';
+import { IPaperlessAuthService } from '../domain/auth/IPaperlessAuthService.js';
+import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
+import { AuthConfig } from '../config/AppConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +45,9 @@ export function createApiServer(
   appFactory: ApplicationServiceFactory,
   uowFactory: UoWFactory,
   paperlessService: IDocumentManagementSystem,
+  paperlessAuth: IPaperlessAuthService,
+  usersRepo: IUsersRepository,
+  authConfig: AuthConfig,
   llmService: ILLMService,
   entityDescriptionsRepo: IEntityDescriptionsRepository,
   entitySyncService: EntitySyncApplicationService,
@@ -84,6 +92,12 @@ export function createApiServer(
     validateResponses: true,
     validateFormats: true
   }))
+
+  // Auth routes (no JWT required)
+  app.use('/api/auth', createAuthRouter(paperlessAuth, usersRepo, uowFactory, authConfig));
+
+  // JWT authentication for all /api routes except /api/auth
+  app.use('/api', createAuthMiddleware(authConfig.jwtSecret));
 
   // Health check (outside /api prefix)
   app.use('/', createHealthRouter(uowFactory, paperlessService, llmService));

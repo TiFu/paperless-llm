@@ -10,57 +10,111 @@ export class PostgreSQLPromptsRepository implements IPromptsRepository, Saveable
     private uow: UoW
   ) {}
 
-  private getClient(): Pool | PoolClient {
+  private getClient(): PoolClient {
     return this.pool;
   }
 
   async getByStepType(stepType: StepType): Promise<Prompt | null> {
-    const query = `SELECT * FROM prompts WHERE step_type = $1`;
-    const result = await this.getClient().query(query, [stepType]);
+    const username = this.uow.getUser()?.username;
 
-    if (result.rows.length === 0) {
-      return null;
+    if (username) {
+      // Try user-specific prompt first, fall back to global default
+      const result = await this.getClient().query(
+        `SELECT * FROM prompts
+         WHERE step_type = $1 AND (username = $2 OR username IS NULL)
+         ORDER BY (username IS NOT NULL) DESC
+         LIMIT 1`,
+        [stepType, username],
+      );
+      return result.rows.length > 0 ? Prompt.fromDb(result.rows[0]) : null;
     }
 
-    return Prompt.fromDb(result.rows[0]);
+    const result = await this.getClient().query(
+      `SELECT * FROM prompts WHERE step_type = $1 AND username IS NULL`,
+      [stepType],
+    );
+    return result.rows.length > 0 ? Prompt.fromDb(result.rows[0]) : null;
   }
 
   async getAll(): Promise<Prompt[]> {
-    const query = `SELECT * FROM prompts ORDER BY step_type`;
-    const result = await this.getClient().query(query);
+    const username = this.uow.getUser()?.username;
 
-    return result.rows.map((row) => Prompt.fromDb(row));
+    if (username) {
+      const result = await this.getClient().query(
+        `SELECT DISTINCT ON (step_type) *
+         FROM prompts
+         WHERE username = $1 OR username IS NULL
+         ORDER BY step_type, (username IS NOT NULL) DESC`,
+        [username],
+      );
+      return result.rows.map(Prompt.fromDb);
+    }
+
+    const result = await this.getClient().query(
+      `SELECT * FROM prompts WHERE username IS NULL ORDER BY step_type`,
+    );
+    return result.rows.map(Prompt.fromDb);
+  }
+
+  async getAllForUser(username: string): Promise<Prompt[]> {
+    const result = await this.getClient().query(
+      `SELECT * FROM prompts WHERE username = $1 ORDER BY step_type`,
+      [username],
+    );
+    return result.rows.map(Prompt.fromDb);
+  }
+
+  async getGlobalDefaults(): Promise<Prompt[]> {
+    const result = await this.getClient().query(
+      `SELECT * FROM prompts WHERE username IS NULL ORDER BY step_type`,
+    );
+    return result.rows.map(Prompt.fromDb);
+  }
+
+  async copyForUser(defaults: Prompt[], username: string): Promise<void> {
+    for (const prompt of defaults) {
+      await this.getClient().query(
+        `INSERT INTO prompts (step_type, template, version, username)
+         VALUES ($1, $2, 1, $3)
+         ON CONFLICT (step_type, username) WHERE username IS NOT NULL DO NOTHING`,
+        [prompt.stepType, prompt.template, username],
+      );
+    }
   }
 
   async save(object: Prompt): Promise<void> {
-      return this.upsert(object.stepType, object.template).then(() => {})
+    return this.upsert(object.stepType, object.template).then(() => {})
   }
-  
-  async saveAll(objects: Prompt[]): Promise<void> {
-      const promises = []
-      for (let object of objects) {
-        promises.push(this.save(object))
-      }
 
-      return Promise.all(promises).then(() => {})
+  async saveAll(objects: Prompt[]): Promise<void> {
+    const promises = objects.map(o => this.save(o));
+    return Promise.all(promises).then(() => {})
   }
 
   async upsert(stepType: StepType, template: string): Promise<Prompt> {
-    const query = `
-      INSERT INTO prompts (step_type, template, version)
-      VALUES ($1, $2, 1)
-      ON CONFLICT (step_type) 
-      DO UPDATE SET 
-        template = EXCLUDED.template,
-        version = prompts.version + 1,
-        updated_at = NOW()
-      RETURNING *
-    `;
+    const username = this.uow.getUser()?.username ?? null;
 
-    const result = await this.getClient().query(query, [stepType, template]);
+    const query = username
+      ? `INSERT INTO prompts (step_type, template, version, username)
+         VALUES ($1, $2, 1, $3)
+         ON CONFLICT (step_type, username) WHERE username IS NOT NULL DO UPDATE SET
+           template = EXCLUDED.template,
+           version = prompts.version + 1,
+           updated_at = NOW()
+         RETURNING *`
+      : `INSERT INTO prompts (step_type, template, version)
+         VALUES ($1, $2, 1)
+         ON CONFLICT (step_type) WHERE username IS NULL DO UPDATE SET
+           template = EXCLUDED.template,
+           version = prompts.version + 1,
+           updated_at = NOW()
+         RETURNING *`;
+
+    const params = username ? [stepType, template, username] : [stepType, template];
+    const result = await this.getClient().query(query, params);
 
     const prompt = Prompt.fromDb(result.rows[0]);
-    this.uow.register(prompt, this)
-    return prompt
+    this.uow.register(prompt, this);
+    return prompt;
   }
 }

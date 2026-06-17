@@ -13,6 +13,7 @@ import { OllamaService } from './services/OllamaService.js';
 import { ApplicationServiceFactory } from './application/ApplicationServiceFactory.js';
 import { EntitySyncApplicationService } from './application/EntitySyncApplicationService.js';
 import { PostgreSQLEntityDescriptionsRepository } from './repositories/postgresql/PostgreSQLEntityDescriptionsRepository.js';
+import { PostgreSQLUsersRepository } from './repositories/postgresql/PostgreSQLUsersRepository.js';
 import { UoWFactory } from './infrastructure/UoW.js';
 import { PostgresqlDatabaseTransactionContext, PostgresqlTransactionManager } from './repositories/postgresql/PostgresqlTransactionContext.js';
 
@@ -57,6 +58,10 @@ async function main(): Promise<void> {
   await dmsCacheService.ping();
   logger.info("Cache connection established")
 
+  // Auth repositories
+  const usersRepo = new PostgreSQLUsersRepository(pool);
+
+  // PaperlessService with config token used only for health check and entity sync bootstrap
   const paperlessService = new PaperlessService(config.paperless);
   const cachedPaperlessService = new CachedPaperlessServiceAdapter(paperlessService, dmsCacheService);
 
@@ -79,13 +84,13 @@ async function main(): Promise<void> {
 
   // Initialize entity descriptions repository and sync service
   const entityDescriptionsRepo = new PostgreSQLEntityDescriptionsRepository(pool);
-  const entitySyncService = new EntitySyncApplicationService(cachedPaperlessService, entityDescriptionsRepo);
-
-  const uowFactory = new UoWFactory(txManager, cachedPaperlessService, entityDescriptionsRepo);
+  const uowFactory = new UoWFactory(txManager, usersRepo, config.paperless, dmsCacheService, entityDescriptionsRepo);
+  const entitySyncService = new EntitySyncApplicationService(usersRepo, entityDescriptionsRepo, uowFactory);
 
   // Initialize service factories
   const applicationServiceFactory = new ApplicationServiceFactory(
     uowFactory,
+    usersRepo,
     cachedPaperlessService,
     ollamaService,
     config.paperless.url,
@@ -109,6 +114,9 @@ async function main(): Promise<void> {
     applicationServiceFactory,
     uowFactory,
     cachedPaperlessService,
+    paperlessService,
+    usersRepo,
+    config.auth,
     ollamaService,
     entityDescriptionsRepo,
     entitySyncService,

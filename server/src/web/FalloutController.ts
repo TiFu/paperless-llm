@@ -1,6 +1,7 @@
 import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory.js';
 import { AppMapper } from '../map/Mapper.js';
 import type { QueueItem } from './dtos/models/QueueItem.js';
+import { UserContext } from '../domain/auth/UserContext.js';
 
 export class FalloutController {
   private queueAppService;
@@ -11,19 +12,12 @@ export class FalloutController {
     this.auditLogService = appFactory.createAuditLogApplicationService();
   }
 
-  /**
-   * List fallout items (in_fallout) with audit log attached
-   */
-  async listFallouts(): Promise<{ items: (QueueItem & { auditLog: any[] })[], count: number }> {
-    const enriched = await this.queueAppService.getFallouts(this.auditLogService);
-    // Map each enriched fallout item to DTO, preserving auditLog
+  async listFallouts(user: UserContext): Promise<{ items: (QueueItem & { auditLog: any[] })[], count: number }> {
+    const enriched = await this.queueAppService.getFallouts(user, this.auditLogService);
     const items = enriched.map(item => ({
       ...AppMapper.toQueueItem(item),
       auditLog: AppMapper.toAuditLogEntryList(item.auditLog),
     }));
-    return {
-      items,
-      count: items.length,
-    };
+    return { items, count: items.length };
   }
 }

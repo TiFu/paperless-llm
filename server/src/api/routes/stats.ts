@@ -7,13 +7,9 @@ export function createStatsRouter(appFactory: ApplicationServiceFactory): Router
   const router = Router();
   const controller = new StatsController(appFactory);
 
-  /**
-   * GET /api/stats/dashboard
-   * Get unified dashboard statistics (queue, approvals, and job stats)
-   */
-  router.get('/dashboard', async (_req: Request, res: Response, next: NextFunction) => {
+  router.get('/dashboard', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const stats = await controller.getDashboardStats();
+      const stats = await controller.getDashboardStats(req.user!);
       res.json(stats);
     } catch (error) {
       next(error);

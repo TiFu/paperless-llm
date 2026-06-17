@@ -45,11 +45,11 @@ export const fetchEntityDescriptions = createAsyncThunk<
   },
 );
 
-export const syncEntityDescriptions = createAsyncThunk(
+export const syncEntityDescriptions = createAsyncThunk<void, void, { state: RootState }>(
   'entityDescriptions/sync',
   async (_, { dispatch }) => {
     await apiClient.syncEntityDescriptions();
-    await dispatch(fetchEntityDescriptions());
+    await dispatch(fetchEntityDescriptions() as any);
   },
 );
 

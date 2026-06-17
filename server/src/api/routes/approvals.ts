@@ -11,18 +11,13 @@ import { createChildLogger } from '../../utils/logger.js';
 export function createApprovalsRouter(
   appFactory: ApplicationServiceFactory,
 ): Router {
-  const logger = createChildLogger({ name: "approvals-router"})
+  const logger = createChildLogger({ name: "approvals-router"});
   const router = Router();
 
-  /**
-   * GET /api/approvals/stats
-   * Get statistics for pending approvals
-   */
-  router.get('/stats', async (_req: Request, res: Response, next: NextFunction) => {
+  router.get('/stats', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const approvalAppService = appFactory.createApprovalApplicationService();
-      const stats = await approvalAppService.getApprovalStats();
-
+      const stats = await approvalAppService.getApprovalStats(req.user!);
       res.json(stats);
     } catch (error) {
       logger.error({ error }, 'Failed to get approval stats');
@@ -30,19 +25,11 @@ export function createApprovalsRouter(
     }
   });
 
-  /**
-   * GET /api/approvals
-   * List all pending approval items with full context
-   * Query params:
-   *   - limit: Maximum number of items to return (default: 50)
-   *   - cursor: Base64-encoded cursor for pagination (optional)
-   */
   router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const cursorParam = req.query.cursor as string | undefined;
-      
-      // Decode cursor if provided
+
       let cursor = undefined;
       if (cursorParam) {
         cursor = decodeCursor(cursorParam);
@@ -50,10 +37,9 @@ export function createApprovalsRouter(
           throw new ApiError(400, 'Invalid cursor parameter');
         }
       }
-      
-      const approvalAppService = appFactory.createApprovalApplicationService();
-      const result = await approvalAppService.listPendingApprovals(limit, cursor);
 
+      const approvalAppService = appFactory.createApprovalApplicationService();
+      const result = await approvalAppService.listPendingApprovals(req.user!, limit, cursor);
       res.json(result);
     } catch (error) {
       logger.error({ error }, 'Failed to list pending approvals');
@@ -61,11 +47,6 @@ export function createApprovalsRouter(
     }
   });
 
-  /**
-   * POST /api/approvals/:stepId
-   * Make a decision on an approval item
-   * Body: { decision: string } - must be one of the possibleDecisions for the step
-   */
   router.post(
     '/:stepId',
     [
@@ -78,7 +59,7 @@ export function createApprovalsRouter(
         const { decision, actions } = req.body;
 
         const approvalAppService = appFactory.createApprovalApplicationService();
-        await approvalAppService.processApprovalDecision(stepId, decision, actions);
+        await approvalAppService.processApprovalDecision(stepId, decision, req.user!, actions);
 
         logger.info({ stepId, decision }, 'Approval decision processed');
         res.json({ success: true, message: 'Decision processed' });

@@ -1,5 +1,6 @@
 import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory.js';
 import type { DashboardStats } from './dtos/models/DashboardStats.js';
+import { UserContext } from '../domain/auth/UserContext.js';
 
 export class StatsController {
   private readonly appFactory: ApplicationServiceFactory;
@@ -8,13 +9,9 @@ export class StatsController {
     this.appFactory = appFactory;
   }
 
-  /**
-   * Get unified dashboard statistics (queue, approvals, and job stats)
-   */
-  async getDashboardStats(): Promise<DashboardStats> {
+  async getDashboardStats(user: UserContext): Promise<DashboardStats> {
     const dashboardStatsService = this.appFactory.createDashboardStatsApplicationService();
-    const stats = await dashboardStatsService.getDashboardStats();
-    // If mapping is needed, do it here (currently, types should match DTO)
+    const stats = await dashboardStatsService.getDashboardStats(user);
     return stats;
   }
 }

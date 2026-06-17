@@ -27,7 +27,7 @@ export class AuditLogApplicationService {
 
   async getAuditLogForJobById(jobId: string): Promise<AuditLogEntry[]> {
     try {
-      await using context = await this.uowFactory.createUoW();
+      await using context = await this.uowFactory.createSystemUoW();
       await context.start();
       const result = await context.getAuditLog().getByJobId(jobId);
       return result
@@ -44,7 +44,7 @@ export class AuditLogApplicationService {
    */
   async getAuditLogForStep(stepId: string): Promise<AuditLogEntry[]> {
     try {
-      await using context = await this.uowFactory.createUoW();
+      await using context = await this.uowFactory.createSystemUoW();
       await context.start();
       const result = await context.getAuditLog().getByStepId(stepId);
       return result;

@@ -106,6 +106,14 @@ export interface EntitySyncConfig {
 }
 
 /**
+ * Authentication configuration
+ */
+export interface AuthConfig {
+  readonly jwtSecret: string;
+  readonly jwtExpiresIn: string;
+}
+
+/**
  * Automated document queue configuration
  */
 export interface AutoQueueConfig {
@@ -123,6 +131,10 @@ interface RawConfig {
   database: DatabaseConfig;
   paperless: PaperlessConfig;
   llm: LLMConfig;
+  auth: {
+    jwtSecret: string;
+    jwtExpiresIn?: string;
+  };
   worker: {
     instanceId?: string | null;
     batchSize: number;
@@ -169,6 +181,7 @@ export class AppConfig {
   public readonly logging: LoggingConfig;
   public readonly llm: LLMConfig;
   public readonly api: ApiConfig;
+  public readonly auth: AuthConfig;
   public readonly retry: RetryConfig;
   public readonly autoQueue: AutoQueueConfig;
   public readonly entitySync: EntitySyncConfig;
@@ -197,6 +210,10 @@ export class AppConfig {
     this.logging = rawConfig.logging;
     this.llm = rawConfig.llm;
     this.api = rawConfig.api;
+    this.auth = {
+      jwtSecret: rawConfig.auth.jwtSecret,
+      jwtExpiresIn: rawConfig.auth.jwtExpiresIn ?? '8h',
+    };
 
     // Retry Configuration
     this.retry = {
@@ -268,6 +285,7 @@ export class AppConfig {
       'orchestration',
       'logging',
       'api',
+      'auth',
     ];
 
     for (const field of required) {
@@ -282,6 +300,9 @@ export class AppConfig {
     }
     if (!config.paperless.url || !config.paperless.token) {
       throw new Error('Missing required Paperless configuration');
+    }
+    if (!config.auth?.jwtSecret) {
+      throw new Error('Missing required auth.jwtSecret configuration');
     }
   }
 

@@ -81,7 +81,7 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
       setActionSuccess(result.message ?? null);
       setTimeout(() => {
         setActionSuccess(null);
-        onStatusFilter(filterStatus); // Refresh the list
+        onStatusFilter(statusFilter); // Refresh the list
       }, 2000);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Failed to retry step');
@@ -100,7 +100,7 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
       setActionSuccess(result.message ?? null);
       setTimeout(() => {
         setActionSuccess(null);
-        onStatusFilter(filterStatus); // Refresh the list
+        onStatusFilter(statusFilter); // Refresh the list
       }, 2000);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Failed to cancel step');

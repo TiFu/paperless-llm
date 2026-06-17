@@ -16,6 +16,7 @@ import { ILLMService } from '../domain/llm/ILLMService.js';
 import { RetryConfig } from '../domain/steps/IStep.js';
 import { AutoQueueConfig } from '../config/AppConfig.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
+import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
 
 /**
  * ApplicationServiceFactory - creates application service instances per request.
@@ -25,6 +26,7 @@ import { UoWFactory } from '../infrastructure/UoW.js';
 export class ApplicationServiceFactory {
   constructor(
     private readonly uowFactory: UoWFactory,
+    private readonly usersRepo: IUsersRepository,
     private readonly dmsService: IDocumentManagementSystem,
     private readonly llmService: ILLMService,
     private readonly paperlessBaseUrl: string,
@@ -42,8 +44,7 @@ export class ApplicationServiceFactory {
    * Create a new JobApplicationService instance.
    */
   createJobApplicationService(): JobApplicationService {
-    const auditLogService = this.createAuditLogApplicationService();
-    return new JobApplicationService(this.uowFactory, this.dmsService);
+    return new JobApplicationService(this.uowFactory);
   }
 
 
@@ -51,10 +52,8 @@ export class ApplicationServiceFactory {
    * Create a new StepExecutorApplicationService instance.
    */
   createStepExecutorApplicationService(): StepExecutorApplicationService {
-
     return new StepExecutorApplicationService(
       this.uowFactory,
-      this.dmsService,
       this.llmService,
       this.retryConfig
     );
@@ -67,7 +66,6 @@ export class ApplicationServiceFactory {
     return new ManualStepApplicationService(
       this.uowFactory,
       this.paperlessBaseUrl,
-      this.dmsService
     );
   }
 
@@ -82,7 +80,7 @@ export class ApplicationServiceFactory {
    * Create a new QueueApplicationService instance.
    */
   createQueueApplicationService(): QueueApplicationService {
-    return new QueueApplicationService(this.uowFactory, this.dmsService);
+    return new QueueApplicationService(this.uowFactory);
   }
 
   /**DashboardStatsApplicationService instance.
@@ -132,6 +130,7 @@ export class ApplicationServiceFactory {
     const jobAppService = this.createJobApplicationService();
     return new DocumentAutoQueueApplicationService(
       this.uowFactory,
+      this.usersRepo,
       this.dmsService,
       jobAppService,
       autoQueueConfig,
