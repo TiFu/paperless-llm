@@ -30,15 +30,16 @@ export function createAuthRouter(
       try {
         const { username, password } = req.body;
         const result = await controller.login(username, password);
-        res.json(result);
-      } catch (error: any) {
-        if (error?.message === 'Invalid Paperless credentials') {
-          return next(new ApiError(401, 'Invalid credentials'));
+        if (!result.success) {
+          const status = result.status ?? 500;
+          const title = status === 401 ? 'Unauthorized' : 'Internal Server Error';
+          return next(new ApiError(status, title, result.message ?? 'Login failed'));
         }
+        res.json({ token: result.token });
+      } catch (error) {
         next(error);
       }
-    },
-  );
+    });
 
   router.get('/me', authMiddleware, (req: Request, res: Response, next: NextFunction) => {
     try {

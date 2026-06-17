@@ -87,6 +87,8 @@ paths:
                 title: "Unauthorized"
                 status: 401
                 detail: "Invalid credentials"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /auth/me:
     get:
       tags:
@@ -112,6 +114,8 @@ paths:
                 title: "Unauthorized"
                 status: 401
                 detail: "Missing or invalid Authorization header"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /stats/dashboard:
     get:
       tags:
@@ -2131,7 +2135,7 @@ components:
           example: "Validation failed for field 'documentId'"
         instance:
           type: string
-          format: uri
+          format: uri-reference
           description: URI reference identifying the specific occurrence
           example: "/jobs/abc123"
       required:

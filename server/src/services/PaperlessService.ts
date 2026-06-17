@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
-import { IPaperlessAuthService } from '../domain/auth/IPaperlessAuthService.js';
+import { IPaperlessAuthService, PaperlessAuthResult } from '../domain/auth/IPaperlessAuthService.js';
 import { PaperlessConfig } from '../config/AppConfig.js';
 import { IDocument, PaginatedDocuments } from '../domain/document/IDocument.js';
 import { ITag, ICorrespondent, IDocumentType } from '../domain/document/IDocumentEntities.js';
@@ -101,15 +101,16 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     this.logger = createChildLogger({"name": "PaperlessService"})
   }
 
-  async authenticate(username: string, password: string): Promise<string> {
+  async authenticate(username: string, password: string): Promise<PaperlessAuthResult> {
     try {
       const response = await this.authClient.post<{ token: string }>('/api/token/', { username, password });
-      return response.data.token;
+      return { token: response.data.token, success: true };
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 400) {
-        throw new Error('Invalid Paperless credentials');
+      if (axios.isAxiosError(error) && [400, 401, 403].includes(error.response?.status ?? 0)) {
+        return { token: null, success: false, status: 401, message: 'Invalid credentials' };
       }
-      throw error;
+      this.logger.error({ error, api: 'authenticate' }, 'Paperless authentication request failed');
+      return { token: null, success: false, status: 500, message: 'Paperless authentication service is unavailable' };
     }
   }
 

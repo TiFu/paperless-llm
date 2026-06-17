@@ -13,12 +13,16 @@ export class AuthApplicationService {
     private readonly authConfig: AuthConfig,
   ) {}
 
-  async login(username: string, password: string): Promise<{ token: string }> {
+  async login(username: string, password: string): Promise<{ token: string, success: boolean, status?: number, message?: string }> {
     const logger = getLogger();
 
-    const paperlessToken = await this.paperlessAuth.authenticate(username, password);
+    const paperlessToken = await this.paperlessAuth.authenticate(username, password)
 
-    await this.usersRepo.upsert(username, paperlessToken);
+    if (!paperlessToken.success) {
+      return { token: "", success: false, status: paperlessToken.status, message: paperlessToken.message };
+    }
+
+    await this.usersRepo.upsert(username, paperlessToken.token as string);
     logger.info({ username }, 'User logged in, token stored');
 
     await this.ensureUserHasPrompts(username);
@@ -29,7 +33,7 @@ export class AuthApplicationService {
       { expiresIn: this.authConfig.jwtExpiresIn } as jwt.SignOptions,
     );
 
-    return { token };
+    return { token, success: true };
   }
 
   private async ensureUserHasPrompts(username: string): Promise<void> {

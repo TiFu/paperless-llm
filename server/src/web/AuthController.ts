@@ -4,7 +4,7 @@ import { UserContext } from '../domain/auth/UserContext.js';
 export class AuthController {
   constructor(private readonly authService: AuthApplicationService) {}
 
-  async login(username: string, password: string): Promise<{ token: string }> {
+  async login(username: string, password: string): Promise<{ token: string, success: boolean, status?: number, message?: string }> {
     return this.authService.login(username, password);
   }
 
