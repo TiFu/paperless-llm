@@ -6,6 +6,8 @@ import { getLogger } from '../utils/logger.js';
 
 export type EntityValueType = 'tag' | 'correspondent' | 'document_type';
 
+export type DocumentWithStatus = IDocument & { inProgress: boolean };
+
 export class DocumentApplicationService {
   constructor(private readonly uowFactory: UoWFactory) {}
 
@@ -14,7 +16,7 @@ export class DocumentApplicationService {
     tag: string,
     limit: number,
     cursor?: string,
-  ): Promise<{ documents: IDocument[]; nextCursor: string | null }> {
+  ): Promise<{ documents: DocumentWithStatus[]; nextCursor: string | null }> {
     const logger = getLogger();
     try {
       await using context = await this.uowFactory.createUoW(user);
@@ -27,12 +29,13 @@ export class DocumentApplicationService {
         ? await context.getJobs().filterInProgressDocuments(documentIds)
         : [];
 
-      const availableDocuments = paginatedResult.documents.filter(
-        doc => !inProgressIds.includes(doc.id),
-      );
+      const documents = paginatedResult.documents.map(doc => ({
+        ...doc,
+        inProgress: inProgressIds.includes(doc.id),
+      }));
 
       await context.commit();
-      return { documents: availableDocuments, nextCursor: paginatedResult.nextCursor };
+      return { documents, nextCursor: paginatedResult.nextCursor };
     } catch (error) {
       logger.error({ error, tag }, 'Failed to fetch documents');
       throw error;

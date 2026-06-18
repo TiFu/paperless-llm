@@ -34,6 +34,10 @@ export class ApplicationServiceFactory {
     private readonly retryConfig: RetryConfig
   ) {}
 
+  getPaperlessBaseUrl(): string {
+    return this.paperlessBaseUrl;
+  }
+
   /**
    * Create a new HealthApplicationService instance.
    */

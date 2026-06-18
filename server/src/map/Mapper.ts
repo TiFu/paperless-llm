@@ -10,6 +10,8 @@ import { IDocument } from '../domain/document/IDocument.js';
 import { ICorrespondent, IDocumentType, ITag } from '../domain/document/IDocumentEntities.js';
 import { QueueItemWithDocument } from '../application/QueueApplicationService.js';
 import { Document } from '../web/dtos/models/Document.js';
+import { DocumentListItem } from '../web/dtos/models/DocumentListItem.js';
+import { DocumentWithStatus } from '../application/DocumentApplicationService.js';
 import { Correspondent } from '../web/dtos/models/Correspondent.js';
 import { DocumentType } from '../web/dtos/models/DocumentType.js';
 import { Tag } from '../web/dtos/models/Tag.js';
@@ -18,7 +20,7 @@ import { metadata } from 'reflect-metadata/no-conflict';
 
 export class AppMapper {
   // --- Job Mapping ---
-  static toJobResponse(job: any): any {
+  static toJobResponse(job: any, paperlessBaseUrl: string): any {
     // Accepts DocumentEnriched<Job> (domain + document)
     return {
       id: job.id,
@@ -32,6 +34,7 @@ export class AppMapper {
       documentActions: job.documentActions,
       document: job.document ? AppMapper.toDocument(job.document) : undefined,
       fields: job.fields,
+      paperlessUrl: `${paperlessBaseUrl}/documents/${job.documentId}`,
     };
   }
 
@@ -211,6 +214,18 @@ export class AppMapper {
     return docs.map(AppMapper.toDocument);
   }
 
+  // --- DocumentListItem Mapping (document-listing endpoint only; carries inProgress) ---
+  static toDocumentListItem(dto: DocumentWithStatus): DocumentListItem {
+    return {
+      ...AppMapper.toDocument(dto),
+      inProgress: dto.inProgress,
+    };
+  }
+
+  static toDocumentListItemList(docs: DocumentWithStatus[]): DocumentListItem[] {
+    return docs.map(AppMapper.toDocumentListItem);
+  }
+
   // --- Tag Mapping ---
   static toTag(tag: ITag): Tag {
     return {
@@ -250,9 +265,9 @@ export class AppMapper {
   }
 
   // --- Paginated Documents Mapping (for DocumentsListWithPagination DTO) ---
-  static toDocumentsListWithPagination(paged: { documents: IDocument[]; pagination: { limit: number; nextCursor: string | null } }) {
+  static toDocumentsListWithPagination(paged: { documents: DocumentWithStatus[]; pagination: { limit: number; nextCursor: string | null } }) {
     return {
-      documents: AppMapper.toDocumentList(paged.documents),
+      documents: AppMapper.toDocumentListItemList(paged.documents),
       pagination: {
         limit: paged.pagination.limit,
         nextCursor: paged.pagination.nextCursor ?? null,

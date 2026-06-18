@@ -22,7 +22,7 @@ import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
 import { apiClient } from '../services/api/api';
-import { Document } from '../services/api/generated/models/Document';
+import { DocumentListItem } from '../services/api/generated/models/DocumentListItem';
 import { WorkflowType } from '../services/api/generated/models/WorkflowType';
 import { BatchJobRequestDocumentsInnerFieldsEnum } from '@/services/api/generated';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -35,6 +35,7 @@ import {
   setSelectedWorkflow,
   setSelectedFields,
   closeSnackbar,
+  setHideInProgress,
   setRestoredDocuments,
 } from '../store/slices/documentsSlice';
 
@@ -57,6 +58,9 @@ export const DocumentsPage: React.FC = () => {
   const availableFields = useAppSelector((state) => state.documents.availableFields);
   const selectedFields = useAppSelector((state) => state.documents.selectedFields);
   const snackbar = useAppSelector((state) => state.documents.snackbar);
+  const hideInProgress = useAppSelector((state) => state.documents.hideInProgress);
+
+  const visibleDocuments = hideInProgress ? documents.filter((d) => !d.inProgress) : documents;
 
   // Sync nextCursor to URL after successful fetch
   useEffect(() => {
@@ -81,7 +85,7 @@ export const DocumentsPage: React.FC = () => {
 
   const restorePaginationState = async (targetCursor: string) => {
     // Temporarily mark loading in store by dispatching a pending signal
-    const allDocs: Document[] = [];
+    const allDocs: DocumentListItem[] = [];
     let currentCursor: string | undefined = undefined;
 
     try {
@@ -247,12 +251,25 @@ export const DocumentsPage: React.FC = () => {
 
       {/* Documents List */}
       <Box>
-        <Typography variant="h6" gutterBottom>
-          Available Documents
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Showing documents tagged with "{DEFAULT_TAG}"
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <Box>
+            <Typography variant="h6" gutterBottom>
+              Available Documents
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Showing documents tagged with "{DEFAULT_TAG}"
+            </Typography>
+          </Box>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={hideInProgress}
+                onChange={(e) => dispatch(setHideInProgress(e.target.checked))}
+              />
+            }
+            label="Hide in-progress documents"
+          />
+        </Box>
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -260,7 +277,7 @@ export const DocumentsPage: React.FC = () => {
           </Box>
         ) : (
           <DocumentList
-            documents={documents}
+            documents={visibleDocuments}
             selectedIds={selectedIds}
             onSelectionChange={(ids) => dispatch(setSelectedIds(ids))}
             onLoadMore={nextCursor ? handleLoadMore : undefined}

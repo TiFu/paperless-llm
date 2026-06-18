@@ -11,12 +11,20 @@ import {
   Typography,
   Box,
   Button,
+  Chip,
   CircularProgress,
 } from '@mui/material';
-import { Document } from '../services/api/generated/models/Document';
+import { DocumentListItem } from '../services/api/generated/models/DocumentListItem';
+
+const CONTENT_PREVIEW_LENGTH = 150;
+
+function truncateContent(content: string, maxLength: number): string {
+  if (content.length <= maxLength) return content;
+  return content.slice(0, maxLength).trimEnd() + '…';
+}
 
 interface DocumentListProps {
-  documents: Document[];
+  documents: DocumentListItem[];
   selectedIds: number[];
   onSelectionChange: (selectedIds: number[]) => void;
   onLoadMore?: () => void;
@@ -32,23 +40,25 @@ export const DocumentList: React.FC<DocumentListProps> = ({
 }) => {
   const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked) {
-      onSelectionChange(documents.map((doc) => doc.id));
+      onSelectionChange(documents.filter((doc) => !doc.inProgress).map((doc) => doc.id));
     } else {
       onSelectionChange([]);
     }
   };
 
-  const handleSelectOne = (documentId: number) => {
-    const isSelected = selectedIds.includes(documentId);
+  const handleSelectOne = (doc: DocumentListItem) => {
+    if (doc.inProgress) return;
+    const isSelected = selectedIds.includes(doc.id);
     if (isSelected) {
-      onSelectionChange(selectedIds.filter((id) => id !== documentId));
+      onSelectionChange(selectedIds.filter((id) => id !== doc.id));
     } else {
-      onSelectionChange([...selectedIds, documentId]);
+      onSelectionChange([...selectedIds, doc.id]);
     }
   };
 
-  const isAllSelected = documents.length > 0 && selectedIds.length === documents.length;
-  const isIndeterminate = selectedIds.length > 0 && selectedIds.length < documents.length;
+  const selectableCount = documents.filter((doc) => !doc.inProgress).length;
+  const isAllSelected = selectableCount > 0 && selectedIds.length === selectableCount;
+  const isIndeterminate = selectedIds.length > 0 && selectedIds.length < selectableCount;
 
   if (documents.length === 0) {
     return (
@@ -74,8 +84,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                 />
               </TableCell>
               <TableCell>ID</TableCell>
+              <TableCell>Status</TableCell>
               <TableCell>Title</TableCell>
-              <TableCell>Content</TableCell>
+              <TableCell sx={{ maxWidth: 400 }}>Content</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -85,19 +96,22 @@ export const DocumentList: React.FC<DocumentListProps> = ({
               return (
                 <TableRow
                   key={docId}
-                  hover
-                  onClick={() => handleSelectOne(docId)}
+                  hover={!doc.inProgress}
+                  onClick={() => handleSelectOne(doc)}
                   selected={isSelected}
-                  sx={{ cursor: 'pointer' }}
+                  sx={{ cursor: doc.inProgress ? 'default' : 'pointer', opacity: doc.inProgress ? 0.6 : 1 }}
                 >
                   <TableCell padding="checkbox">
-                    <Checkbox checked={isSelected} />
+                    <Checkbox checked={isSelected} disabled={doc.inProgress} />
                   </TableCell>
                   <TableCell>{docId}</TableCell>
-                  <TableCell>{doc.title || '(No Title)'}</TableCell>
                   <TableCell>
-                    <Typography variant="body2" color="text.secondary" noWrap>
-                      {doc.content}
+                    {doc.inProgress && <Chip size="small" color="warning" label="In progress" />}
+                  </TableCell>
+                  <TableCell>{doc.title || '(No Title)'}</TableCell>
+                  <TableCell sx={{ maxWidth: 400 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {truncateContent(doc.content, CONTENT_PREVIEW_LENGTH)}
                     </Typography>
                   </TableCell>
                 </TableRow>

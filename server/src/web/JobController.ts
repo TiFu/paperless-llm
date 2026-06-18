@@ -10,8 +10,10 @@ import { createChildLogger } from '../utils/logger.js';
 
 export class JobController {
   private logger: pino.Logger;
+  private readonly paperlessBaseUrl: string;
   constructor(private readonly appFactory: ApplicationServiceFactory) {
     this.logger = createChildLogger({ "name": "JobController"})
+    this.paperlessBaseUrl = appFactory.getPaperlessBaseUrl();
   }
 
   async getAvailableFields(): Promise<string[]> {
@@ -33,7 +35,7 @@ export class JobController {
     const createdJobs = await jobAppService.createBulk(documents, user);
     return {
       submitted: createdJobs.length,
-      jobs: createdJobs.map(AppMapper.toJobResponse),
+      jobs: createdJobs.map(job => AppMapper.toJobResponse(job, this.paperlessBaseUrl)),
     };
   }
 
@@ -41,7 +43,7 @@ export class JobController {
     const jobAppService = this.appFactory.createJobApplicationService();
     const result = await jobAppService.list(limit, user, cursor, state);
     return {
-      jobs: result.items.map(AppMapper.toJobResponse),
+      jobs: result.items.map(job => AppMapper.toJobResponse(job, this.paperlessBaseUrl)),
       nextCursor: result.nextCursor,
     };
   }
@@ -50,7 +52,7 @@ export class JobController {
     const jobAppService = this.appFactory.createJobApplicationService();
     const job = await jobAppService.getById(id, user);
     if (!job) return null;
-    return AppMapper.toJobResponse(job);
+    return AppMapper.toJobResponse(job, this.paperlessBaseUrl);
   }
 
   async getJobSteps(id: string, user: UserContext) {

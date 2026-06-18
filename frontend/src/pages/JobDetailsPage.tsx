@@ -11,6 +11,7 @@ import {
   Chip,
   Divider,
   Button,
+  Link,
   Table,
   TableBody,
   TableCell,
@@ -20,6 +21,7 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { JobState } from '../services/api/generated/models/JobState';
 import { JobStepsTimeline } from '../components/JobStepsTimeline';
 import { AuditLogTimeline } from '../components/AuditLogTimeline';
@@ -168,7 +170,20 @@ export const JobDetailsPage: React.FC = () => {
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>Document ID</TableCell>
-                    <TableCell>{job.documentId}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {job.documentId}
+                        <Link
+                          href={job.paperlessUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                        >
+                          View in Paperless
+                          <OpenInNewIcon fontSize="inherit" />
+                        </Link>
+                      </Box>
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>Job Type</TableCell>

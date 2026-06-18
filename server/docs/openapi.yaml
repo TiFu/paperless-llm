@@ -1233,6 +1233,10 @@ components:
             - $ref: '#/components/schemas/Document'
           nullable: true
           description: Document metadata for the job's document
+        paperlessUrl:
+          type: string
+          description: URL to view the job's document in Paperless-NGX
+          example: "http://localhost:8000/documents/123"
       required:
         - id
         - documentId
@@ -1241,6 +1245,7 @@ components:
         - createdAt
         - updatedAt
         - documentActions
+        - paperlessUrl
 
     DocumentAction:
       type: object
@@ -1348,12 +1353,22 @@ components:
         documents:
           type: array
           items:
-            $ref: '#/components/schemas/Document'
+            $ref: '#/components/schemas/DocumentListItem'
         pagination:
           $ref: '#/components/schemas/Pagination'
       required:
         - documents
         - pagination
+
+    DocumentListItem:
+      allOf:
+        - $ref: '#/components/schemas/Document'
+        - type: object
+          required: [inProgress]
+          properties:
+            inProgress:
+              type: boolean
+              description: Whether this document currently has a non-terminal job in progress (from any user)
 
     AuditLogResponse:
       type: object

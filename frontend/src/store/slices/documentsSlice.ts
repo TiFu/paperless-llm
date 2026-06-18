@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { apiClient } from '../../services/api/api';
-import { Document } from '../../services/api/generated/models/Document';
+import { DocumentListItem } from '../../services/api/generated/models/DocumentListItem';
 import { WorkflowType } from '../../services/api/generated/models/WorkflowType';
 import { JobSubmissionResponse } from '../../services/api/generated/models/JobSubmissionResponse';
 import { BatchJobRequestDocumentsInnerFieldsEnum } from '../../services/api/generated';
@@ -16,7 +16,7 @@ interface Snackbar {
 }
 
 interface DocumentsState {
-  documents: Document[];
+  documents: DocumentListItem[];
   selectedIds: number[];
   nextCursor: string | null;
   loading: boolean;
@@ -28,6 +28,7 @@ interface DocumentsState {
   availableFields: string[];
   selectedFields: string[];
   snackbar: Snackbar;
+  hideInProgress: boolean;
 }
 
 const DEFAULT_FIELDS = ['title', 'tags', 'correspondent', 'document_type', 'created_date'];
@@ -45,6 +46,7 @@ const initialState: DocumentsState = {
   availableFields: DEFAULT_FIELDS,
   selectedFields: DEFAULT_FIELDS,
   snackbar: { open: false, message: '', severity: 'success' },
+  hideInProgress: false,
 };
 
 export const fetchDocuments = createAsyncThunk<
@@ -101,9 +103,12 @@ const documentsSlice = createSlice({
     closeSnackbar(state) {
       state.snackbar.open = false;
     },
+    setHideInProgress(state, action: PayloadAction<boolean>) {
+      state.hideInProgress = action.payload;
+    },
     setRestoredDocuments(
       state,
-      action: PayloadAction<{ documents: Document[]; nextCursor: string | null }>,
+      action: PayloadAction<{ documents: DocumentListItem[]; nextCursor: string | null }>,
     ) {
       state.documents = action.payload.documents;
       state.nextCursor = action.payload.nextCursor;
@@ -176,6 +181,12 @@ const documentsSlice = createSlice({
   },
 });
 
-export const { setSelectedIds, setSelectedWorkflow, setSelectedFields, closeSnackbar, setRestoredDocuments } =
-  documentsSlice.actions;
+export const {
+  setSelectedIds,
+  setSelectedWorkflow,
+  setSelectedFields,
+  closeSnackbar,
+  setHideInProgress,
+  setRestoredDocuments,
+} = documentsSlice.actions;
 export default documentsSlice.reducer;
