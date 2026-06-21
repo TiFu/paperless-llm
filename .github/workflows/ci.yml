@@ -1,0 +1,205 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+
+env:
+  NODE_VERSION: '20'
+  HELM_VERSION: '3.17.3'
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: paperless_llm
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: paperless_llm_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U paperless_llm"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run generate:api
+      - run: npm run build
+      - run: npm run lint
+      - run: npm run test:unit -- --passWithNoTests
+      - run: npm run test:integration -- --passWithNoTests
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: paperless_llm
+          DB_PASSWORD: testpassword
+          DB_NAME: paperless_llm_test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run generate:api
+      - run: npm run build
+      - run: npm run lint
+
+  docker:
+    needs: [server, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for relevant changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            relevant:
+              - 'server/**'
+              - 'frontend/**'
+              - 'docker/**'
+              - 'openapitools.json'
+
+      - name: Lint Dockerfiles
+        if: steps.changes.outputs.relevant == 'true' || github.event_name != 'pull_request'
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/server.Dockerfile
+      - name: Lint frontend Dockerfile
+        if: steps.changes.outputs.relevant == 'true' || github.event_name != 'pull_request'
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/frontend.Dockerfile
+
+      - if: steps.changes.outputs.relevant == 'true' || github.event_name != 'pull_request'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Server image metadata
+        id: meta-server
+        if: steps.changes.outputs.relevant == 'true' || github.event_name != 'pull_request'
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/paperless-llm-server
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=semver,pattern={{version}}
+
+      - name: Build and push server image
+        if: steps.changes.outputs.relevant == 'true' || github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/server.Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-server.outputs.tags }}
+          labels: ${{ steps.meta-server.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Frontend image metadata
+        id: meta-frontend
+        if: steps.changes.outputs.relevant == 'true' || github.event_name != 'pull_request'
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/paperless-llm-frontend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=semver,pattern={{version}}
+
+      - name: Build and push frontend image
+        if: steps.changes.outputs.relevant == 'true' || github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/frontend.Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  helm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - run: helm dependency update helm/paperless-llm
+
+      - run: helm lint helm/paperless-llm
+
+      - name: Render sanity check
+        run: |
+          helm template ci helm/paperless-llm \
+            --set server.image.repository=ghcr.io/${{ github.repository_owner }}/paperless-llm-server \
+            --set frontend.image.repository=ghcr.io/${{ github.repository_owner }}/paperless-llm-frontend \
+            --set server.config.auth.jwtSecret=ci-placeholder \
+            --set server.config.paperless.token=ci-placeholder
+
+      - name: Package chart
+        id: package
+        run: |
+          mkdir -p .out
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            helm package helm/paperless-llm --destination .out --version "$VERSION" --app-version "$VERSION"
+          else
+            helm package helm/paperless-llm --destination .out
+          fi
+
+      - name: Log in to GHCR
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push chart to GHCR
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: helm push .out/paperless-llm-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts

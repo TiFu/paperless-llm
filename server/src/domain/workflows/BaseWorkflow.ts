@@ -53,8 +53,6 @@ export abstract class BaseWorkflow implements IWorkflow {
    * @returns Next step and state, or null if workflow is complete
    */
   public getNextStep(transition: Transition): NextStepResult {
-    let nextState: JobState;
-
     // Look up next state based on current state and transition
     const transitionsForState = this.transitionMap.get(this.job.state);
     if (!transitionsForState) {
@@ -68,8 +66,7 @@ export abstract class BaseWorkflow implements IWorkflow {
       return {step: null, nextState: JobState.FAILED, errorMessage: "No transitions for state " + this.job.state + " with transition " + transition, isTerminalState: true};
     }
 
-    nextState = nextStateFromMap;
-    
+    const nextState: JobState = nextStateFromMap;
 
     // Check if next state is terminal
     if (this.isTerminalState(nextState)) {

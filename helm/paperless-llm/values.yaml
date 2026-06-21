@@ -1,0 +1,108 @@
+# Optional in-cluster Postgres (Bitnami subchart). Disabled by default — point
+# externalDatabase at a pre-existing database instead.
+postgresql:
+  enabled: false
+  auth:
+    username: paperless_llm
+    password: ""
+    database: paperless_llm
+
+# Optional in-cluster Redis (Bitnami subchart). Disabled by default — point
+# externalRedis at a pre-existing Redis instead.
+redis:
+  enabled: false
+  auth:
+    enabled: true
+    password: ""
+
+# Used when postgresql.enabled is false.
+externalDatabase:
+  host: ""
+  port: 5432
+  username: paperless_llm
+  password: ""
+  database: paperless_llm
+
+# Used when redis.enabled is false.
+externalRedis:
+  host: ""
+  port: 6379
+  username: ""
+  password: ""
+  db: 0
+
+server:
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources: {}
+
+  # Mirrors config.yaml. database/redis connection fields are filled in by the
+  # chart from postgresql/redis (or externalDatabase/externalRedis) above —
+  # don't set them here.
+  config:
+    paperless:
+      url: http://paperless.example.com
+      token: ""
+      tags: llm-process
+    llm:
+      url: http://ollama.example.com:11434
+      model: llama3
+      temperature: 0.7
+      timeoutMs: 30000
+    worker:
+      instanceId: null
+      batchSize: 5
+      pollIntervalMs: 3000
+      maxRetries: 3
+      claimTimeoutMs: 300000
+      stuckStepTimeoutMs: 300000
+      stuckStepCheckIntervalMs: 30000
+      maxStepRetries: 3
+    orchestration:
+      llmCycleDurationMs: 30000
+      docUpdateCycleDurationMs: 30000
+    logging:
+      level: info
+      pretty: false
+    api:
+      port: 3000
+      corsOrigins:
+        - "*"
+    auth:
+      jwtSecret: ""
+      jwtExpiresIn: 8h
+    retry:
+      maxRetries: 3
+      retryDelayInMs: 30000
+      retryExponent: 2
+    autoQueue:
+      enabled: false
+      pollIntervalMs: 60000
+      workflowType: automated
+      tag: llm-auto-process
+    entitySync:
+      pollIntervalMs: 900000
+    redisCache:
+      ttlInSeconds: 300
+
+frontend:
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  # Base URL the SPA calls at runtime, e.g. https://api.example.com/api.
+  # Defaults to the in-cluster server Service when left empty.
+  apiBaseUrl: ""
+  ingress:
+    enabled: false
+    className: ""
+    hosts:
+      - host: ""
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []

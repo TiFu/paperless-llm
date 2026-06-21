@@ -1,25 +1,24 @@
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { createAppConfig } from '../config/AppConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
  * node-pg-migrate configuration
- * 
+ *
  * This configuration is used for:
  * 1. Programmatic migrations via MigrationRunner.ts (on API startup)
  * 2. CLI migrations via npm scripts (migrate:create, migrate:down, etc.)
- * 
+ *
  * Database connection details are loaded from config.yaml at runtime.
  */
 
 export function getMigrationConfig(): any {
-  // Database connection from environment variables or defaults
-  // These should match your config.yaml settings
-  const databaseUrl = process.env.DATABASE_URL || 
-    `postgres://${process.env.DB_USER || 'paperless_llm'}:${process.env.DB_PASSWORD || 'devpassword'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'paperless_llm_dev'}`;
+  const { database } = createAppConfig();
+  const databaseUrl = `postgres://${database.username}:${database.password}@${database.host}:${database.port}/${database.database}`;
 
   return {
     // Database connection
@@ -63,5 +62,3 @@ export function getMigrationConfig(): any {
     decamelize: false,
   };
 }
-
-export default getMigrationConfig();

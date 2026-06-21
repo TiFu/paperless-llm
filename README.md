@@ -148,23 +148,32 @@ See [docker/README.md](docker/README.md) for detailed documentation.
 
 ### Docker Production Deployment
 
+Production images are built from the **repo root** (the Dockerfiles need `server/`, `frontend/`, and the root `openapitools.json` as siblings — building from inside `docker/` won't work):
+
 ```bash
-# Set environment variables
-export POSTGRES_PASSWORD=your_secure_password
-export PAPERLESS_TOKEN=your_paperless_api_token
-export PAPERLESS_URL=http://your-paperless-instance:8000
-
-# Build and start all services
-cd docker
-docker-compose up -d
-
-# View logs
-docker-compose logs -f llm-worker
-docker-compose logs -f doc-update-worker
-
-# Scale workers
-docker-compose up -d --scale llm-worker=4 --scale doc-update-worker=2
+docker build -f docker/server.Dockerfile -t paperless-llm-server:local .
+docker build -f docker/frontend.Dockerfile -t paperless-llm-frontend:local .
 ```
+
+Both are self-contained multi-stage builds — they run the OpenAPI codegen and the `tsc`/`vite build` steps internally, so there's no need to run `npm run generate:api` yourself first. Requires internet access during the build (pulls the OpenAPI generator JAR and Alpine packages).
+
+Run the server, mounting your `config.yaml` (the app reads it from a fixed path baked into the image, **`/config.yaml`** — not `/app/config.yaml`):
+
+```bash
+docker run --rm -p 3000:3000 \
+  -v "$(pwd)/config.yaml:/config.yaml:ro" \
+  paperless-llm-server:local
+```
+
+Run the frontend, pointing it at the API server at container start — no rebuild needed per environment, `API_BASE_URL` is injected into `config.js` via `envsubst` when the container boots:
+
+```bash
+docker run --rm -p 8080:80 \
+  -e API_BASE_URL=http://localhost:3000/api \
+  paperless-llm-frontend:local
+```
+
+For Kubernetes deployment, see the Helm chart at [helm/paperless-llm](helm/paperless-llm) — it renders `config.yaml` into a Secret from `values.yaml` instead of a mounted file.
 
 ## Configuration
 

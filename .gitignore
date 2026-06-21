@@ -11,6 +11,7 @@ build/
 
 # Environment and config
 config.yaml
+docker/local-config.yaml
 .env
 .env.local
 
@@ -36,6 +37,9 @@ logs/
 # Temporary files
 *.tmp
 .cache/
+
+# Helm dependency archives (regenerate via `helm dependency build`, Chart.lock pins versions)
+helm/**/charts/*.tgz
 
 # Test documents (but keep the directory structure)
 test-documents/*

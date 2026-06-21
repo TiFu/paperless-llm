@@ -20,8 +20,13 @@ import { BearerAuthAuthentication } from './generated/auth/auth';
 import { PromiseMiddleware } from './generated/middleware';
 import { getToken, emitUnauthorized } from '../auth/tokenStorage';
 
-// TODO: make this overwritable
-const API_BASE_URL = 'http://localhost:3000/api';
+declare global {
+  interface Window {
+    __APP_CONFIG__?: { apiBaseUrl?: string };
+  }
+}
+
+const API_BASE_URL = window.__APP_CONFIG__?.apiBaseUrl ?? 'http://localhost:3000/api';
 
 
 import { RequestContext } from './generated';

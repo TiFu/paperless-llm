@@ -29,7 +29,7 @@ export class ManualStep extends IStep  {
     super(stepId, stepType, jobId, stepState, retryCount, retryAfter);
     this.possibleDecisions = possibleDecisions
     this.decisionToTransitionMap = decisionToTransitionMap
-    for (let decision of this.possibleDecisions) {
+    for (const decision of this.possibleDecisions) {
       if (!(decision in this.decisionToTransitionMap)) {
         throw new Error("Transition for decision " + decision + " is missing in " + this.decisionToTransitionMap)
       }
@@ -91,8 +91,8 @@ export class ApprovalInteractionStep extends ManualStep {
     retryCount: number = 0,
     retryAfter: Date | null = null
   ) {
-    let possibleDecisions: string[]=  [ "APPROVED", "REJECTED" ]
-    let decisionToTransitionMap: Record<string, Transition> = {
+    const possibleDecisions: string[]=  [ "APPROVED", "REJECTED" ]
+    const decisionToTransitionMap: Record<string, Transition> = {
       "APPROVED": Transition.SUCCESS,
       "REJECTED": Transition.FAILURE
     }

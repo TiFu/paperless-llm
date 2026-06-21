@@ -136,7 +136,6 @@ export class ApplicationServiceFactory {
     return new DocumentAutoQueueApplicationService(
       this.uowFactory,
       this.usersRepo,
-      this.dmsService,
       jobAppService,
       autoQueueConfig,
     );

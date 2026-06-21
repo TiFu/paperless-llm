@@ -50,7 +50,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
 
     this.logger.debug({ hasChildren: step.hasChildren(), children: step.getChildren()}, "Creating step")
     if (step.hasChildren()) {
-      for (let child of step.getChildren()) {
+      for (const child of step.getChildren()) {
         const result = this.getValuesAndParamsForStep(child, counter)
         values.push(...result.values)
         params.push(...result.params)
@@ -73,7 +73,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
     const values = []
     const params = []
     let counter = 1;
-    for (let step of steps) {
+    for (const step of steps) {
       const result = this.getValuesAndParamsForStep(step, counter)
       values.push(...result.values)
       params.push(...result.params)
@@ -183,7 +183,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
     // Build dynamic query based on status
     let query = `UPDATE steps SET status = $1, retry_count = $2, retry_after = $3`;
     const params: any[] = [status, step.getRetryCount(), step.getRetryAfter()];
-    let paramIndex = 4;
+    const paramIndex = 4;
 
     // Set timestamps based on status transitions
     if (status === StepStatus.IN_PROGRESS) {

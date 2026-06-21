@@ -88,7 +88,7 @@ export class LLMGenerateTagsStep extends ExecutableStep {
    */
   private parseTags(response: string): string[] {
     // Remove thinking tags and their content
-    let cleaned = response.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+    const cleaned = response.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
 
     // Try JSON parsing first
     try {
@@ -104,7 +104,7 @@ export class LLMGenerateTagsStep extends ExecutableStep {
     if (cleaned.includes('\n-') || cleaned.includes('\n*')) {
       const lines = cleaned.split('\n');
       const tags = lines
-        .map((line) => line.replace(/^[\s\-\*]+/, '').trim())
+        .map((line) => line.replace(/^[\s\-*]+/, '').trim())
         .filter(Boolean);
       if (tags.length > 0) {
         return tags;

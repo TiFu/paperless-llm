@@ -1,0 +1,66 @@
+# config.yaml for docker-compose.local.yml — hosts point at compose service
+# names (bridge network), not localhost. Copy/edit, don't commit secrets here.
+
+redis:
+  host: pllm-redis
+  port: 6379
+  username: ""
+  password: null
+  db: 0
+  ttlInSeconds: 300
+
+database:
+  host: pllm-postgres
+  port: 5432
+  username: paperless_llm
+  password: localpassword
+  database: paperless_llm
+
+paperless:
+  url: http://paperless:8000
+  # paperless-ngx has no API token until you create a user on first boot —
+  # visit http://localhost:8000, log in, create a token under My Profile,
+  # then restart the server service with it set here.
+  token: REPLACE_ME_AFTER_FIRST_PAPERLESS_LOGIN
+  tags: llm-process
+
+llm:
+  url: http://host.docker.internal:11434
+  model: llama3
+  temperature: 0.7
+  timeoutMs: 30000
+
+worker:
+  instanceId: null
+  batchSize: 5
+  pollIntervalMs: 3000
+  maxRetries: 3
+  claimTimeoutMs: 300000
+
+orchestration:
+  llmCycleDurationMs: 30000
+  docUpdateCycleDurationMs: 30000
+
+logging:
+  level: info
+  pretty: true
+
+api:
+  port: 3000
+  corsOrigins:
+    - "*"
+
+auth:
+  jwtSecret: REPLACE_ME_WITH_A_RANDOM_SECRET
+  jwtExpiresIn: 8h
+
+retry:
+  maxRetries: 3
+  retryDelayInMs: 30000
+  retryExponent: 2
+
+autoQueue:
+  enabled: false
+  pollIntervalMs: 60000
+  workflowType: automated
+  tag: llm-auto-process

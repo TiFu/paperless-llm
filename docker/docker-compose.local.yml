@@ -1,0 +1,117 @@
+# Runs the production-built server/frontend images locally end-to-end,
+# alongside their own Postgres/Redis and a Paperless-ngx instance (with its
+# own Postgres/Redis) to talk to.
+#
+# Usage:
+#   cd docker
+#   cp local-config.example.yaml local-config.yaml   # then fill in the REPLACE_ME values
+#   docker compose -f docker-compose.local.yml up --build
+#
+# local-config.yaml is gitignored; local-config.example.yaml is the committed template.
+
+services:
+  pllm-postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: paperless_llm
+      POSTGRES_USER: paperless_llm
+      # Must match `database.password` in local-config.yaml — local/throwaway only.
+      POSTGRES_PASSWORD: localpassword
+    volumes:
+      - pllm_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless_llm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pllm-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  paperless-postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: ${PAPERLESS_DB_PASSWORD:-paperless}
+    volumes:
+      - paperless_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  paperless-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      paperless-postgres:
+        condition: service_healthy
+      paperless-redis:
+        condition: service_started
+    environment:
+      PAPERLESS_REDIS: redis://paperless-redis:6379
+      PAPERLESS_DBHOST: paperless-postgres
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD:-paperless}
+      PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:-admin}
+      PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD:-admin}
+      PAPERLESS_URL: http://localhost:8000
+      PAPERLESS_CSRF_TRUSTED_ORIGINS: http://localhost:8000
+      PAPERLESS_ALLOWED_HOSTS: localhost,127.0.0.1,paperless
+      PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY:-change-me-in-production}
+    ports:
+      - "8000:8000"
+    volumes:
+      - paperless_data:/usr/src/paperless/data
+      - paperless_media:/usr/src/paperless/media
+      - paperless_export:/usr/src/paperless/export
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  server:
+    build:
+      context: ..
+      dockerfile: docker/server.Dockerfile
+    image: paperless-llm-server:local
+    depends_on:
+      pllm-postgres:
+        condition: service_healthy
+      pllm-redis:
+        condition: service_started
+      paperless:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./local-config.yaml:/config.yaml:ro
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    image: paperless-llm-frontend:local
+    depends_on:
+      - server
+    ports:
+      - "8080:80"
+    environment:
+      # Browser-facing URL — the host's published port, not the in-network service name.
+      API_BASE_URL: http://localhost:3000/api
+
+volumes:
+  pllm_postgres_data:
+  paperless_postgres_data:
+  paperless_data:
+  paperless_media:
+  paperless_export:

@@ -126,7 +126,7 @@ export class RedisCacheService<T> implements CacheService<T> {
     if (objects.length == 0)
       return;
     const promises = [];
-    for (let object of objects) {
+    for (const object of objects) {
       promises.push(this.cache(object.key, object.object))
     }
     this.logger.info({ keys: objects.map(a => a.key)}, "Cached objects")

@@ -183,7 +183,7 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     const values = fields.map((field, idx) => `($1, $${idx + 2})`).join(', ');
     const params = [jobId, ...fields];
 
-    let query = `
+    const query = `
       INSERT INTO job_fields (job_id, field)
       VALUES ${values}
       ON CONFLICT (job_id, field) DO NOTHING
@@ -209,7 +209,7 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
 
   async saveAll(objects: Job[]): Promise<void> {
     const promises = []
-    for (let job of objects) {
+    for (const job of objects) {
       promises.push(this.save(job))
     }
 
