@@ -54,9 +54,9 @@ function errorSerializer(err: any): any {
   return serialized;
 }
 
-export function initializeLogger(config: AppConfig): pino.Logger {
+export function initializeLogger(config: AppConfig, processName: string = 'server'): pino.Logger {
   // Create log file in server directory
-  const logFilePath = path.join(process.cwd(), 'dev-server.log');
+  const logFilePath = path.join(process.cwd(), `dev-${processName}.log`);
   console.log("Log file pat " + logFilePath)
   //process.exit(1)
   const logFileStream = fs.createWriteStream(logFilePath, { flags: 'a' });

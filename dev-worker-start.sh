@@ -1,11 +1,12 @@
 #!/bin/bash
 
-# Start the backend API server with hot reload (nodemon + ts-node)
-# Background workers run as a separate process — see dev-worker-start.sh
+# Start the background worker process with hot reload (nodemon + ts-node)
+# Runs the step processor, stuck-step reset, entity sync, and auto-queue loops.
+# The API server runs as a separate process — see dev-server-start.sh
 
 set -e
 
-echo "🚀 Starting Paperless LLM API Server"
+echo "🚀 Starting Paperless LLM Worker"
 echo ""
 
 # Check if Node.js is installed
@@ -33,13 +34,10 @@ if [ ! -d "node_modules" ]; then
     echo ""
 fi
 
-# Return to root directory so .env can be found
-#cd ..
-
-echo "✅ Starting backend on http://localhost:3000"
+echo "✅ Starting worker process"
 echo "   (nodemon will watch for changes and auto-restart)"
-echo "📝 Logging to server/dev-server.log"
+echo "📝 Logging to server/dev-worker.log"
 echo ""
 
-# Start backend with nodemon (pino handles logging to both console and file)
-npx nodemon --watch ./ --ext ts --exec "node --loader ts-node/esm src/main.ts --mode=server"
+# Start worker with nodemon (pino handles logging to both console and file)
+npx nodemon --watch ./ --ext ts --exec "node --loader ts-node/esm src/main.ts --mode=worker"

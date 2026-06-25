@@ -13,10 +13,10 @@ if pgrep -f "nodemon.*ts-node" > /dev/null; then
     pkill -f "nodemon.*ts-node" || true
 fi
 
-# Kill ts-node processes
-if pgrep -f "ts-node.*api.ts" > /dev/null; then
+# Kill ts-node processes (API server and/or worker)
+if pgrep -f "ts-node.*main.ts" > /dev/null; then
     echo "Stopping backend (ts-node)..."
-    pkill -f "ts-node.*api.ts" || true
+    pkill -f "ts-node.*main.ts" || true
 fi
 
 # Kill Vite dev server

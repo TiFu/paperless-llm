@@ -8,6 +8,12 @@ import { UoWFactory } from '../infrastructure/UoW.js';
  * StuckStepResetApplicationService - resets steps stuck in IN_PROGRESS state.
  * Separate service for periodic cleanup of stuck workflow steps.
  */
+export interface StuckStepResetResult {
+  reset: number;
+  fallout: number;
+  items: Array<{ stepId: string; outcome: 'retrying' | 'fallout' }>;
+}
+
 export class StuckStepResetApplicationService {
   private readonly logger: pino.Logger;
 
@@ -24,7 +30,7 @@ export class StuckStepResetApplicationService {
    * Steps exceeding max retries are marked as IN_FALLOUT, others are marked for RETRYING
    * @returns Object with counts of reset and fallout steps
    */
-  async resetStuckSteps(): Promise<{ reset: number; fallout: number }> {
+  async resetStuckSteps(): Promise<StuckStepResetResult> {
 
     try {
       await using context = await this.uowFactoyr.createSystemUoW();
@@ -35,27 +41,30 @@ export class StuckStepResetApplicationService {
 
       if (stuckSteps.length === 0) {
         this.logger.debug('No stuck steps found');
-        return { reset: 0, fallout: 0 };
+        return { reset: 0, fallout: 0, items: [] };
       }
 
       this.logger.warn(
-        { 
-          count: stuckSteps.length, 
+        {
+          count: stuckSteps.length,
           stepIds: stuckSteps.map(s => s.getStepId()),
           timeoutMs: this.timeoutMs
-        }, 
+        },
         'Found stuck steps'
       );
 
       let retryCount = 0;
       let falloutCount = 0;
+      const items: StuckStepResetResult['items'] = [];
       const workflowOrchestrator = context.getWorkflowOrchestratorDomainService();
       const steps = workflowOrchestrator.resetStuckSteps(stuckSteps, this.retryConfig)
       steps.forEach((s) => {
         if (s.getStepStatus() == StepStatus.RETRYING) {
           retryCount++;
+          items.push({ stepId: s.getStepId(), outcome: 'retrying' });
         } else if (s.getStepStatus() == StepStatus.IN_FALLOUT) {
           falloutCount++;
+          items.push({ stepId: s.getStepId(), outcome: 'fallout' });
         }
       })
       await context.save();
@@ -68,7 +77,7 @@ export class StuckStepResetApplicationService {
         'Completed stuck step reset operation'
       );
 
-      return { reset: retryCount, fallout: falloutCount };
+      return { reset: retryCount, fallout: falloutCount, items };
     } catch (error) {
       this.logger.error({ error }, 'Failed to reset stuck steps');
       throw error;

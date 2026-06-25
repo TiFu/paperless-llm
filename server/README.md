@@ -4,9 +4,9 @@ This directory contains SQL migration files for the Paperless LLM application, m
 
 ## 🚀 Automatic Migration Execution
 
-**Migrations run automatically when the API server starts.** No manual intervention is required for normal operation.
+**Migrations run automatically on startup, for both the API server and worker processes.** No manual intervention is required for normal operation.
 
-When `api.ts` starts, it:
+When `main.ts` starts (in either `--mode=server` or `--mode=worker`), it:
 1. Connects to the database
 2. Checks for pending migrations
 3. Runs all pending migrations in order
@@ -125,7 +125,7 @@ docker exec pllm-postgres-dev psql -U paperless_llm -c "DROP DATABASE IF EXISTS 
 docker exec pllm-postgres-dev psql -U paperless_llm -c "CREATE DATABASE paperless_llm_dev;"
 
 # Restart API - migrations will run automatically
-npm run dev
+npm run dev:api
 ```
 
 ### Verify Migration Status
@@ -194,7 +194,7 @@ SELECT pg_advisory_unlock_all();
 # Nuclear option - destroys all data
 docker-compose down -v
 docker-compose up -d pllm-postgres
-npm run dev  # Fresh migrations will run
+npm run dev:api  # Fresh migrations will run
 ```
 
 ## 📚 Schema Overview

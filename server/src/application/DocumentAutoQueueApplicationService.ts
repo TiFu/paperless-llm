@@ -3,15 +3,24 @@ import { IDocument } from '../domain/document/IDocument.js';
 import { Job } from '../domain/job/Job.js';
 import { JobApplicationService } from './JobApplicationService.js';
 import { AutoQueueConfig } from '../config/AppConfig.js';
-import { createChildLogger, getLogger } from '../utils/logger.js';
+import { createChildLogger } from '../utils/logger.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { UserContext } from '../domain/auth/UserContext.js';
 import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
+
+export interface AutoQueueItemResult {
+  documentId: number;
+  outcome: 'created' | 'skipped' | 'failed';
+  errorMessage?: string;
+  startedAt: Date;
+  finishedAt: Date;
+}
 
 export interface AutoQueueProcessResult {
   processed: number;
   created: number;
   skipped: number;
+  items: AutoQueueItemResult[];
 }
 
 export class DocumentAutoQueueApplicationService {
@@ -28,20 +37,21 @@ export class DocumentAutoQueueApplicationService {
     const users = await this.usersRepo.findAll();
     if (users.length === 0) {
       logger.info('No users found, skipping auto-queue');
-      return { processed: 0, created: 0, skipped: 0 };
+      return { processed: 0, created: 0, skipped: 0, items: [] };
     }
 
     let totalProcessed = 0;
     let totalCreated = 0;
     let totalSkipped = 0;
+    const items: AutoQueueItemResult[] = [];
 
     for (const user of users) {
       const userCtx: UserContext = { username: user.username };
+      const startedAt = new Date();
       try {
         logger.info({ username: user.username, tag: this.config.tag }, 'Fetching documents for auto-queue');
         const uow = await this.uowFactory.createUoW(userCtx)
         const dms = await uow.getDMS();
-
 
         const documents: IDocument[] = [];
         let cursor: string | undefined = undefined;
@@ -74,6 +84,12 @@ export class DocumentAutoQueueApplicationService {
         await uow1.commit();
 
         const availableDocuments = documents.filter(doc => !inProgressIds.has(doc.id));
+        const skippedAt = new Date();
+        items.push(
+          ...documents
+            .filter(doc => inProgressIds.has(doc.id))
+            .map(doc => ({ documentId: doc.id, outcome: 'skipped' as const, startedAt, finishedAt: skippedAt })),
+        );
 
         totalProcessed += documents.length;
         totalSkipped += inProgressIds.size;
@@ -92,12 +108,26 @@ export class DocumentAutoQueueApplicationService {
           fields: this.config.fields,
         }));
 
-        const createdJobs = await this.jobApplicationService.createBulk(jobsToCreate, userCtx);
-        totalCreated += createdJobs.length;
-        logger.info(
-          { username: user.username, count: createdJobs.length, workflowType: this.config.workflowType },
-          'Auto-queue created jobs for user',
-        );
+        try {
+          const createdJobs = await this.jobApplicationService.createBulk(jobsToCreate, userCtx);
+          totalCreated += createdJobs.length;
+          const finishedAt = new Date();
+          items.push(...availableDocuments.map(doc => ({ documentId: doc.id, outcome: 'created' as const, startedAt, finishedAt })));
+          logger.info(
+            { username: user.username, count: createdJobs.length, workflowType: this.config.workflowType },
+            'Auto-queue created jobs for user',
+          );
+        } catch (error) {
+          logger.error({ error, username: user.username }, 'Failed to create auto-queue jobs for user');
+          const finishedAt = new Date();
+          items.push(...availableDocuments.map(doc => ({
+            documentId: doc.id,
+            outcome: 'failed' as const,
+            errorMessage: error instanceof Error ? error.message : String(error),
+            startedAt,
+            finishedAt,
+          })));
+        }
       } catch (error) {
         logger.error({ error, username: user.username }, 'Failed to process auto-queue documents for user');
       }
@@ -108,6 +138,6 @@ export class DocumentAutoQueueApplicationService {
       'Auto-queue processing completed',
     );
 
-    return { processed: totalProcessed, created: totalCreated, skipped: totalSkipped };
+    return { processed: totalProcessed, created: totalCreated, skipped: totalSkipped, items };
   }
 }

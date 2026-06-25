@@ -4,6 +4,10 @@ import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { getLogger } from '../utils/logger.js';
 
+export interface EntitySyncResult {
+  items: Array<{ username: string; outcome: 'success' | 'failed'; errorMessage?: string; startedAt: Date; finishedAt: Date }>;
+}
+
 export class EntitySyncApplicationService {
   constructor(
     private readonly usersRepo: IUsersRepository,
@@ -11,17 +15,42 @@ export class EntitySyncApplicationService {
     private readonly uowFactory: UoWFactory,
   ) {}
 
-  async syncAll(): Promise<void> {
+  async syncAll(): Promise<EntitySyncResult> {
     const logger = getLogger();
     const users = await this.usersRepo.findAll();
 
     if (users.length === 0) {
       logger.debug('No users found, skipping entity sync');
-      return;
+      return { items: [] };
     }
 
-    await Promise.all(users.map(user => this.syncForUser(user.username)));
+    const results = await Promise.allSettled(
+      users.map(async user => {
+        const startedAt = new Date();
+        await this.syncForUser(user.username);
+        return { username: user.username, startedAt };
+      }),
+    );
+
+    const items = results.map((result, idx) => {
+      const username = users[idx].username;
+      const finishedAt = new Date();
+      if (result.status === 'fulfilled') {
+        return { username, outcome: 'success' as const, startedAt: result.value.startedAt, finishedAt };
+      }
+      const error = result.reason;
+      logger.error({ error, username }, 'Entity sync failed for user');
+      return {
+        username,
+        outcome: 'failed' as const,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        startedAt: finishedAt,
+        finishedAt,
+      };
+    });
+
     logger.debug({ userCount: users.length }, 'Entity sync completed for all users');
+    return { items };
   }
 
   async syncForUser(username: string): Promise<void> {
