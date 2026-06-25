@@ -90,7 +90,7 @@ export class JobApplicationService {
       await context.save();
       await context.commit();
 
-      const dms = context.getDMS();
+      const dms = await context.getDMS();
       return enrichAllWithDocument(createdJobs, dms);
     } catch (error) {
       logger.error({ error, count: jobs.length }, 'Failed to create jobs in bulk');
@@ -108,8 +108,10 @@ export class JobApplicationService {
       if (!canRead) throw new ApiError(403, 'Forbidden');
 
       const job = await context.getJobs().getById(id);
+      const dms = await context.getDMS();
       await context.commit();
-      return enrichWithDocument(job, context.getDMS());
+
+      return enrichWithDocument(job, dms);
     } catch (error) {
       logger.error({ error, id }, 'Failed to get job by ID');
       throw error;
@@ -123,10 +125,11 @@ export class JobApplicationService {
       await context.start();
       const jobs = await context.getJobs().getByDocumentId(documentId);
       const allowedIds = await context.getPermissions().listObjectIdsForUser('job', user.username);
+      const dms = await context.getDMS();
       await context.commit();
 
       const visible = jobs.filter(j => allowedIds.includes(j.id));
-      return enrichAllWithDocument(visible, context.getDMS());
+      return enrichAllWithDocument(visible, dms);
     } catch (error) {
       logger.error({ error, documentId }, 'Failed to get jobs by document ID');
       throw error;
@@ -146,10 +149,11 @@ export class JobApplicationService {
       await using context = await this.uowFactory.createUoW(user);
       await context.start();
       const result = await context.getJobs().listForUser(limit, cursor, state);
+      const dms = await context.getDMS();
       await context.commit();
 
       const end2 = Date.now();
-      const output = await enrichAllWithDocument(result.items, context.getDMS());
+      const output = await enrichAllWithDocument(result.items, dms);
       const end3 = Date.now();
       logger.info({
         joblistMs: end2 - start,

@@ -95,8 +95,8 @@ export class ManualStepApplicationService {
           createdAt: job.createdAt,
         });
       }
-
-      const approvalItems: ApprovalItem[] = await enrichAllWithDocument(baseApprovalItems, context.getDMS());
+      const dms = await context.getDMS();
+      const approvalItems: ApprovalItem[] = await enrichAllWithDocument(baseApprovalItems, dms);
       const nextCursor = approvalItems.length > 0
         ? encodeCursor({ stepId: approvalItems[approvalItems.length - 1].stepId })
         : null;

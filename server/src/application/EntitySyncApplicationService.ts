@@ -26,7 +26,8 @@ export class EntitySyncApplicationService {
 
   async syncForUser(username: string): Promise<void> {
     const logger = getLogger();
-    const dms = await this.uowFactory.createDMSForUser({ username });
+    const uow = await this.uowFactory.createUoW({ username })
+    const dms = await uow.getDMS()
 
     const [tags, correspondents, documentTypes] = await Promise.all([
       dms.getTags(),

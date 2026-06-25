@@ -56,7 +56,7 @@ export class HealthController {
 
   private async checkPaperlessHealth(): Promise<boolean> {
     try {
-      await this.paperlessService.getDocumentsByTag('__health_check__', 1);
+      await this.paperlessService.healthCheck();
       return true;
     } catch {
       return false;

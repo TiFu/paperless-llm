@@ -12,6 +12,10 @@ import { PostgreSQLStepRepository } from "./PostgreSQLStepRepository.js";
 import { PostgreSQLAuditLogRepository } from "./PostgreSQLAuditLogRepository.js";
 import { IPermissionsRepository } from "../../domain/authorization/IPermissionsRepository.js";
 import { PostgreSQLPermissionsRepository } from "./PostgreSQLPermissionsRepository.js";
+import { IUsersRepository } from "../../domain/auth/IUsersRepository.js";
+import { PostgreSQLUsersRepository } from "./PostgreSQLUsersRepository.js";
+import { IEntityDescriptionsRepository } from "../../domain/entityDescriptions/IEntityDescriptionsRepository.js";
+import { PostgreSQLEntityDescriptionsRepository } from "./PostgreSQLEntityDescriptionsRepository.js";
 
 export class PostgresqlDatabaseTransactionContext implements DatabaseTransactionContext {
   static contextNo: number = 0;
@@ -125,6 +129,8 @@ export class PostgresqlRepositoryRegistry implements RepositoryRegistry {
     private stepRepo: IStepRepository
     private auditRepo: IAuditLogRepository
     private permissionsRepo: IPermissionsRepository
+    private usersRepo: IUsersRepository
+    private entityDescriptionsRepo: IEntityDescriptionsRepository
 
     constructor(context: PostgresqlDatabaseTransactionContext, uow: UoW) {
         const client = context.getClient();
@@ -133,6 +139,8 @@ export class PostgresqlRepositoryRegistry implements RepositoryRegistry {
         this.stepRepo = new PostgreSQLStepRepository(client, uow)
         this.auditRepo = new PostgreSQLAuditLogRepository(client)
         this.permissionsRepo = new PostgreSQLPermissionsRepository(client)
+        this.usersRepo = new PostgreSQLUsersRepository(client)
+        this.entityDescriptionsRepo = new PostgreSQLEntityDescriptionsRepository(client)
     }
     getPrompts(): IPromptsRepository {
         return this.promptRepo
@@ -148,6 +156,12 @@ export class PostgresqlRepositoryRegistry implements RepositoryRegistry {
     }
     getPermissions(): IPermissionsRepository {
         return this.permissionsRepo
+    }
+    getUsers(): IUsersRepository {
+        return this.usersRepo
+    }
+    getEntityDescriptions(): IEntityDescriptionsRepository {
+        return this.entityDescriptionsRepo
     }
 
 }

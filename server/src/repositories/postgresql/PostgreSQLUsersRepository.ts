@@ -1,8 +1,8 @@
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import { IUsersRepository, UserRecord } from '../../domain/auth/IUsersRepository.js';
 
 export class PostgreSQLUsersRepository implements IUsersRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: Pool | PoolClient) {}
 
   async upsert(username: string, paperlessToken: string): Promise<void> {
     await this.pool.query(

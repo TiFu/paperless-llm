@@ -84,7 +84,7 @@ async function main(): Promise<void> {
 
   // Initialize entity descriptions repository and sync service
   const entityDescriptionsRepo = new PostgreSQLEntityDescriptionsRepository(pool);
-  const uowFactory = new UoWFactory(txManager, usersRepo, config.paperless, dmsCacheService, entityDescriptionsRepo);
+  const uowFactory = new UoWFactory(txManager, config.paperless, dmsCacheService);
   const entitySyncService = new EntitySyncApplicationService(usersRepo, entityDescriptionsRepo, uowFactory);
 
   // Initialize service factories

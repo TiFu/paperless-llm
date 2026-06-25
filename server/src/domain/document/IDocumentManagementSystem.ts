@@ -15,6 +15,8 @@ export interface IDocumentManagementSystem {
     cursor?: string
   ): Promise<PaginatedDocuments>;
 
+  healthCheck(): Promise<boolean>;
+
   getDocumentsByIds(ids: (number | string)[]): Promise<IDocument[]>;
 
   /**

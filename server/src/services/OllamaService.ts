@@ -1,6 +1,8 @@
 import axios, { AxiosInstance } from 'axios';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { LLMConfig } from '../config/AppConfig.js';
+import pino from 'pino';
+import { createChildLogger } from '../utils/logger.js';
 
 export interface OllamaChatRequest {
   model: string;
@@ -20,11 +22,13 @@ export interface OllamaChatResponse {
 }
 
 export class OllamaService implements ILLMService {
+  private readonly logger: pino.Logger;
   private readonly client: AxiosInstance;
   private readonly model: string;
   private readonly temperature: number;
 
   constructor(config: LLMConfig) {
+    this.logger = createChildLogger({ name: "OllamaService"})
     this.model = config.model;
     this.temperature = config.temperature;
 
@@ -40,8 +44,10 @@ export class OllamaService implements ILLMService {
   async checkHealth(): Promise<boolean> {
     try {
       const response = await this.client.get<any>("/", {});
+      this.logger.info({ service: "llm", status: true}, "Ollama health check")
       return true;
     } catch (error) {
+      this.logger.info({ service: "llm", status: false}, "Ollama health check")
       return false
     }
   }
@@ -61,8 +67,10 @@ export class OllamaService implements ILLMService {
       },
     };
 
+    this.logger.info({ request: request, client: this.client}, "Request")
     try {
       const response = await this.client.post<OllamaChatResponse>('/api/generate', request);
+      this.logger.info({ response: response}, "Ollama response")
 
       if (!response.data.response) {
         throw new Error('Empty response from Ollama');
@@ -70,8 +78,9 @@ export class OllamaService implements ILLMService {
 
       return response.data.response.trim();
     } catch (error) {
+      this.logger.info({ error: error}, "Ollama request failed")
       if (axios.isAxiosError(error)) {
-        throw new Error(`Ollama API error: ${error.message}`);
+        throw new Error(`Ollama API error: ${error.message}: ${error.response?.data}`);
       }
       throw error;
     }

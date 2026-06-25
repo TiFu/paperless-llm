@@ -34,11 +34,12 @@ export class StepExecutorApplicationService {
       await uow.start();
       const job = await uow.getJobs().getById(step.getJobId());
       const prompt = await uow.getPromptDomainService().loadPrompt(step);
+      const dms = await uow.getDMS();
       const stepContext: StepExecutionContext = {
         job,
         prompt,
         services: {
-          dms: uow.getDMS(),
+          dms: dms,
           llm: this.llmService,
           promptDomainService: uow.getPromptDomainService(),
         },

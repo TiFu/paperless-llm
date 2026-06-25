@@ -112,11 +112,11 @@ export class QueueApplicationService {
       const stepStatus = this.mapWorkItemStatusToStepStatus(status);
       logger.info({ limit, cursor, stepStatus }, 'Requesting automated steps for queue');
       const result = await context.getSteps().listAutomatedStepsWithJob(limit, cursor, stepStatus);
-
+      const dms = await context.getDMS()
       await context.commit();
 
       const items = result.items.map((step) => this.mapStepToQueueItem(step));
-      const enrichedItems = await enrichAllWithDocument(items, context.getDMS());
+      const enrichedItems = await enrichAllWithDocument(items, dms);
 
       return {
         items: enrichedItems,

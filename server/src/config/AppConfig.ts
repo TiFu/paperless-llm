@@ -5,6 +5,8 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { WorkflowType } from '../domain/workflows/WorkflowType.js';
 import { DocumentField } from '../domain/steps/StepFactory.js';
+import pino from 'pino';
+import { createChildLogger } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -242,6 +244,7 @@ export class AppConfig {
     this.validate();
     this.validateLLMConfig();
     this.validateAutoQueueConfig();
+    console.log({ config: this, path: configPath}, "Loaded config")
   }
 
   private loadConfig(configPath?: string): RawConfig {

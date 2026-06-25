@@ -22,7 +22,8 @@ export class DocumentApplicationService {
       await using context = await this.uowFactory.createUoW(user);
       await context.start();
 
-      const paginatedResult = await context.getDMS().getDocumentsByTag(tag, limit, cursor);
+      const dms = await context.getDMS();
+      const paginatedResult = await dms.getDocumentsByTag(tag, limit, cursor);
 
       const documentIds = paginatedResult.documents.map(doc => doc.id);
       const inProgressIds = documentIds.length > 0
@@ -45,7 +46,8 @@ export class DocumentApplicationService {
   async getTags(user: UserContext): Promise<ITag[]> {
     await using context = await this.uowFactory.createUoW(user);
     await context.start();
-    const tags = await context.getDMS().getTags();
+    const dms = await context.getDMS();
+    const tags = dms.getTags();
     await context.commit();
     return tags;
   }
@@ -53,7 +55,8 @@ export class DocumentApplicationService {
   async getCorrespondents(user: UserContext): Promise<ICorrespondent[]> {
     await using context = await this.uowFactory.createUoW(user);
     await context.start();
-    const correspondents = await context.getDMS().getCorrespondents();
+    const dms = await context.getDMS();
+    const correspondents = await dms.getCorrespondents();
     await context.commit();
     return correspondents;
   }
@@ -61,7 +64,8 @@ export class DocumentApplicationService {
   async getDocumentTypes(user: UserContext): Promise<IDocumentType[]> {
     await using context = await this.uowFactory.createUoW(user);
     await context.start();
-    const documentTypes = await context.getDMS().getDocumentTypes();
+    const dms = await context.getDMS();
+    const documentTypes = await dms.getDocumentTypes();
     await context.commit();
     return documentTypes;
   }

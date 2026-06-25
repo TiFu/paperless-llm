@@ -3,6 +3,8 @@ import { IJobRepository } from '../domain/job/IJobRepository.js';
 import { IStepRepository } from '../domain/steps/IStepRepository.js';
 import { IAuditLogRepository } from '../domain/audit/IAuditLogRepository.js';
 import { IPermissionsRepository } from '../domain/authorization/IPermissionsRepository.js';
+import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
+import { IEntityDescriptionsRepository } from '../domain/entityDescriptions/IEntityDescriptionsRepository.js';
 import { UoW } from './UoW.js';
 
 /**
@@ -29,6 +31,8 @@ export interface RepositoryRegistry {
 
   getAuditLog(): IAuditLogRepository;
   getPermissions(): IPermissionsRepository;
+  getUsers(): IUsersRepository;
+  getEntityDescriptions(): IEntityDescriptionsRepository;
 }
 
 export type DBContextWithRepositoryFactory = { ctx: DatabaseTransactionContext, repositoryFactory: RepositoryRegistryFactory}

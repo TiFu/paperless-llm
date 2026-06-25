@@ -6,7 +6,6 @@ import { ILLMService } from "../domain/llm/ILLMService.js";
 import { IPromptDomainService } from "../domain/prompt/IPromptDomainService.js";
 import { IPromptsRepository } from "../domain/prompt/IPromptsRepository.js";
 import { PromptService } from "../domain/prompt/PromptDomainService.js";
-import { IEntityDescriptionsRepository } from "../domain/entityDescriptions/IEntityDescriptionsRepository.js";
 import { StepExecutorDomainService } from "../domain/services/StepExecutorDomainService.js";
 import { WorkflowOrchestratorDomainService } from "../domain/services/WorkflowOrchestratorService.js";
 import { IStepRepository } from "../domain/steps/IStepRepository.js";
@@ -54,7 +53,7 @@ export interface UoW {
 
   getAuditCollector(): IAuditCollector;
   getUser(): UserContext | undefined;
-  getDMS(): IDocumentManagementSystem;
+  getDMS(): Promise<IDocumentManagementSystem>;
   getPermissions(): IPermissionsRepository;
 
   register<T>(object: T, repo: Saveable<T>): void;
@@ -84,35 +83,18 @@ interface UoWRegistryEntry<T> {
 export class UoWFactory {
     constructor(
         private readonly txManager: DatabaseTransactionContextFactory,
-        private readonly usersRepo: IUsersRepository,
         private readonly paperlessConfig: PaperlessConfig,
         private readonly dmsCacheService: DMSCacheService,
-        private readonly entityDescriptionsRepo?: IEntityDescriptionsRepository,
     ) {}
 
     public async createUoW(user: UserContext): Promise<UoW> {
-        const token = await this.usersRepo.getPaperlessToken(user.username);
-        if (!token) {
-            throw new Error(`No Paperless token found for user: ${user.username}`);
-        }
-        const paperlessService = new PaperlessService({ ...this.paperlessConfig, token });
-        const dms = new CachedPaperlessServiceAdapter(paperlessService, this.dmsCacheService);
         const context = await this.txManager.createContext();
-        return new UoWImplementation(context, dms, this.entityDescriptionsRepo, user);
+        return new UoWImplementation(context, this.paperlessConfig, this.dmsCacheService, user);
     }
 
     public async createSystemUoW(): Promise<UoW> {
         const context = await this.txManager.createContext();
-        return new UoWImplementation(context, undefined, this.entityDescriptionsRepo, undefined);
-    }
-
-    public async createDMSForUser(user: UserContext): Promise<IDocumentManagementSystem> {
-        const token = await this.usersRepo.getPaperlessToken(user.username);
-        if (!token) {
-            throw new Error(`No Paperless token found for user: ${user.username}`);
-        }
-        const paperlessService = new PaperlessService({ ...this.paperlessConfig, token });
-        return new CachedPaperlessServiceAdapter(paperlessService, this.dmsCacheService);
+        return new UoWImplementation(context, this.paperlessConfig, this.dmsCacheService, undefined);
     }
 }
 
@@ -123,7 +105,6 @@ export class UoWImplementation implements UoW {
     private context: DatabaseTransactionContext;
     private auditCollector: IAuditCollector;
     private dms: IDocumentManagementSystem | undefined;
-    private entityDescriptionsRepo?: IEntityDescriptionsRepository;
     private user: UserContext | undefined;
     private permissions: IPermissionsRepository;
 
@@ -135,7 +116,10 @@ export class UoWImplementation implements UoW {
         return this.user;
     }
 
-    getDMS(): IDocumentManagementSystem {
+    async getDMS(): Promise<IDocumentManagementSystem> {
+        if (!this.dms && this.user) {
+            this.dms = await this._createDMSForUser(this.user);
+        }
         if (!this.dms) {
             throw new Error('No DMS available on system UoW — use createUoW(user) for operations requiring Paperless access');
         }
@@ -148,8 +132,8 @@ export class UoWImplementation implements UoW {
 
     constructor(
         context: DBContextWithRepositoryFactory,
-        dms: IDocumentManagementSystem | undefined,
-        entityDescriptionsRepo?: IEntityDescriptionsRepository,
+        private dmsConfig: PaperlessConfig,
+        private dmsCacheService: DMSCacheService,
         user?: UserContext,
     ) {
         this.objectRegistry = new Set<UoWRegistryEntry<any>>();
@@ -157,10 +141,17 @@ export class UoWImplementation implements UoW {
         this.repositoryRegistry = context.repositoryFactory.create(this);
         this.promptDomainService = null;
         this.auditCollector = new AuditCollector();
-        this.dms = dms;
-        this.entityDescriptionsRepo = entityDescriptionsRepo;
         this.user = user;
         this.permissions = new CachedPermissionsRepositoryAdapter(this.repositoryRegistry.getPermissions());
+    }
+
+    private async _createDMSForUser(user: UserContext): Promise<IDocumentManagementSystem> {
+        const token = await this.repositoryRegistry.getUsers().getPaperlessToken(user.username);
+        if (!token) {
+            throw new Error(`No Paperless token found for user: ${user.username}`);
+        }
+        const paperlessService = new PaperlessService({ ...this.dmsConfig, token });
+        return new CachedPaperlessServiceAdapter(paperlessService, this.dmsCacheService);
     }
 
     getStepExecutorDomainService(): StepExecutorDomainService {
@@ -173,16 +164,8 @@ export class UoWImplementation implements UoW {
 
     getPromptDomainService(): IPromptDomainService {
         if (!this.promptDomainService) {
-            const obtainer = this.entityDescriptionsRepo
-                ? () => this.entityDescriptionsRepo!.findAllGrouped()
-                : async () => {
-                    const fields = await this.getDMS().getAvailableFields();
-                    return {
-                        tags: fields.tags.map(t => ({ ...t, description: null })),
-                        correspondents: fields.correspondents.map(c => ({ ...c, description: null })),
-                        documentTypes: fields.documentTypes.map(dt => ({ ...dt, description: null })),
-                    };
-                };
+            const entityDescriptionsRepo = this.repositoryRegistry.getEntityDescriptions();
+            const obtainer = () => entityDescriptionsRepo.findAllGrouped();
             this.promptDomainService = new PromptService(this.getPrompts(), obtainer);
         }
         return this.promptDomainService;

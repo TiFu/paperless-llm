@@ -627,11 +627,6 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
   }
 
   async healthCheck(): Promise<boolean> {
-    try {
-      await this.client.get('/api/documents/?page_size=1');
-      return true;
-    } catch {
-      return false;
-    }
+    return await this.client.get<any>('/api/').then((a) => true).catch((err) => false);
   }
 }
