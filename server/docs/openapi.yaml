@@ -53,6 +53,8 @@ tags:
     description: Step-level operations (retry, cancel)
   - name: EntityDescriptions
     description: Entity description management (tags, correspondents, document types)
+  - name: WorkerExecutions
+    description: Observability into background worker loop runs and their items
 
 paths:
   /auth/login:
@@ -942,6 +944,75 @@ paths:
                 $ref: '#/components/schemas/OperationResult'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /worker-executions:
+    get:
+      tags:
+        - WorkerExecutions
+      summary: List worker executions
+      description: Retrieve a paginated list of background worker loop runs, most recent first, optionally filtered by worker type and/or status.
+      operationId: listWorkerExecutions
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of executions to return (default 50, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: cursor
+          in: query
+          description: Pagination cursor from a previous response
+          schema:
+            type: string
+        - name: workerType
+          in: query
+          description: Filter by worker type
+          schema:
+            $ref: '#/components/schemas/WorkerType'
+        - name: status
+          in: query
+          description: Filter by execution status
+          schema:
+            $ref: '#/components/schemas/WorkerExecutionStatus'
+      responses:
+        '200':
+          description: List of worker executions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerExecutionListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /worker-executions/{id}:
+    get:
+      tags:
+        - WorkerExecutions
+      summary: Get a single worker execution
+      description: Returns a worker execution along with the individual items (steps/users/documents) touched during that run.
+      operationId: getWorkerExecution
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Worker execution detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerExecutionDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -2200,6 +2271,112 @@ components:
         description:
           type: string
           nullable: true
+
+    WorkerType:
+      type: string
+      enum:
+        - step_processor
+        - stuck_step_reset
+        - entity_sync
+        - document_auto_queue
+      description: Identifies which background worker loop an execution belongs to
+
+    WorkerExecutionStatus:
+      type: string
+      enum:
+        - running
+        - succeeded
+        - failed
+      description: Current status of a worker execution run
+
+    WorkerExecutionItem:
+      type: object
+      properties:
+        itemType:
+          type: string
+          description: Kind of item touched (e.g. step, entity_sync_user, document)
+          example: step
+        itemId:
+          type: string
+          description: ID of the referenced item (step id, username, document id, etc.)
+        outcome:
+          type: string
+          description: Outcome for this item — varies by worker/item type (e.g. success, failed, skipped, retrying, fallout, requeued, created)
+          example: success
+        errorMessage:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+      required:
+        - itemType
+        - itemId
+        - outcome
+        - startedAt
+        - finishedAt
+
+    WorkerExecutionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workerType:
+          $ref: '#/components/schemas/WorkerType'
+        status:
+          $ref: '#/components/schemas/WorkerExecutionStatus'
+        result:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Summary counts for the run (e.g. processed/retried/created/skipped)
+        errorMessage:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - workerType
+        - status
+        - startedAt
+
+    WorkerExecutionDetail:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/WorkerExecutionSummary'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkerExecutionItem'
+          required:
+            - items
+
+    WorkerExecutionListResponse:
+      type: object
+      properties:
+        executions:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkerExecutionSummary'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Cursor for fetching the next page of results
+      required:
+        - executions
+        - nextCursor
 
   responses:
     BadRequest:

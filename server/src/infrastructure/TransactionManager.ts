@@ -5,6 +5,7 @@ import { IAuditLogRepository } from '../domain/audit/IAuditLogRepository.js';
 import { IPermissionsRepository } from '../domain/authorization/IPermissionsRepository.js';
 import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
 import { IEntityDescriptionsRepository } from '../domain/entityDescriptions/IEntityDescriptionsRepository.js';
+import { IWorkerExecutionRepository } from '../domain/workerExecution/IWorkerExecutionRepository.js';
 import { UoW } from './UoW.js';
 
 /**
@@ -33,6 +34,7 @@ export interface RepositoryRegistry {
   getPermissions(): IPermissionsRepository;
   getUsers(): IUsersRepository;
   getEntityDescriptions(): IEntityDescriptionsRepository;
+  getWorkerExecutions(): IWorkerExecutionRepository;
 }
 
 export type DBContextWithRepositoryFactory = { ctx: DatabaseTransactionContext, repositoryFactory: RepositoryRegistryFactory}

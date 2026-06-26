@@ -11,10 +11,13 @@ import {
   StepsApi,
   HealthApi,
   EntityDescriptionsApi,
+  WorkerExecutionsApi,
   AuthApi,
   WorkflowType,
   BatchJobRequestDocumentsInnerFieldsEnum,
   EntityValueType,
+  WorkerType,
+  WorkerExecutionStatus,
 } from './generated';
 import { BearerAuthAuthentication } from './generated/auth/auth';
 import { PromiseMiddleware } from './generated/middleware';
@@ -68,6 +71,7 @@ const statsApi = new StatsApi(config);
 const stepsApi = new StepsApi(config);
 const healthApi = new HealthApi(config);
 const entityDescriptionsApi = new EntityDescriptionsApi(config);
+const workerExecutionsApi = new WorkerExecutionsApi(config);
 const authApi = new AuthApi(config);
 
 function normalizeError(error: any): Error {
@@ -284,6 +288,22 @@ export const apiClient = {
   async syncEntityDescriptions() {
     try {
       return await entityDescriptionsApi.entityDescriptionsSyncPost();
+    } catch (e) {
+      throw normalizeError(e);
+    }
+  },
+
+  // Worker Executions
+  async fetchWorkerExecutions(limit: number = 20, cursor?: string, workerType?: WorkerType, status?: WorkerExecutionStatus) {
+    try {
+      return await workerExecutionsApi.listWorkerExecutions(limit, cursor, workerType, status);
+    } catch (e) {
+      throw normalizeError(e);
+    }
+  },
+  async fetchWorkerExecutionById(id: string) {
+    try {
+      return await workerExecutionsApi.getWorkerExecution(id);
     } catch (e) {
       throw normalizeError(e);
     }

@@ -1,10 +1,9 @@
 import { AppContext } from './bootstrap.js';
-import { WorkerExecutor } from './infrastructure/WorkerExecutor.js';
-import { withExecutionTracking, WorkerRunResult } from './infrastructure/withExecutionTracking.js';
+import { WorkerExecutor, WorkerRunResult } from './infrastructure/WorkerExecutor.js';
 import { WorkerExecutionItem } from './domain/workerExecution/WorkerExecutionItem.js';
 
-export async function runWorker(ctx: AppContext): Promise<void> {
-  const { config, logger, applicationServiceFactory, workerExecutionRepository } = ctx;
+export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
+  const { config, logger, applicationServiceFactory, uowFactory } = ctx;
 
   const stepExecutorService = applicationServiceFactory.createStepExecutorApplicationService();
   const stuckStepResetService = applicationServiceFactory.createStuckStepResetApplicationService(
@@ -13,7 +12,8 @@ export async function runWorker(ctx: AppContext): Promise<void> {
   );
 
   const stepProcessorWorker = new WorkerExecutor(
-    withExecutionTracking('step_processor', workerExecutionRepository, async (): Promise<WorkerRunResult> => {
+    'step_processor',
+    async (): Promise<WorkerRunResult> => {
       const pending = await stepExecutorService.processPendingSteps(config.worker.batchSize);
       logger.debug({ processed: pending.processed }, 'Processed steps');
 
@@ -39,13 +39,15 @@ export async function runWorker(ctx: AppContext): Promise<void> {
       ];
 
       return { summary: { processed: pending.processed, retried: retried.retried }, items };
-    }),
+    },
     config.worker.pollIntervalMs,
+    uowFactory,
     logger.child({ component: 'StepProcessorWorker' }),
   );
 
   const stuckStepResetWorker = new WorkerExecutor(
-    withExecutionTracking('stuck_step_reset', workerExecutionRepository, async (): Promise<WorkerRunResult> => {
+    'stuck_step_reset',
+    async (): Promise<WorkerRunResult> => {
       const result = await stuckStepResetService.resetStuckSteps();
       if (result.reset > 0 || result.fallout > 0) {
         logger.info({ reset: result.reset, fallout: result.fallout }, 'Reset stuck steps');
@@ -61,13 +63,15 @@ export async function runWorker(ctx: AppContext): Promise<void> {
       }));
 
       return { summary: { reset: result.reset, fallout: result.fallout }, items };
-    }),
+    },
     config.worker.stuckStepCheckIntervalMs,
+    uowFactory,
     logger.child({ component: 'StuckStepResetWorker' }),
   );
 
   const entitySyncWorker = new WorkerExecutor(
-    withExecutionTracking('entity_sync', workerExecutionRepository, async (): Promise<WorkerRunResult> => {
+    'entity_sync',
+    async (): Promise<WorkerRunResult> => {
       const result = await ctx.entitySyncService.syncAll();
       const items: WorkerExecutionItem[] = result.items.map(i => ({
         itemType: 'entity_sync_user',
@@ -78,8 +82,9 @@ export async function runWorker(ctx: AppContext): Promise<void> {
         finishedAt: i.finishedAt,
       }));
       return { summary: { users: result.items.length }, items };
-    }),
+    },
     config.entitySync.pollIntervalMs,
+    uowFactory,
     logger.child({ component: 'EntitySyncWorker' }),
   );
 
@@ -88,7 +93,8 @@ export async function runWorker(ctx: AppContext): Promise<void> {
     const autoQueueService = applicationServiceFactory.createDocumentAutoQueueApplicationService(config.autoQueue);
 
     documentAutoQueueWorker = new WorkerExecutor(
-      withExecutionTracking('document_auto_queue', workerExecutionRepository, async (): Promise<WorkerRunResult> => {
+      'document_auto_queue',
+      async (): Promise<WorkerRunResult> => {
         const result = await autoQueueService.processNewDocuments();
         if (result.created > 0 || result.skipped > 0) {
           logger.info(
@@ -110,8 +116,9 @@ export async function runWorker(ctx: AppContext): Promise<void> {
           summary: { processed: result.processed, created: result.created, skipped: result.skipped },
           items,
         };
-      }),
+      },
       config.autoQueue.pollIntervalMs,
+      uowFactory,
       logger.child({ component: 'DocumentAutoQueueWorker' }),
     );
   }
@@ -154,18 +161,11 @@ export async function runWorker(ctx: AppContext): Promise<void> {
     logger.info('Document auto-queue worker disabled');
   }
 
-  const shutdown = async () => {
+  return async () => {
     logger.info('Shutting down worker process...');
     stepProcessorWorker.stop();
     stuckStepResetWorker.stop();
     entitySyncWorker.stop();
     documentAutoQueueWorker?.stop();
-
-    await ctx.database.close();
-    logger.info('Shutdown complete');
-    process.exit(0);
   };
-
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
 }

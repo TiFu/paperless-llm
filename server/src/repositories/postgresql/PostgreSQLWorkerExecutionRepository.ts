@@ -1,9 +1,33 @@
-import { Pool } from 'pg';
+import { PoolClient } from 'pg';
 import { IWorkerExecutionRepository } from '../../domain/workerExecution/IWorkerExecutionRepository.js';
+import { WorkerExecution } from '../../domain/workerExecution/WorkerExecution.js';
 import { WorkerExecutionItem } from '../../domain/workerExecution/WorkerExecutionItem.js';
 
+function rowToExecution(row: Record<string, any>): WorkerExecution {
+  return {
+    id: row.id,
+    workerType: row.worker_type,
+    status: row.status,
+    result: row.result ?? null,
+    errorMessage: row.error_message ?? null,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at ?? null,
+  };
+}
+
+function rowToItem(row: Record<string, any>): WorkerExecutionItem {
+  return {
+    itemType: row.item_type,
+    itemId: row.item_id,
+    outcome: row.outcome,
+    errorMessage: row.error_message ?? undefined,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+  };
+}
+
 export class PostgreSQLWorkerExecutionRepository implements IWorkerExecutionRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: PoolClient) {}
 
   async start(workerType: string): Promise<string> {
     const result = await this.pool.query<{ id: string }>(
@@ -57,5 +81,63 @@ export class PostgreSQLWorkerExecutionRepository implements IWorkerExecutionRepo
        VALUES ${values}`,
       params,
     );
+  }
+
+  async listExecutions(
+    limit: number,
+    cursor?: string,
+    workerType?: string,
+    status?: string,
+  ): Promise<{ items: WorkerExecution[]; nextCursor: string | null }> {
+    const conditions: string[] = [];
+    const params: any[] = [limit];
+    let paramIndex = 2;
+
+    if (cursor) {
+      conditions.push(`started_at < (SELECT started_at FROM worker_executions WHERE id = $${paramIndex})`);
+      params.push(cursor);
+      paramIndex++;
+    }
+
+    if (workerType) {
+      conditions.push(`worker_type = $${paramIndex}`);
+      params.push(workerType);
+      paramIndex++;
+    }
+
+    if (status) {
+      conditions.push(`status = $${paramIndex}`);
+      params.push(status);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const result = await this.pool.query(
+      `SELECT * FROM worker_executions
+       ${whereClause}
+       ORDER BY started_at DESC
+       LIMIT $1`,
+      params,
+    );
+
+    const items = result.rows.map(rowToExecution);
+    const nextCursor = items.length === limit ? items[items.length - 1].id : null;
+
+    return { items, nextCursor };
+  }
+
+  async getExecutionById(id: string): Promise<WorkerExecution | null> {
+    const result = await this.pool.query(`SELECT * FROM worker_executions WHERE id = $1`, [id]);
+    if (result.rows.length === 0) return null;
+    return rowToExecution(result.rows[0]);
+  }
+
+  async listItemsForExecution(executionId: string): Promise<WorkerExecutionItem[]> {
+    const result = await this.pool.query(
+      `SELECT * FROM worker_execution_items WHERE execution_id = $1 ORDER BY started_at ASC`,
+      [executionId],
+    );
+    return result.rows.map(rowToItem);
   }
 }

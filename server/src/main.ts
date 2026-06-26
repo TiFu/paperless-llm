@@ -4,15 +4,15 @@ import { createAppContext } from './bootstrap.js';
 import { runServer } from './runServer.js';
 import { runWorker } from './runWorker.js';
 
-type Mode = 'server' | 'worker';
+type Mode = 'server' | 'worker' | 'all';
 
 function parseMode(argv: string[]): Mode {
   const arg = argv.find(a => a.startsWith('--mode='));
   const value = arg?.split('=')[1];
 
-  if (value !== 'server' && value !== 'worker') {
+  if (value !== 'server' && value !== 'worker' && value !== 'all') {
     throw new Error(
-      `Missing or invalid --mode argument (got: ${value ?? 'none'}). Usage: node main.js --mode=server|worker`,
+      `Missing or invalid --mode argument (got: ${value ?? 'none'}). Usage: node main.js --mode=server|worker|all`,
     );
   }
 
@@ -23,11 +23,24 @@ async function main(): Promise<void> {
   const mode = parseMode(process.argv.slice(2));
   const ctx = await createAppContext(mode);
 
-  if (mode === 'server') {
-    await runServer(ctx);
-  } else {
-    await runWorker(ctx);
+  const stopFns: Array<() => Promise<void>> = [];
+  if (mode === 'server' || mode === 'all') {
+    stopFns.push(await runServer(ctx));
   }
+  if (mode === 'worker' || mode === 'all') {
+    stopFns.push(await runWorker(ctx));
+  }
+
+  const shutdown = async () => {
+    ctx.logger.info('Shutting down...');
+    await Promise.all(stopFns.map(stop => stop()));
+    await ctx.database.close();
+    ctx.logger.info('Shutdown complete');
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 main().catch((error) => {

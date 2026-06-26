@@ -21,6 +21,7 @@ import { createStepsRouter } from './routes/steps.js';
 import { createStatsRouter } from './routes/stats.js';
 import { createDocsRouter } from './routes/docs.js';
 import { createEntityDescriptionsRouter } from './routes/entityDescriptions.js';
+import { createWorkerExecutionsRouter } from './routes/workerExecutions.js';
 import { createAuthRouter } from './routes/auth.js';
 import * as OpenAPIValidator from 'express-openapi-validator';
 import { UoWFactory } from '../infrastructure/UoW.js';
@@ -89,7 +90,15 @@ export function createApiServer(
   app.use(OpenAPIValidator.middleware({
     apiSpec,
     validateRequests: true,
-    validateResponses: true,
+    validateResponses: {
+      // Several error responses (e.g. 401 from the JWT middleware) aren't documented
+      // per-endpoint in the spec. Without onError, an undocumented status code makes
+      // the validator throw, which overwrites the real response with a garbled 500.
+      // Log and let the original response through instead.
+      onError: (err, body, req) => {
+        logger.warn({ err, path: req.path, body }, 'Response failed OpenAPI validation');
+      },
+    },
     validateFormats: true
   }))
 
@@ -112,6 +121,7 @@ export function createApiServer(
   app.use('/api/queue', createQueueRouter(appFactory));
 
   app.use('/api/entity-descriptions', createEntityDescriptionsRouter(entityDescriptionsRepo, entitySyncService));
+  app.use('/api/worker-executions', createWorkerExecutionsRouter(uowFactory));
 
   // API Docs and OpenAPI spec
   app.use('/api/docs', createDocsRouter());

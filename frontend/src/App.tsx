@@ -24,6 +24,8 @@ import { LoginPage } from './pages/LoginPage';
 import { Sidebar } from './components/Sidebar';
 import { AutomatedStepsPage } from './pages/AutomatedStepsPage';
 import { EntityDescriptionsPage } from './pages/EntityDescriptionsPage';
+import { WorkerExecutionsPage } from './pages/WorkerExecutionsPage';
+import { WorkerExecutionDetailsPage } from './pages/WorkerExecutionDetailsPage';
 
 const theme = createTheme({
   palette: {
@@ -138,6 +140,8 @@ function App() {
                 <Route path="/fallouts" element={<FalloutsPage />} />
                 <Route path="/prompts" element={<PromptsPage />} />
                 <Route path="/entities" element={<EntityDescriptionsPage />} />
+                <Route path="/workers" element={<WorkerExecutionsPage />} />
+                <Route path="/workers/:id" element={<WorkerExecutionDetailsPage />} />
                 <Route path="*" element={<Navigate to="/documents" replace />} />
               </Route>
             </Routes>

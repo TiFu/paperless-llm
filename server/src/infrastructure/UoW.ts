@@ -18,6 +18,7 @@ import { DMSCacheService } from "../services/CacheService.js";
 import { PaperlessConfig } from "../config/AppConfig.js";
 import { IPermissionsRepository } from "../domain/authorization/IPermissionsRepository.js";
 import { CachedPermissionsRepositoryAdapter } from "../domain/authorization/CachedPermissionsRepositoryAdapter.js";
+import { IWorkerExecutionRepository } from "../domain/workerExecution/IWorkerExecutionRepository.js";
 
 export class AuditCollector implements IAuditCollector{
     private events: AuditLogEntry[];
@@ -63,6 +64,7 @@ export interface UoW {
   getJobs(): IJobRepository;
   getSteps(): IStepRepository;
   getAuditLog(): IAuditLogRepository;
+  getWorkerExecutions(): IWorkerExecutionRepository;
 
   getPromptDomainService(): IPromptDomainService
   getStepExecutorDomainService(): StepExecutorDomainService
@@ -182,6 +184,9 @@ export class UoWImplementation implements UoW {
     }
     getAuditLog(): IAuditLogRepository {
         return this.repositoryRegistry.getAuditLog()
+    }
+    getWorkerExecutions(): IWorkerExecutionRepository {
+        return this.repositoryRegistry.getWorkerExecutions()
     }
 
     register<T>(object: T, repo: Saveable<T>): void {

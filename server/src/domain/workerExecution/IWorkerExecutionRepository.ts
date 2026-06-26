@@ -1,3 +1,4 @@
+import { WorkerExecution } from './WorkerExecution.js';
 import { WorkerExecutionItem } from './WorkerExecutionItem.js';
 
 export interface IWorkerExecutionRepository {
@@ -22,4 +23,24 @@ export interface IWorkerExecutionRepository {
    * Record the individual items touched during an execution run.
    */
   recordItems(executionId: string, items: WorkerExecutionItem[]): Promise<void>;
+
+  /**
+   * List executions, most recent first, optionally filtered by worker type and/or status.
+   */
+  listExecutions(
+    limit: number,
+    cursor?: string,
+    workerType?: string,
+    status?: string,
+  ): Promise<{ items: WorkerExecution[]; nextCursor: string | null }>;
+
+  /**
+   * Get a single execution by id, or null if not found.
+   */
+  getExecutionById(id: string): Promise<WorkerExecution | null>;
+
+  /**
+   * List the items recorded for a given execution.
+   */
+  listItemsForExecution(executionId: string): Promise<WorkerExecutionItem[]>;
 }

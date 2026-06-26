@@ -24,6 +24,7 @@ import {
   Error as ErrorIcon,
   Label as LabelIcon,
   Logout as LogoutIcon,
+  Memory as MemoryIcon,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectQueueStats, selectApprovalStats, selectJobStats, fetchDashboardStats } from '../store/slices/statsSlice';
@@ -39,6 +40,7 @@ interface NavItem {
   nested?: boolean;
   badgeColor?: 'error' | 'warning' | 'info' | 'success';
   getBadgeCount?: () => number;
+  groupEnd?: boolean;
 }
 
 export const Sidebar: React.FC = () => {
@@ -80,6 +82,7 @@ export const Sidebar: React.FC = () => {
       path: '/documents',
       label: 'Documents',
       icon: <DescriptionIcon />,
+      groupEnd: true,
     },
     {
       path: '/jobs',
@@ -121,12 +124,13 @@ export const Sidebar: React.FC = () => {
     {
       path: '/queues',
       label: 'Automated Steps',
-      icon: <QueueIcon />, 
+      icon: <QueueIcon />,
       nested: true,
       getBadgeCount: () => {
         if (!queueStats) return 0;
         return queueStats.pending + queueStats.processing;
       },
+      groupEnd: true,
     },
     {
       path: '/prompts',
@@ -137,6 +141,11 @@ export const Sidebar: React.FC = () => {
       path: '/entities',
       label: 'Entities',
       icon: <LabelIcon />,
+    },
+    {
+      path: '/workers',
+      label: 'Workers',
+      icon: <MemoryIcon />,
     },
   ];
 
@@ -210,7 +219,7 @@ export const Sidebar: React.FC = () => {
                 <ListItemText primary={item.label} />
               </ListItemButton>
               {/* subItems removed: not present on NavItem */}
-              {index < navItems.length - 1 && !item.nested && !navItems[index + 1]?.nested && (
+              {item.groupEnd && index < navItems.length - 1 && (
                 <Divider sx={{ my: 1, mx: 2, borderColor: 'rgba(255, 255, 255, 0.12)' }} />
               )}
             </React.Fragment>

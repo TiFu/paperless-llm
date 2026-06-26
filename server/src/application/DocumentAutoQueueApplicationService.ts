@@ -50,7 +50,7 @@ export class DocumentAutoQueueApplicationService {
       const startedAt = new Date();
       try {
         logger.info({ username: user.username, tag: this.config.tag }, 'Fetching documents for auto-queue');
-        const uow = await this.uowFactory.createUoW(userCtx)
+        await using uow = await this.uowFactory.createUoW(userCtx)
         const dms = await uow.getDMS();
 
         const documents: IDocument[] = [];

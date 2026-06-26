@@ -76,7 +76,8 @@ export class StepExecutorApplicationService {
       await uow2.getSteps().update(step);
       const workflowOrchestrator = uow2.getWorkflowOrchestratorDomainService();
       const output = await workflowOrchestrator.processStepExecutionResult(step, result);
-      if (output.jobAdvancement.step) await uow2.getSteps().create(output.jobAdvancement.step);
+      if (output.jobAdvancement.step) 
+        await uow2.getSteps().create(output.jobAdvancement.step);
       await uow2.save();
       await uow2.commit();
       await uow2.dispose();

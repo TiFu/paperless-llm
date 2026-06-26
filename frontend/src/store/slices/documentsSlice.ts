@@ -46,7 +46,7 @@ const initialState: DocumentsState = {
   availableFields: DEFAULT_FIELDS,
   selectedFields: DEFAULT_FIELDS,
   snackbar: { open: false, message: '', severity: 'success' },
-  hideInProgress: false,
+  hideInProgress: true,
 };
 
 export const fetchDocuments = createAsyncThunk<

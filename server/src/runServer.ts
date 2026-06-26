@@ -1,7 +1,7 @@
 import { AppContext } from './bootstrap.js';
 import { createApiServer } from './api/server.js';
 
-export async function runServer(ctx: AppContext): Promise<void> {
+export async function runServer(ctx: AppContext): Promise<() => Promise<void>> {
   const { config, logger } = ctx;
 
   const app = createApiServer(
@@ -26,16 +26,12 @@ export async function runServer(ctx: AppContext): Promise<void> {
     logger.info({ port: config.api.port }, 'API server started');
   });
 
-  const shutdown = async () => {
-    logger.info('Shutting down API server...');
-    server.close(() => {
-      logger.info('API server closed');
+  return () =>
+    new Promise<void>((resolve) => {
+      logger.info('Shutting down API server...');
+      server.close(() => {
+        logger.info('API server closed');
+        resolve();
+      });
     });
-    await ctx.database.close();
-    logger.info('Shutdown complete');
-    process.exit(0);
-  };
-
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
 }

@@ -60,67 +60,65 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   const isAllSelected = selectableCount > 0 && selectedIds.length === selectableCount;
   const isIndeterminate = selectedIds.length > 0 && selectedIds.length < selectableCount;
 
-  if (documents.length === 0) {
-    return (
-      <Box sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="body1" color="text.secondary">
-          No documents found with the specified tag.
-        </Typography>
-      </Box>
-    );
-  }
-
   return (
     <>
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
-                  checked={isAllSelected}
-                  indeterminate={isIndeterminate}
-                  onChange={handleSelectAll}
-                />
-              </TableCell>
-              <TableCell>ID</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Title</TableCell>
-              <TableCell sx={{ maxWidth: 400 }}>Content</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {documents.map((doc) => {
-              const docId = doc.id;
-              const isSelected = selectedIds.includes(docId);
-              return (
-                <TableRow
-                  key={docId}
-                  hover={!doc.inProgress}
-                  onClick={() => handleSelectOne(doc)}
-                  selected={isSelected}
-                  sx={{ cursor: doc.inProgress ? 'default' : 'pointer', opacity: doc.inProgress ? 0.6 : 1 }}
-                >
-                  <TableCell padding="checkbox">
-                    <Checkbox checked={isSelected} disabled={doc.inProgress} />
-                  </TableCell>
-                  <TableCell>{docId}</TableCell>
-                  <TableCell>
-                    {doc.inProgress && <Chip size="small" color="warning" label="In progress" />}
-                  </TableCell>
-                  <TableCell>{doc.title || '(No Title)'}</TableCell>
-                  <TableCell sx={{ maxWidth: 400 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {truncateContent(doc.content, CONTENT_PREVIEW_LENGTH)}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      
+      {documents.length === 0 ? (
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="body1" color="text.secondary">
+            No documents to show on this page.
+          </Typography>
+        </Box>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={isAllSelected}
+                    indeterminate={isIndeterminate}
+                    onChange={handleSelectAll}
+                  />
+                </TableCell>
+                <TableCell>ID</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Title</TableCell>
+                <TableCell sx={{ maxWidth: 400 }}>Content</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {documents.map((doc) => {
+                const docId = doc.id;
+                const isSelected = selectedIds.includes(docId);
+                return (
+                  <TableRow
+                    key={docId}
+                    hover={!doc.inProgress}
+                    onClick={() => handleSelectOne(doc)}
+                    selected={isSelected}
+                    sx={{ cursor: doc.inProgress ? 'default' : 'pointer', opacity: doc.inProgress ? 0.6 : 1 }}
+                  >
+                    <TableCell padding="checkbox">
+                      <Checkbox checked={isSelected} disabled={doc.inProgress} />
+                    </TableCell>
+                    <TableCell>{docId}</TableCell>
+                    <TableCell>
+                      {doc.inProgress && <Chip size="small" color="warning" label="In progress" />}
+                    </TableCell>
+                    <TableCell>{doc.title || '(No Title)'}</TableCell>
+                    <TableCell sx={{ maxWidth: 400 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {truncateContent(doc.content, CONTENT_PREVIEW_LENGTH)}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
       {onLoadMore && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
           <Button

@@ -11,10 +11,8 @@ import { ApplicationServiceFactory } from './application/ApplicationServiceFacto
 import { EntitySyncApplicationService } from './application/EntitySyncApplicationService.js';
 import { PostgreSQLEntityDescriptionsRepository } from './repositories/postgresql/PostgreSQLEntityDescriptionsRepository.js';
 import { PostgreSQLUsersRepository } from './repositories/postgresql/PostgreSQLUsersRepository.js';
-import { PostgreSQLWorkerExecutionRepository } from './repositories/postgresql/PostgreSQLWorkerExecutionRepository.js';
 import { UoWFactory } from './infrastructure/UoW.js';
 import { PostgresqlTransactionManager } from './repositories/postgresql/PostgresqlTransactionContext.js';
-import { IWorkerExecutionRepository } from './domain/workerExecution/IWorkerExecutionRepository.js';
 import { IUsersRepository } from './domain/auth/IUsersRepository.js';
 import { IEntityDescriptionsRepository } from './domain/entityDescriptions/IEntityDescriptionsRepository.js';
 import { IPaperlessAuthService } from './domain/auth/IPaperlessAuthService.js';
@@ -28,7 +26,6 @@ export interface AppContext {
   uowFactory: UoWFactory;
   usersRepo: IUsersRepository;
   entityDescriptionsRepo: IEntityDescriptionsRepository;
-  workerExecutionRepository: IWorkerExecutionRepository;
   paperlessService: IPaperlessAuthService;
   cachedPaperlessService: IDocumentManagementSystem;
   ollamaService: ILLMService;
@@ -69,7 +66,6 @@ export async function createAppContext(processName: string): Promise<AppContext>
   logger.info('Cache connection established');
 
   const usersRepo = new PostgreSQLUsersRepository(pool);
-  const workerExecutionRepository = new PostgreSQLWorkerExecutionRepository(pool);
 
   const paperlessService = new PaperlessService(config.paperless);
   const cachedPaperlessService = new CachedPaperlessServiceAdapter(paperlessService, dmsCacheService);
@@ -109,7 +105,6 @@ export async function createAppContext(processName: string): Promise<AppContext>
     uowFactory,
     usersRepo,
     entityDescriptionsRepo,
-    workerExecutionRepository,
     paperlessService,
     cachedPaperlessService,
     ollamaService,
