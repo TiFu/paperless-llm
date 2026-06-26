@@ -8,7 +8,7 @@ export class DefaultEntryDisplay implements AuditLogEntryDisplay {
     this.entry = entry;
   }
   getLabel() {
-    return (this.entry as any).eventType || 'Unknown';
+    return this.entry.eventType || 'Unknown';
   }
   getColor(): AuditLogColor {
     return 'grey';
@@ -18,7 +18,7 @@ export class DefaultEntryDisplay implements AuditLogEntryDisplay {
   }
   getFields() {
     return Object.entries(this.entry)
-      .filter(([k, v]) => typeof v !== 'object' && v !== undefined && v !== null)
+      .filter(([, v]) => typeof v !== 'object' && v !== undefined && v !== null)
       .map(([k, v]) => ({ label: k, value: v }));
   }
   alwaysDisplayFields = [];

@@ -55,11 +55,11 @@ export const processApprovalDecision = createAsyncThunk(
     },
     { dispatch }
   ) => {
-    const response = await apiClient.processApprovalDecision(stepId, decision, actions);
+    await apiClient.processApprovalDecision(stepId, decision, actions);
     dispatch(approvalProcessed());
     return {
       stepId,
-      message: (response as any).message ?? `Decision "${decision}" processed successfully`,
+      message: `Decision "${decision}" processed successfully`,
     };
   },
 );
@@ -96,7 +96,7 @@ const approvalsSlice = createSlice({
         }
         state.nextCursor = approvalsRes.nextCursor;
         if (statsRes) {
-          state.stats = statsRes as any;
+          state.stats = statsRes;
         }
       })
       .addCase(fetchApprovals.rejected, (state, action) => {

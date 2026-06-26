@@ -29,7 +29,6 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   fetchJobDetails,
   clearJobDetails,
-  setAutoRefresh,
 } from '../store/slices/jobsSlice';
 
 export const JobDetailsPage: React.FC = () => {

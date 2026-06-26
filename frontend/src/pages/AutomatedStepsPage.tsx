@@ -12,8 +12,6 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchQueueItems, setStatusFilter, clearError } from '../store/slices/queueSlice';
 import { selectQueueStats } from '../store/slices/statsSlice';
 
-const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
-
 export const AutomatedStepsPage: React.FC = () => {
   const dispatch = useAppDispatch();
 

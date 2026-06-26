@@ -7,11 +7,10 @@ import { getAuditLogEntryDisplay } from './audit_entries';
 
 interface AuditLogEntryDisplayComponentProps {
   entry: AuditLogEntry;
-  index: number;
   isLast: boolean;
 }
 
-export const AuditLogEntryDisplayComponent: React.FC<AuditLogEntryDisplayComponentProps> = ({ entry, index, isLast }) => {
+export const AuditLogEntryDisplayComponent: React.FC<AuditLogEntryDisplayComponentProps> = ({ entry, isLast }) => {
   const [expanded, setExpanded] = useState(false);
   const display = getAuditLogEntryDisplay(entry);
   const fields = display.getFields();
@@ -38,10 +37,10 @@ export const AuditLogEntryDisplayComponent: React.FC<AuditLogEntryDisplayCompone
     <TimelineItem>
       <TimelineOppositeContent color="text.secondary" sx={{ flex: 0.2, paddingLeft: 0 }}>
         <Typography variant="caption">
-          {formatTime(entry.eventTimestamp as any as string)}
+          {formatTime(entry.eventTimestamp)}
         </Typography>
         <Typography variant="caption" display="block">
-          {formatDate(entry.eventTimestamp as any as string)}
+          {formatDate(entry.eventTimestamp)}
         </Typography>
       </TimelineOppositeContent>
       <TimelineSeparator>

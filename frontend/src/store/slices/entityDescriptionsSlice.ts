@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { apiClient } from '../../services/api/api';
-import type { RootState } from '../store';
+import type { AppDispatch, RootState } from '../store';
 
 export interface EntityDescriptionItem {
   paperlessId: number;
@@ -45,11 +45,11 @@ export const fetchEntityDescriptions = createAsyncThunk<
   },
 );
 
-export const syncEntityDescriptions = createAsyncThunk<void, void, { state: RootState }>(
+export const syncEntityDescriptions = createAsyncThunk<void, void, { state: RootState; dispatch: AppDispatch }>(
   'entityDescriptions/sync',
   async (_, { dispatch }) => {
     await apiClient.syncEntityDescriptions();
-    await dispatch(fetchEntityDescriptions() as any);
+    await dispatch(fetchEntityDescriptions());
   },
 );
 

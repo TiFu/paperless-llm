@@ -26,7 +26,6 @@ import {
   fetchJobs,
   setStateFilter,
   selectHasActiveJobs,
-  TERMINAL_STATES,
 } from '../store/slices/jobsSlice';
 
 const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds

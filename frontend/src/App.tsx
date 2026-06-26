@@ -23,6 +23,7 @@ import { PromptsPage } from './pages/PromptsPage';
 import { LoginPage } from './pages/LoginPage';
 import { Sidebar } from './components/Sidebar';
 import { AutomatedStepsPage } from './pages/AutomatedStepsPage';
+import { StepDetailsPage } from './pages/StepDetailsPage';
 import { EntityDescriptionsPage } from './pages/EntityDescriptionsPage';
 import { WorkerExecutionsPage } from './pages/WorkerExecutionsPage';
 import { WorkerExecutionDetailsPage } from './pages/WorkerExecutionDetailsPage';
@@ -136,6 +137,7 @@ function App() {
                 <Route path="/jobs" element={<JobsPage />} />
                 <Route path="/jobs/:id" element={<JobDetailsPage />} />
                 <Route path="/queues" element={<AutomatedStepsPage />} />
+                <Route path="/steps/:stepId" element={<StepDetailsPage />} />
                 <Route path="/approvals" element={<ApprovalsPage />} />
                 <Route path="/fallouts" element={<FalloutsPage />} />
                 <Route path="/prompts" element={<PromptsPage />} />

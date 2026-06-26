@@ -18,6 +18,10 @@ import {
   EntityValueType,
   WorkerType,
   WorkerExecutionStatus,
+  JobState,
+  WorkItemStatus,
+  ApiException,
+  ProblemDetails,
 } from './generated';
 import { BearerAuthAuthentication } from './generated/auth/auth';
 import { PromiseMiddleware } from './generated/middleware';
@@ -74,12 +78,13 @@ const entityDescriptionsApi = new EntityDescriptionsApi(config);
 const workerExecutionsApi = new WorkerExecutionsApi(config);
 const authApi = new AuthApi(config);
 
-function normalizeError(error: any): Error {
-      if (error?.response?.data?.detail) return new Error(error.response.data.detail);
-      if (error?.response?.data?.title) return new Error(error.response.data.title);
-      if (error?.body?.detail) return new Error(error.body.detail);
-      if (error?.body?.title) return new Error(error.body.title);
-      if (error?.message) return new Error(error.message);
+function normalizeError(error: unknown): Error {
+      if (error instanceof ApiException) {
+        const body = error.body as Partial<ProblemDetails> | undefined;
+        if (body?.detail) return new Error(body.detail);
+        if (body?.title) return new Error(body.title);
+      }
+      if (error instanceof Error) return new Error(error.message);
       return new Error('Unknown API error');
 }
 
@@ -124,7 +129,7 @@ export const apiClient = {
       throw normalizeError(e);
     }
   },
-  async fetchJobs(limit: number = 20, cursor?: string, state?: any) {
+  async fetchJobs(limit: number = 20, cursor?: string, state?: JobState) {
     try {
       return await jobsApi.listJobs(limit, cursor, state);
     } catch (e) {
@@ -221,7 +226,7 @@ export const apiClient = {
       throw normalizeError(e);
     }
   },
-  async fetchQueueItems(limit: number = 50, cursor?: string, status?: any) {
+  async fetchQueueItems(limit: number = 50, cursor?: string, status?: WorkItemStatus) {
     try {
       return await queueApi.listQueueItems(limit, cursor, status);
     } catch (e) {
@@ -307,12 +312,5 @@ export const apiClient = {
     } catch (e) {
       throw normalizeError(e);
     }
-  },
-
-  // Audit Log (Job-level)
-  async fetchAuditLog({ stepId }: { stepId: string }) {
-    // This is a placeholder; adjust as needed for your actual API
-    // If you have a dedicated audit log endpoint, use it here
-    throw new Error('fetchAuditLog not implemented: check your OpenAPI spec for the correct endpoint.');
   },
 };

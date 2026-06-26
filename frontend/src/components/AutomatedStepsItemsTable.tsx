@@ -171,11 +171,12 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
                 <TableCell>Job State</TableCell>
                 <TableCell>Created At</TableCell>
                 <TableCell>Updated At</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                   {loading ? (
                     <CircularProgress size={24} />
                   ) : (
@@ -230,6 +231,7 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
               <TableCell>Job State</TableCell>
               <TableCell>Created At</TableCell>
               <TableCell>Updated At</TableCell>
+              <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -239,6 +241,7 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
                   <Link
                     component={RouterLink}
                     to={`/steps/${item.id}`}
+                    state={{ item }}
                     underline="hover"
                     color="primary"
                   >
@@ -262,6 +265,30 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
                 </TableCell>
                 <TableCell>{formatDate(item.createdAt)}</TableCell>
                 <TableCell>{formatDate(item.updatedAt)}</TableCell>
+                <TableCell>
+                  {canRetryOrCancel(item.status) && (
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Tooltip title="Retry">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRetry(item.id)}
+                          disabled={processingStepId === item.id}
+                        >
+                          <RefreshIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Cancel">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleCancel(item.id)}
+                          disabled={processingStepId === item.id}
+                        >
+                          <CancelIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

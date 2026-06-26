@@ -82,6 +82,11 @@ export const EntityDescriptionsPage: React.FC = () => {
     }
   };
 
+  const handleDiscard = () => {
+    if (!activeType) return;
+    dispatch(clearPendingForType(activeType.type));
+  };
+
   const handleSync = async () => {
     setSaveError(null);
     try {
@@ -135,7 +140,14 @@ export const EntityDescriptionsPage: React.FC = () => {
 
           {activeType && (
             <Box sx={{ p: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
+                <Button
+                  variant="outlined"
+                  onClick={handleDiscard}
+                  disabled={!hasPendingForTab}
+                >
+                  Discard Changes
+                </Button>
                 <Button
                   variant="contained"
                   startIcon={<SaveIcon />}
