@@ -2,7 +2,7 @@
 FROM node:20-alpine AS builder
 
 # openapi-generator-cli (used by `npm run generate:api`) shells out to a JRE.
-RUN apk add --no-cache openjdk17-jre-headless
+RUN apk add --no-cache openjdk17-jre-headless=17.0.19_p10-r0
 
 WORKDIR /repo
 
