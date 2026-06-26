@@ -1,0 +1,23 @@
+site_name: Tuucho - ตู้โชว์
+site_url: https://doc.tuucho.com/
+repo_url: https://github.com/by-tezov/tuucho
+theme:
+  name: material
+  logo: assets/tuucho-logo.svg
+  features:
+    - content.code.copy
+    - search.highlight
+    - versioning
+plugins:
+  - search
+  - mike
+  - mermaid2
+  - minify
+extra:
+  version:
+    provider: mike
+nav:
+  - Home: index.md
+  - Quick start: quick-start.md
+  - Components: components/index.md
+  - Changelog: changelog.md

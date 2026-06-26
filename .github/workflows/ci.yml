@@ -7,7 +7,7 @@ on:
   pull_request:
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '25'
   HELM_VERSION: '3.17.3'
 
 jobs:
