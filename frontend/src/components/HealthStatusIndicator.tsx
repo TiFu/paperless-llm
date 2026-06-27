@@ -37,6 +37,7 @@ export const HealthStatusIndicator: React.FC<HealthStatusIndicatorProps> = ({ ve
       const response = await apiClient.fetchSystemStatus();
       setHealth(response);
     } catch (err) {
+      console.log(err)
       // On error, keep previous health state or set to null
       setHealth(null);
     } finally {
