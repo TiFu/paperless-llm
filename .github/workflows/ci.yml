@@ -11,6 +11,16 @@ env:
   HELM_VERSION: '3.17.3'
 
 jobs:
+  commitlint:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wagoid/commitlint-github-action@v6
+
   server:
     runs-on: ubuntu-latest
     defaults:
@@ -157,6 +167,40 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  docs:
+    needs: [server, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: npm ci
+
+      - name: Install server deps (TypeDoc type-checks server/src)
+        working-directory: server
+        run: npm ci && npm run generate:api
+
+      - name: Install frontend deps (TypeDoc type-checks frontend/src)
+        working-directory: frontend
+        run: npm ci && npm run generate:api
+
+      - name: Check generated configuration.md is up to date
+        run: npm run docs:check-config
+
+      - name: Install docs Python requirements
+        run: pip install -r docs/requirements.txt
+
+      - name: Build docs site
+        run: mkdocs build --strict
 
   helm:
     runs-on: ubuntu-latest

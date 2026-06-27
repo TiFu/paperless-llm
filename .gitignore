@@ -41,6 +41,11 @@ logs/
 # Helm dependency archives (regenerate via `helm dependency build`, Chart.lock pins versions)
 helm/**/charts/*.tgz
 
+# mkdocs build output and generated TypeDoc reference (see docs/tooling/README.md)
+site/
+docs/reference/
+docs/openapi.yaml
+
 # Test documents (but keep the directory structure)
 test-documents/*
 !test-documents/README.md

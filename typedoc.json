@@ -1,0 +1,6 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPointStrategy": "packages",
+  "entryPoints": ["./server", "./frontend"],
+  "out": "docs/reference"
+}

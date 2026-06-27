@@ -47,11 +47,22 @@ otherwise falling back to externalRedis.
 {{- end }}
 
 {{/*
-Server Service name, shared between the server Service template and the
+Backend Service name, shared between the backend Service template and the
 frontend's default apiBaseUrl.
 */}}
-{{- define "paperless-llm.server.fullname" -}}
-{{- printf "%s-server" .Release.Name -}}
+{{- define "paperless-llm.backend.fullname" -}}
+{{- printf "%s-backend" .Release.Name -}}
+{{- end }}
+
+{{- define "paperless-llm.worker.fullname" -}}
+{{- printf "%s-worker" .Release.Name -}}
+{{- end }}
+
+{{/*
+Shared config Secret name, mounted by both the backend and worker Deployments.
+*/}}
+{{- define "paperless-llm.config.fullname" -}}
+{{- printf "%s-config" .Release.Name -}}
 {{- end }}
 
 {{- define "paperless-llm.frontend.fullname" -}}

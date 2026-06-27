@@ -1,0 +1,1 @@
+- [Logger usage](feedback_logger_usage.md) — use createChildLogger, never getLogger, when replacing console.* calls.

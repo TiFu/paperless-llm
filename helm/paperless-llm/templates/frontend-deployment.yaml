@@ -22,7 +22,7 @@ spec:
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
           env:
             - name: API_BASE_URL
-              value: {{ .Values.frontend.apiBaseUrl | default (printf "http://%s:%v/api" (include "paperless-llm.server.fullname" .) .Values.server.config.api.port) | quote }}
+              value: {{ .Values.frontend.apiBaseUrl | default (printf "http://%s:%v/api" (include "paperless-llm.backend.fullname" .) .Values.config.api.port) | quote }}
           ports:
             - name: http
               containerPort: 80

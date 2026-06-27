@@ -1,0 +1,19 @@
+{
+  "name": "paperless-llm-docs-tooling",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Tooling dependencies for the documentation site: typedoc (mkdocstrings-typescript backend) and the config docs generator",
+  "type": "module",
+  "scripts": {
+    "docs:generate-config": "tsx docs/tooling/generate-config-docs.ts generate",
+    "docs:check-config": "tsx docs/tooling/generate-config-docs.ts --check",
+    "docs:typedoc": "typedoc"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "js-yaml": "^4.1.0",
+    "ts-morph": "^24.0.0",
+    "tsx": "^4.19.0",
+    "typedoc": "^0.27.0"
+  }
+}

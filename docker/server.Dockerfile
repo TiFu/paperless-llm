@@ -34,4 +34,5 @@ USER nodejs
 
 EXPOSE 3000
 
-ENTRYPOINT ["node", "dist/api.js"]
+ENTRYPOINT ["node", "dist/main.js"]
+CMD ["--mode=all"]

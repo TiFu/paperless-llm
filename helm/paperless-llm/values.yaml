@@ -31,62 +31,71 @@ externalRedis:
   password: ""
   db: 0
 
-server:
-  image:
-    repository: ""
-    tag: latest
-    pullPolicy: IfNotPresent
+# Image shared by the backend and worker Deployments — both run the same
+# server image, started with a different --mode argument.
+image:
+  repository: ""
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Mirrors config.yaml. database/redis connection fields are filled in by the
+# chart from postgresql/redis (or externalDatabase/externalRedis) above —
+# don't set them here. Shared by the backend and worker Deployments.
+config:
+  paperless:
+    url: http://paperless.example.com
+    token: ""
+    tags: llm-process
+  llm:
+    url: http://ollama.example.com:11434
+    model: llama3
+    temperature: 0.7
+    timeoutMs: 30000
+  worker:
+    instanceId: null
+    batchSize: 5
+    pollIntervalMs: 3000
+    maxRetries: 3
+    claimTimeoutMs: 300000
+    stuckStepTimeoutMs: 300000
+    stuckStepCheckIntervalMs: 30000
+    maxStepRetries: 3
+  orchestration:
+    llmCycleDurationMs: 30000
+    docUpdateCycleDurationMs: 30000
+  logging:
+    level: info
+    pretty: false
+  api:
+    port: 3000
+    corsOrigins:
+      - "*"
+  auth:
+    jwtSecret: ""
+    jwtExpiresIn: 8h
+  retry:
+    maxRetries: 3
+    retryDelayInMs: 30000
+    retryExponent: 2
+  autoQueue:
+    enabled: false
+    pollIntervalMs: 60000
+    workflowType: automated
+    tag: llm-auto-process
+  entitySync:
+    pollIntervalMs: 900000
+  redisCache:
+    ttlInSeconds: 300
+
+# API server (--mode=server). Exposes the HTTP API consumed by the frontend.
+backend:
   replicaCount: 1
   resources: {}
 
-  # Mirrors config.yaml. database/redis connection fields are filled in by the
-  # chart from postgresql/redis (or externalDatabase/externalRedis) above —
-  # don't set them here.
-  config:
-    paperless:
-      url: http://paperless.example.com
-      token: ""
-      tags: llm-process
-    llm:
-      url: http://ollama.example.com:11434
-      model: llama3
-      temperature: 0.7
-      timeoutMs: 30000
-    worker:
-      instanceId: null
-      batchSize: 5
-      pollIntervalMs: 3000
-      maxRetries: 3
-      claimTimeoutMs: 300000
-      stuckStepTimeoutMs: 300000
-      stuckStepCheckIntervalMs: 30000
-      maxStepRetries: 3
-    orchestration:
-      llmCycleDurationMs: 30000
-      docUpdateCycleDurationMs: 30000
-    logging:
-      level: info
-      pretty: false
-    api:
-      port: 3000
-      corsOrigins:
-        - "*"
-    auth:
-      jwtSecret: ""
-      jwtExpiresIn: 8h
-    retry:
-      maxRetries: 3
-      retryDelayInMs: 30000
-      retryExponent: 2
-    autoQueue:
-      enabled: false
-      pollIntervalMs: 60000
-      workflowType: automated
-      tag: llm-auto-process
-    entitySync:
-      pollIntervalMs: 900000
-    redisCache:
-      ttlInSeconds: 300
+# Background job processor (--mode=worker). No HTTP port.
+worker:
+  replicaCount: 1
+  resources: {}
 
 frontend:
   image:
@@ -95,7 +104,7 @@ frontend:
     pullPolicy: IfNotPresent
   replicaCount: 1
   # Base URL the SPA calls at runtime, e.g. https://api.example.com/api.
-  # Defaults to the in-cluster server Service when left empty.
+  # Defaults to the in-cluster backend Service when left empty.
   apiBaseUrl: ""
   ingress:
     enabled: false
