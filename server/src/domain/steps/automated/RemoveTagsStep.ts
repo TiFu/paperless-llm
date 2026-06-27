@@ -17,7 +17,7 @@ export class RemoveTagsStep extends ExecutableStep {
     retryAfter: Date | null = null,
     startedAt: Date | null = null,
     parentStepId: string | null = null,
-    configuration: Record<string, any> | null = null
+    configuration: Record<string, unknown> | null = null
   ) {
     super(stepId, StepType.REMOVE_TAGS, jobId, stepState, retryCount, retryAfter, startedAt, parentStepId, configuration);
   }

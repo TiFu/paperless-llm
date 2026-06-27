@@ -7,8 +7,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
 
   const stepExecutorService = applicationServiceFactory.createStepExecutorApplicationService();
   const stuckStepResetService = applicationServiceFactory.createStuckStepResetApplicationService(
-    config.worker.stuckStepTimeoutMs,
-    config.worker.maxStepRetries,
+    config.worker.stuckStepTimeoutMs
   );
 
   const stepProcessorWorker = new WorkerExecutor(

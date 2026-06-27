@@ -102,8 +102,7 @@ export class ApplicationServiceFactory {
    * @param maxRetries Maximum number of retry attempts before marking as failed
    */
   createStuckStepResetApplicationService(
-    timeoutMs: number,
-    maxRetries: number,
+    timeoutMs: number
   ): StuckStepResetApplicationService {
     return new StuckStepResetApplicationService(this.uowFactory, timeoutMs, this.retryConfig);
 

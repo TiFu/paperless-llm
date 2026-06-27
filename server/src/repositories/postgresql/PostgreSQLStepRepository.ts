@@ -6,7 +6,6 @@ import { StepFactory } from '../../domain/steps/StepFactory.js';
 import { ExecutableStep } from '../../domain/steps/automated/ExecutableStep.js';
 import { ManualStep } from '../../domain/steps/userinteraction/ManualStep.js';
 import { Cursor } from '../../domain/common/Cursor.js';
-import { CompositeStep } from '../../domain/steps/automated/CompositeStep.js';
 import pino from 'pino';
 import { createChildLogger } from '../../utils/logger.js';
 import { Saveable, UoW } from '../../infrastructure/UoW.js';
@@ -35,10 +34,10 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
     return this.createAll([step])
  }
 
-  private getValuesAndParamsForStep(step: IStep, counter: number = 1): { values: string[], params: Array<any>, counter: number } {
+  private getValuesAndParamsForStep(step: IStep, counter: number = 1): { values: string[], params: Array<unknown>, counter: number } {
     const valueEntry = `($${counter}, $${counter+1}, $${counter+2}, $${counter+3}, $${counter+4}, $${counter+5}, $${counter+6})`
     counter += 7
-    const params = [ step.getStepId(),
+    const params: unknown[] = [ step.getStepId(),
       step.getJobId(),
       step.getStepType(),
       step.getStepStatus(),
@@ -145,7 +144,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
 
     const jobFilter = allowedJobIds !== null ? `AND job_id = ANY($3)` : '';
     let query: string;
-    let params: any[];
+    let params: unknown[];
 
     if (cursor) {
       query = `
@@ -182,7 +181,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
     
     // Build dynamic query based on status
     let query = `UPDATE steps SET status = $1, retry_count = $2, retry_after = $3`;
-    const params: any[] = [status, step.getRetryCount(), step.getRetryAfter()];
+    const params: unknown[] = [status, step.getRetryCount(), step.getRetryAfter()];
     const paramIndex = 4;
 
     // Set timestamps based on status transitions
@@ -240,7 +239,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
         ${jobFilter}
     `;
 
-    const params: any[] = [
+    const params: unknown[] = [
       StepStatus.WAITING,
       StepStatus.IN_PROGRESS,
       StepStatus.COMPLETED,
@@ -274,7 +273,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
         ${jobFilter}
     `;
 
-    const params: any[] = [StepStatus.WAITING, StepType.REQUIRE_APPROVAL];
+    const params: unknown[] = [StepStatus.WAITING, StepType.REQUIRE_APPROVAL];
     if (allowedJobIds !== null) params.push(allowedJobIds);
 
     const result = await this.getClient().query(query, params);
@@ -308,7 +307,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
         ${jobFilter}
     `;
 
-    const params: any[] = [StepType.REQUIRE_APPROVAL];
+    const params: unknown[] = [StepType.REQUIRE_APPROVAL];
     if (allowedJobIds !== null) params.push(allowedJobIds);
     let paramIndex = params.length + 1;
 
@@ -363,7 +362,7 @@ export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep
       ${limit ? `LIMIT $3` : ''}
     `;
 
-    const params: any[] = [StepStatus.IN_PROGRESS, olderThanMs];
+    const params: unknown[] = [StepStatus.IN_PROGRESS, olderThanMs];
     if (limit) {
       params.push(limit);
     }

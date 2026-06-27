@@ -43,10 +43,10 @@ export class OllamaService implements ILLMService {
 
   async checkHealth(): Promise<boolean> {
     try {
-      const response = await this.client.get<any>("/", {});
+      await this.client.get("/", {});
       this.logger.info({ service: "llm", status: true}, "Ollama health check")
       return true;
-    } catch (error) {
+    } catch {
       this.logger.info({ service: "llm", status: false}, "Ollama health check")
       return false
     }
@@ -80,7 +80,7 @@ export class OllamaService implements ILLMService {
     } catch (error) {
       this.logger.info({ error: error}, "Ollama request failed")
       if (axios.isAxiosError(error)) {
-        throw new Error(`Ollama API error: ${error.message}: ${error.response?.data}`);
+        throw new Error(`Ollama API error: ${error.message}: ${error.response?.data}`, { cause: error });
       }
       throw error;
     }

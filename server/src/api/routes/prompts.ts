@@ -1,6 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { body } from 'express-validator';
-import pino from 'pino';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { createChildLogger } from '../../utils/logger.js';

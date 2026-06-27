@@ -40,7 +40,7 @@ export class TitleUpdateAction extends DocumentAction {
     );
   }
 
-  apply(dms: IDocument): Partial<IDocument> {
+  apply(_dms: IDocument): Partial<IDocument> {
     if (this.newValue) 
       return {
         title: this.newValue

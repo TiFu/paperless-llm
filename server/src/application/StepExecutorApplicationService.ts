@@ -3,7 +3,6 @@ import { RetryConfig, StepExecutionContext } from '../domain/steps/IStep.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { createChildLogger } from '../utils/logger.js';
 import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
-import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 import { AuditCollector, UoWFactory } from '../infrastructure/UoW.js';
 import { StepExecutorDomainService } from '../domain/services/StepExecutorDomainService.js';
 import { UserContext } from '../domain/auth/UserContext.js';

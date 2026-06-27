@@ -1,11 +1,7 @@
 import { ExecutableStep } from './ExecutableStep.js';
 import { StepExecutionContext, StepResult, StepStatus, StepType} from '../IStep.js';
-import { IDocumentManagementSystem } from '../../document/IDocumentManagementSystem.js';
-import { OllamaService } from '../../../services/OllamaService.js';
-import { IPromptsRepository } from '../../prompt/IPromptsRepository.js';
 import { TitleUpdateAction } from '../../actions/TitleUpdateAction.js';
 import { Transition } from '../../workflows/Transition.js';
-import { WorkflowType } from '../../workflows/WorkflowType.js';
 
 /**
  * Step: Generate title using LLM
@@ -20,7 +16,7 @@ export class LLMGenerateTitleStep extends ExecutableStep {
     retryAfter: Date | null = null,
     startedAt: Date | null = null,
     parentStepId: string | null = null,
-    configuration: Record<string, any> | null = null
+    configuration: Record<string, unknown> | null = null
   ) {
     super(stepId, StepType.LLM_GENERATE_TITLE, jobId, stepState, retryCount, retryAfter, startedAt, parentStepId, configuration);
   }

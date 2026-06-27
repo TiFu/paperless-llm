@@ -34,7 +34,7 @@ export class PromptService implements IPromptDomainService {
    * @param job The job context
    * @returns Rendered prompt with variables substituted
    */
-  async renderPrompt(prompt: Prompt, document: IDocument, job: Job): Promise<string> {
+  async renderPrompt(prompt: Prompt, document: IDocument, _job: Job): Promise<string> {
       // Fetch available fields
       const { tags: availableTags, correspondents: availableCorrespondents, documentTypes: availableDocumentTypes } = await this.fieldsObtainer();
 

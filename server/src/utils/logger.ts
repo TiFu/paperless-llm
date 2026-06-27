@@ -8,19 +8,20 @@ let logger: pino.Logger;
 /**
  * Custom error serializer that extracts useful information from PostgreSQL errors
  */
-function errorSerializer(err: any): any {
+function errorSerializer(err: unknown): unknown {
   if (!err) return err;
 
-  const serialized: any = {
-    type: err.constructor?.name || 'Error',
-    message: err.message,
-    stack: err.stack,
+  const e = err as Record<string, unknown>;
+  const serialized: Record<string, unknown> = {
+    type: e.constructor?.name || 'Error',
+    message: e.message,
+    stack: e.stack,
   };
 
   // PostgreSQL/node-postgres errors have additional useful properties
-  if (err.code) {
-    serialized.code = err.code;
-    
+  if (e.code) {
+    serialized.code = e.code;
+
     // Add human-readable code explanation for common PostgreSQL error codes
     const pgErrorCodes: Record<string, string> = {
       '42P01': 'undefined_table',
@@ -35,21 +36,22 @@ function errorSerializer(err: any): any {
       '08003': 'connection_does_not_exist',
       '28P01': 'invalid_password',
     };
-    
-    if (pgErrorCodes[err.code]) {
-      serialized.pgError = pgErrorCodes[err.code];
+
+    const code = e.code as string;
+    if (pgErrorCodes[code]) {
+      serialized.pgError = pgErrorCodes[code];
     }
   }
 
   // Include PostgreSQL-specific helpful fields
-  if (err.detail) serialized.detail = err.detail;
-  if (err.hint) serialized.hint = err.hint;
-  if (err.table) serialized.table = err.table;
-  if (err.column) serialized.column = err.column;
-  if (err.constraint) serialized.constraint = err.constraint;
-  if (err.severity) serialized.severity = err.severity;
-  if (err.schema) serialized.schema = err.schema;
-  if (err.routine) serialized.routine = err.routine;
+  if (e.detail) serialized.detail = e.detail;
+  if (e.hint) serialized.hint = e.hint;
+  if (e.table) serialized.table = e.table;
+  if (e.column) serialized.column = e.column;
+  if (e.constraint) serialized.constraint = e.constraint;
+  if (e.severity) serialized.severity = e.severity;
+  if (e.schema) serialized.schema = e.schema;
+  if (e.routine) serialized.routine = e.routine;
 
   return serialized;
 }
@@ -57,8 +59,6 @@ function errorSerializer(err: any): any {
 export function initializeLogger(config: AppConfig, processName: string = 'server'): pino.Logger {
   // Create log file in server directory
   const logFilePath = path.join(process.cwd(), `dev-${processName}.log`);
-  console.log("Log file pat " + logFilePath)
-  //process.exit(1)
   const logFileStream = fs.createWriteStream(logFilePath, { flags: 'a' });
 
   // Create streams for both console and file

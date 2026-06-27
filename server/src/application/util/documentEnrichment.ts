@@ -1,6 +1,5 @@
 import { IDocument } from '../../domain/document/IDocument.js';
 import { IDocumentManagementSystem } from '../../domain/document/IDocumentManagementSystem.js';
-import { PaperlessService } from '../../services/PaperlessService.js';
 
 /**
  * Interface for objects referencing a document by ID
@@ -14,7 +13,7 @@ export interface DocumentReference {
  */
 export type DocumentEnriched<T extends DocumentReference> = T & { document: IDocument | null };
 
-export async function enrichWithDocument<T extends DocumentReference>(item: T, dms: IDocumentManagementSystem) {
+export async function enrichWithDocument<T extends DocumentReference>(item: T, dms: IDocumentManagementSystem): Promise<DocumentEnriched<T>> {
     const result = await enrichAllWithDocument<T>([item], dms);
     return result[0]
 }

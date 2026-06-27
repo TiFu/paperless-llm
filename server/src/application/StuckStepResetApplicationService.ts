@@ -1,7 +1,6 @@
 import pino from 'pino';
 import { createChildLogger } from '../utils/logger.js';
 import { RetryConfig, StepStatus } from '../domain/steps/IStep.js';
-import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 
 /**

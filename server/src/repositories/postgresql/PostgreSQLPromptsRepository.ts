@@ -1,4 +1,4 @@
-import { Pool, PoolClient } from 'pg';
+import { PoolClient } from 'pg';
 import { IPromptsRepository } from '../../domain/prompt/IPromptsRepository.js';
 import { StepType } from '../../domain/steps/IStep.js';
 import { Prompt } from '../../domain/prompt/Prompt.js';

@@ -5,7 +5,6 @@ import { IWorkflow } from './IWorkflow.js';
 import { IStep } from '../steps/IStep.js';
 import { JobState } from '../job/JobState.js';
 import { Job } from '../job/Job.js';
-import { AuditLogEntry } from '../audit/AuditLogEntry.js';
 
 /**
  * Result of getNextStep including the step instance, next state, and payload

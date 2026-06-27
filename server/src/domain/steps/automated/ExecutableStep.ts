@@ -1,7 +1,7 @@
 import { IStep, RetryConfig, StepExecutionContext, StepResult, StepStatus, StepType } from '../IStep.js';
 import { Transition } from '../../workflows/Transition.js';
 import { AuditLogEntry } from '../../audit/AuditLogEntry.js';
-
+import { createChildLogger } from '../../../utils/logger.js';
 
 export interface StepResultWithAuditEntries {
   audit: AuditLogEntry[],
@@ -23,7 +23,7 @@ export abstract class ExecutableStep extends IStep {
     retryAfter: Date | null = null,
     startedAt: Date | null = null,
     parentStepId: string | null = null,
-    configuration: Record<string, any> | null = null
+    configuration: Record<string, unknown> | null = null
   ) {
     super(stepId, stepType, jobId, stepState, retryCount, retryAfter, startedAt, parentStepId, configuration)
   }
@@ -67,7 +67,8 @@ export abstract class ExecutableStep extends IStep {
     } catch (error) {
       this.markExecutionFailed(retryConfig)
       // On error, return failure transition with no actions
-      console.error(`Automated step execution failed:`, error);
+      const logger = createChildLogger({ name: 'ExecutableStep' });
+      logger.error({ error, stepId: this.getStepId() }, 'Automated step execution failed');
       return {
           actions: [],
           success: false,

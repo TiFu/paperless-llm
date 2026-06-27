@@ -156,7 +156,7 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     return output
   }
 
-  private async saveFieldsBulk(fields: Array<{jobId: string, fields: DocumentField[]}>) {
+  private async saveFieldsBulk(fields: Array<{jobId: string, fields: DocumentField[]}>): Promise<void> {
     const paramArray = fields.map((e) => {
       return e.fields.map(f => [e.jobId, f]) as string[][];
     }).flat(1);
@@ -188,10 +188,8 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
       VALUES ${values}
       ON CONFLICT (job_id, field) DO NOTHING
     `;
-    console.log("Save Fields: " + query)
+    this.logger.debug({ query }, "Save Fields");
     await this.getClient().query(query, params);
-
-
   }
 
   private async loadFields(jobId: string): Promise<DocumentField[]> {
@@ -213,7 +211,7 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
       promises.push(this.save(job))
     }
 
-    return Promise.all(promises).then((e) => {});
+    return Promise.all(promises).then(() => {});
   }
 
   async update(job: Job): Promise<void> {
@@ -271,7 +269,7 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     if (allowedIds !== null && allowedIds.length === 0) return { items: [], nextCursor: null };
 
     const conditions: string[] = [];
-    const params: any[] = [limit];
+    const params: unknown[] = [limit];
     let paramIndex = 2;
 
     if (allowedIds !== null) {

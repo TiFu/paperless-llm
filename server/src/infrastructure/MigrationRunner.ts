@@ -1,6 +1,7 @@
 import { Database } from './Database.js';
 import { getMigrationConfig } from './migrate-config.js';
 import { Logger } from 'pino';
+import { ClientBase } from 'pg';
 import {runner} from 'node-pg-migrate';
 /**
  * MigrationRunner - Automated database migration execution
@@ -47,10 +48,12 @@ export class MigrationRunner {
       
       // Run migrations using node-pg-migrate
       // It will use the database connection from config
-      const migrations: any = await runner({
+      await runner({
         ...config,
         // Override database connection to use our existing pool
-        dbClient: pool,
+        // node-pg-migrate's types only declare ClientBase, but it duck-types
+        // against Pool's query()/connect() at runtime, which is the documented usage.
+        dbClient: pool as unknown as ClientBase,
         // Direction is always 'up' for automatic migrations
         direction: 'up',
         // Run all pending migrations
@@ -72,6 +75,7 @@ export class MigrationRunner {
       );
       throw new Error(
         `Database migration failed: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }

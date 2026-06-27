@@ -48,7 +48,7 @@ export class TagRemoveAction extends DocumentAction {
     return JSON.parse(this.newValue);
   }
 
-  apply(document: IDocument): Partial<IDocument> {
+  apply(_document: IDocument): Partial<IDocument> {
     // Tag removal is handled separately via bulk_edit API
     // This returns an empty partial to satisfy the interface
     return {

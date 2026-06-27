@@ -55,7 +55,7 @@ export async function createAppContext(processName: string): Promise<AppContext>
   try {
     await runMigrations(database, logger);
   } catch (error) {
-    logger.error('Database migration failed - cannot start');
+    logger.error({ error }, 'Database migration failed - cannot start');
     process.exit(1);
   }
 

@@ -43,7 +43,7 @@ export class TagUpdateAction extends DocumentAction {
     );
   }
 
-  apply(document: IDocument): Partial<IDocument> {
+  apply(_document: IDocument): Partial<IDocument> {
     const tagIds = JSON.parse(this.newValue) as string[];
     return {
       tags: tagIds 

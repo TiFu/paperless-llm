@@ -1,7 +1,6 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
-import { createChildLogger } from '../../utils/logger.js';
 import { StepController } from '../../web/StepController.js';
 
 export function createStepsRouter(appServiceFactory: ApplicationServiceFactory): Router {

@@ -100,7 +100,7 @@ export class PostgresqlDatabaseTransactionContext implements DatabaseTransaction
         this.isActive = false;
       }
     } catch (error) {
-      console.error('Error during transaction context disposal:', error);
+      this.logger.error({ error }, 'Error during transaction context disposal');
     } finally {
       this.client.release();
       this.isDisposed = true;

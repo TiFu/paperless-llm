@@ -7,6 +7,12 @@ import { JobState } from '../domain/job/JobState.js';
 import { UserContext } from '../domain/auth/UserContext.js';
 import pino from 'pino';
 import { createChildLogger } from '../utils/logger.js';
+import { JobStats } from '../application/JobApplicationService.js';
+import { JobResponse } from './dtos/models/JobResponse.js';
+import { JobStep } from './dtos/models/JobStep.js';
+import type { AuditLogEntry } from './dtos/models/AuditLogEntry.js';
+
+type JobResponseDto = JobResponse & { paperlessUrl: string };
 
 export class JobController {
   private logger: pino.Logger;
@@ -20,17 +26,17 @@ export class JobController {
     return [...DOCUMENT_FIELDS];
   }
 
-  async getJobStats(user: UserContext) {
+  async getJobStats(user: UserContext): Promise<JobStats> {
     const jobAppService = this.appFactory.createJobApplicationService();
     const stats = await jobAppService.getJobStats(user);
     return stats;
   }
 
-  async getJobTypes() {
+  async getJobTypes(): Promise<{ jobTypes: WorkflowType[] }> {
     return { jobTypes: Object.values(WorkflowType) };
   }
 
-  async submitJob(documents: Array<{ documentId: number; jobType: WorkflowType; fields: DocumentField[] }>, user: UserContext) {
+  async submitJob(documents: Array<{ documentId: number; jobType: WorkflowType; fields: DocumentField[] }>, user: UserContext): Promise<{ submitted: number; jobs: JobResponseDto[] }> {
     const jobAppService = this.appFactory.createJobApplicationService();
     const createdJobs = await jobAppService.createBulk(documents, user);
     return {
@@ -39,7 +45,7 @@ export class JobController {
     };
   }
 
-  async listJobs(limit: number, user: UserContext, cursor?: string, state?: JobState) {
+  async listJobs(limit: number, user: UserContext, cursor?: string, state?: JobState): Promise<{ jobs: JobResponseDto[]; nextCursor: string | null }> {
     const jobAppService = this.appFactory.createJobApplicationService();
     const result = await jobAppService.list(limit, user, cursor, state);
     return {
@@ -48,14 +54,14 @@ export class JobController {
     };
   }
 
-  async getJob(id: string, user: UserContext) {
+  async getJob(id: string, user: UserContext): Promise<JobResponseDto | null> {
     const jobAppService = this.appFactory.createJobApplicationService();
     const job = await jobAppService.getById(id, user);
     if (!job) return null;
     return AppMapper.toJobResponse(job, this.paperlessBaseUrl);
   }
 
-  async getJobSteps(id: string, user: UserContext) {
+  async getJobSteps(id: string, user: UserContext): Promise<{ steps: JobStep[] } | null> {
     const jobAppService = this.appFactory.createJobApplicationService();
     const job = await jobAppService.getById(id, user);
     if (!job) return null;
@@ -65,7 +71,7 @@ export class JobController {
     };
   }
 
-  async getJobAuditLog(id: string, user: UserContext) {
+  async getJobAuditLog(id: string, user: UserContext): Promise<{ auditLog: AuditLogEntry[] } | null> {
     const jobAppService = this.appFactory.createJobApplicationService();
     const job = await jobAppService.getById(id, user);
     if (!job) return null;

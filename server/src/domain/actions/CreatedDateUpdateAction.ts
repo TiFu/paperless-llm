@@ -43,7 +43,7 @@ export class CreatedDateUpdateAction extends DocumentAction {
     );
   }
 
-  apply(document: IDocument): Partial<IDocument> {
+  apply(_document: IDocument): Partial<IDocument> {
     const dateValue = this.newValue || null;
     if (dateValue) {
       return {

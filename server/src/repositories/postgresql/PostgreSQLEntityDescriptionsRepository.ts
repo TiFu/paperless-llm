@@ -1,6 +1,6 @@
 import { Pool, PoolClient } from 'pg';
 import { IEntityDescriptionsRepository, EntityDescription } from '../../domain/entityDescriptions/IEntityDescriptionsRepository.js';
-import { EntityType, ENTITY_TYPES } from '../../domain/entityDescriptions/EntityType.js';
+import { EntityType } from '../../domain/entityDescriptions/EntityType.js';
 import { DescribedAvailableFields } from '../../domain/entityDescriptions/IDescribedEntities.js';
 
 export class PostgreSQLEntityDescriptionsRepository implements IEntityDescriptionsRepository {

@@ -34,7 +34,7 @@ export function decodeCursor(cursor: string): DocumentCursor | null {
     }
     
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

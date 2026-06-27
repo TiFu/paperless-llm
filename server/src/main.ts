@@ -31,7 +31,7 @@ async function main(): Promise<void> {
     stopFns.push(await runWorker(ctx));
   }
 
-  const shutdown = async () => {
+  const shutdown = async (): Promise<void> => {
     ctx.logger.info('Shutting down...');
     await Promise.all(stopFns.map(stop => stop()));
     await ctx.database.close();

@@ -5,7 +5,7 @@ import { ApplicationServiceFactory } from '../../application/ApplicationServiceF
 import { ApiError } from '../middleware/errorHandler.js';
 import { WorkflowType } from '../../domain/workflows/WorkflowType.js';
 import { JobState } from '../../domain/job/JobState.js';
-import { DOCUMENT_FIELDS, DocumentField } from '../../domain/steps/StepFactory.js';
+import { DOCUMENT_FIELDS } from '../../domain/steps/StepFactory.js';
 import { JobController } from '../../web/JobController.js';
 
 

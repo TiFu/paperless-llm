@@ -7,6 +7,7 @@ import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
 import { IEntityDescriptionsRepository } from '../domain/entityDescriptions/IEntityDescriptionsRepository.js';
 import { IWorkerExecutionRepository } from '../domain/workerExecution/IWorkerExecutionRepository.js';
 import { UoW } from './UoW.js';
+import { Pool, PoolClient } from 'pg';
 
 /**
  * Represents a database transaction context.
@@ -17,7 +18,7 @@ export interface DatabaseTransactionContext {
   commit(): Promise<void>;
   rollback(): Promise<void>;
   dispose(): Promise<void>;
-  getClient(): any
+  getClient(): Pool | PoolClient
   [Symbol.asyncDispose](): Promise<void>
 }
 

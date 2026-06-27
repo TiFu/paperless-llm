@@ -114,7 +114,7 @@ export class ManualStepApplicationService {
     user: UserContext,
     actionOverrides?: { id: string; newValue: string | null }[]
   ): Promise<void> {
-    let jobId = null;
+    let jobId: string | null = null;
     try {
       await using context = await this.uowFactory.createSystemUoW();
       await context.start();
@@ -161,7 +161,7 @@ export class ManualStepApplicationService {
       try {
         await using uow = await this.uowFactory.createSystemUoW();
         await uow.start();
-        const entry = AuditLogEntry.createError(jobId as any, stepId, { message: "" + error });
+        const entry = AuditLogEntry.createError(jobId ?? '', stepId, { message: "" + error });
         uow.getAuditCollector().record(entry);
         await uow.save();
         await uow.commit();

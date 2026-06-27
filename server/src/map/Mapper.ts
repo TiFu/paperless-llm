@@ -1,9 +1,11 @@
 import type { AuditLogEntry as DtoAuditLogEntry } from '../web/dtos/models/AuditLogEntry.js';
-import { AuditEventType, AuditLogEntry as DomainAuditLogEntry } from '../domain/audit/AuditLogEntry.js';
+import { AuditLogEntry as DomainAuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 import type { QueueItem as DtoQueueItem } from '../web/dtos/models/QueueItem.js';
+import { WorkItemStatus } from '../web/dtos/models/WorkItemStatus.js';
 
-import { StepType as DomainStepType } from '../domain/steps/IStep.js';
+import { StepType as DomainStepType, IStep } from '../domain/steps/IStep.js';
 import { StepType as DtoStepType } from '../web/dtos/models/StepType.js';
+import { StepStatus as DtoStepStatus } from '../web/dtos/models/StepStatus.js';
 import { Prompt } from '../domain/prompt/Prompt.js';
 import type { PromptResponse } from '../web/dtos/models/PromptResponse.js';
 import { IDocument } from '../domain/document/IDocument.js';
@@ -15,35 +17,46 @@ import { DocumentWithStatus } from '../application/DocumentApplicationService.js
 import { Correspondent } from '../web/dtos/models/Correspondent.js';
 import { DocumentType } from '../web/dtos/models/DocumentType.js';
 import { Tag } from '../web/dtos/models/Tag.js';
-import { JobCreatedEntry } from '../web/dtos/models/JobCreatedEntry.js';
-import { metadata } from 'reflect-metadata/no-conflict';
+import { Job } from '../domain/job/Job.js';
+import { JobState as DomainJobState } from '../domain/job/JobState.js';
+import { JobState as DtoJobState } from '../web/dtos/models/JobState.js';
+import { JobResponse } from '../web/dtos/models/JobResponse.js';
+import { JobStep } from '../web/dtos/models/JobStep.js';
+import { DocumentEnriched } from '../application/util/documentEnrichment.js';
 
 export class AppMapper {
   // --- Job Mapping ---
-  static toJobResponse(job: any, paperlessBaseUrl: string): any {
-    // Accepts DocumentEnriched<Job> (domain + document)
+  static toJobResponse(job: DocumentEnriched<Job>, paperlessBaseUrl: string): JobResponse & { paperlessUrl: string } {
     return {
       id: job.id,
       documentId: job.documentId,
-      jobType: job.jobType,
-      status: job.state,
+      // Domain and DTO enums/shapes share the same runtime values but are declared
+      // separately (domain vs OpenAPI-generated), so they need a values-only cast.
+      jobType: job.jobType as unknown as JobResponse['jobType'],
+      status: AppMapper.toDtoJobState(job.state),
       errorMessage: job.errorMessage,
       createdAt: job.createdAt,
       updatedAt: job.updatedAt,
       completedAt: job.completedAt,
-      documentActions: job.documentActions,
+      documentActions: job.documentActions as unknown as JobResponse['documentActions'],
       document: job.document ? AppMapper.toDocument(job.document) : undefined,
-      fields: job.fields,
+      fields: job.fields as unknown as JobResponse['fields'],
       paperlessUrl: `${paperlessBaseUrl}/documents/${job.documentId}`,
     };
   }
 
+  // Map domain JobState (enum) to DTO JobState (string)
+  static toDtoJobState(domainJobState: DomainJobState): DtoJobState {
+    // The values are identical, but types differ (enum vs string union)
+    return domainJobState as unknown as DtoJobState;
+  }
+
   // --- JobStep Mapping ---
-  static toJobStep(step: any): any {
+  static toJobStep(step: IStep): JobStep {
     return {
       stepId: step.getStepId(),
-      stepType: step.getStepType(),
-      stepStatus: step.getStepStatus(),
+      stepType: AppMapper.toDtoStepType(step.getStepType()),
+      stepStatus: step.getStepStatus() as unknown as DtoStepStatus,
       children: step.hasChildren() ? step.getChildren().map(AppMapper.toJobStep) : null,
       startedAt: step.getStartedAt(),
       retryCount: step.getRetryCount(),
@@ -65,87 +78,7 @@ export class AppMapper {
     };
 
     // Assume 1:1
-    return base as any;
-
-    const m = domain.metadata ?? {};
-    switch (domain.eventType) {
-      case AuditEventType.JOB_CREATED:
-        return {
-          ...base,
-          documentId: (m as any).documentId,
-          jobType: (m as any).jobType,
-          message: (m as any).message ?? null,
-        } as any;
-      case AuditEventType.JOB_COMPLETED:
-        return {
-          ...base,
-          documentId: (m as any).documentId,
-          jobType: (m as any).jobType,
-        } as any;
-      case AuditEventType.JOB_FAILED:
-        return {
-          ...base,
-          message: (m as any).message,
-        } as any;
-      case AuditEventType.STEP_CREATED:
-        return {
-          ...base,
-          stepType: (m as any).stepType,
-        } as any;
-      case AuditEventType.STEP_EXECUTED:
-        return {
-          ...base,
-          stepType: (m as any).stepType,
-          retryCount: (m as any).retryCount,
-          prompt: (m as any).prompt,
-          message: (m as any).message,
-        } as any;
-      case AuditEventType.STEP_COMPLETED:
-        return {
-          ...base,
-          message: (m as any).message,
-          success: (m as any).success,
-          stepType: (m as any).stepType,
-        } as any;
-      case AuditEventType.DECISION_REQUESTED:
-        return {
-          ...base,
-          stepType: (m as any).stepType,
-        } as any;
-      case AuditEventType.DECISION_SUBMITTED:
-        return {
-          ...base,
-          decision: (m as any).decision,
-          approver: (m as any).approver,
-        } as any;
-      case AuditEventType.STEP_MANUALLY_RETRIED:
-        return {
-          ...base,
-          previousRetryCount: (m as any).previousRetryCount,
-          stepType: (m as any).stepType,
-        } as any;
-      case AuditEventType.STEP_CANCELLED:
-        return {
-          ...base,
-          previousStatus: (m as any).previousStatus,
-          stepType: (m as any).stepType,
-        } as any;
-      case AuditEventType.STUCK_STEP_RESET:
-        return {
-          ...base,
-          stuckDurationMs: (m as any).stuckDurationMs,
-          previousStartedAt: (m as any).previousStartedAt,
-          stepType: (m as any).stepType,
-        } as any;
-      case AuditEventType.ERROR:
-        return {
-          ...base,
-          message: (m as any).message,
-        } as any;
-      default:
-        // fallback: return as generic object
-        return { ...base, metadata: domain.metadata ?? undefined } as unknown as DtoAuditLogEntry;
-    }
+    return base as unknown as DtoAuditLogEntry;
   }
 
   static toAuditLogEntryList(domains: DomainAuditLogEntry[]): DtoAuditLogEntry[] {
@@ -160,7 +93,7 @@ export class AppMapper {
       document: domain.document ? AppMapper.toDocument(domain.document) : null,
       stepType: domain.stepType,
       jobType: domain.jobType,
-      status: domain.status as any, // Should match WorkItemStatus
+      status: domain.status as WorkItemStatus,
       retryCount: domain.retryCount,
       retryAfter: domain.retryAfter,
       claimedBy: domain.claimedBy,
@@ -265,7 +198,7 @@ export class AppMapper {
   }
 
   // --- Paginated Documents Mapping (for DocumentsListWithPagination DTO) ---
-  static toDocumentsListWithPagination(paged: { documents: DocumentWithStatus[]; pagination: { limit: number; nextCursor: string | null } }) {
+  static toDocumentsListWithPagination(paged: { documents: DocumentWithStatus[]; pagination: { limit: number; nextCursor: string | null } }): { documents: DocumentListItem[]; pagination: { limit: number; nextCursor: string | null } } {
     return {
       documents: AppMapper.toDocumentListItemList(paged.documents),
       pagination: {

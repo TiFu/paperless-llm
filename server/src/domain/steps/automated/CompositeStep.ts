@@ -68,7 +68,7 @@ export class CompositeStep extends IStep {
     retryAfter: Date | null = null,
     startedAt: Date | null = null,
     parentStepId: string | null = null,
-    configuration: Record<string, any> | null = null
+    configuration: Record<string, unknown> | null = null
   ) {
     super(stepId, stepType, jobId, stepState, retryCount, retryAfter, startedAt, parentStepId, configuration);
     this.children.forEach(c => c.setParentId(stepId))

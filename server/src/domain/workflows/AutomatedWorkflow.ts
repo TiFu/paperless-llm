@@ -3,8 +3,9 @@ import { TransitionMap, createTransitionMap } from './TransitionMap.js';
 import { BaseWorkflow } from './BaseWorkflow.js';
 import { StepFactory } from '../steps/StepFactory.js';
 import { JobState } from '../job/JobState.js';
-import { IStep, StepStatus, StepType } from '../steps/IStep.js';
+import { IStep } from '../steps/IStep.js';
 import { Job } from '../job/Job.js';
+import { createChildLogger } from '../../utils/logger.js';
 
 /**
  * AutomatedWorkflow - workflow without approval steps
@@ -67,7 +68,7 @@ export class AutomatedWorkflow extends BaseWorkflow {
         return null;
 
       default:
-        console.warn(`Unknown job state: ${state}`);
+        createChildLogger({ name: 'AutomatedWorkflow' }).warn(`Unknown job state: ${state}`);
         return null;
     }
   }

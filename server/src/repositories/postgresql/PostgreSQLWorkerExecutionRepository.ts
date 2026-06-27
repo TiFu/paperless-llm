@@ -3,26 +3,26 @@ import { IWorkerExecutionRepository } from '../../domain/workerExecution/IWorker
 import { WorkerExecution } from '../../domain/workerExecution/WorkerExecution.js';
 import { WorkerExecutionItem } from '../../domain/workerExecution/WorkerExecutionItem.js';
 
-function rowToExecution(row: Record<string, any>): WorkerExecution {
+function rowToExecution(row: Record<string, unknown>): WorkerExecution {
   return {
-    id: row.id,
-    workerType: row.worker_type,
-    status: row.status,
-    result: row.result ?? null,
-    errorMessage: row.error_message ?? null,
-    startedAt: row.started_at,
-    finishedAt: row.finished_at ?? null,
+    id: row.id as string,
+    workerType: row.worker_type as string,
+    status: row.status as WorkerExecution['status'],
+    result: (row.result as Record<string, unknown> | null) ?? null,
+    errorMessage: (row.error_message as string | null) ?? null,
+    startedAt: row.started_at as Date,
+    finishedAt: (row.finished_at as Date | null) ?? null,
   };
 }
 
-function rowToItem(row: Record<string, any>): WorkerExecutionItem {
+function rowToItem(row: Record<string, unknown>): WorkerExecutionItem {
   return {
-    itemType: row.item_type,
-    itemId: row.item_id,
-    outcome: row.outcome,
-    errorMessage: row.error_message ?? undefined,
-    startedAt: row.started_at,
-    finishedAt: row.finished_at,
+    itemType: row.item_type as string,
+    itemId: row.item_id as string,
+    outcome: row.outcome as string,
+    errorMessage: (row.error_message as string | undefined) ?? undefined,
+    startedAt: row.started_at as Date,
+    finishedAt: row.finished_at as Date,
   };
 }
 
@@ -90,7 +90,7 @@ export class PostgreSQLWorkerExecutionRepository implements IWorkerExecutionRepo
     status?: string,
   ): Promise<{ items: WorkerExecution[]; nextCursor: string | null }> {
     const conditions: string[] = [];
-    const params: any[] = [limit];
+    const params: unknown[] = [limit];
     let paramIndex = 2;
 
     if (cursor) {
@@ -108,7 +108,6 @@ export class PostgreSQLWorkerExecutionRepository implements IWorkerExecutionRepo
     if (status) {
       conditions.push(`status = $${paramIndex}`);
       params.push(status);
-      paramIndex++;
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

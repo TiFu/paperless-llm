@@ -1,7 +1,6 @@
 import pino from 'pino';
 import { createChildLogger } from '../utils/logger.js';
 import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
-import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 
 /**
@@ -57,9 +56,6 @@ export class StepRetryApplicationService {
 
       const workflowOrchestrator = context.getWorkflowOrchestratorDomainService();
       workflowOrchestrator.manuallyRetry(step);
-      // Reset step using domain logic
-      const state = step.getStepStatus();
-      
 
       // Persist changes
       await context.save();

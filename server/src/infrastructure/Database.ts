@@ -1,8 +1,10 @@
 import { Pool, PoolConfig } from 'pg';
 import { DatabaseConfig } from '../config/AppConfig.js';
+import { createChildLogger } from '../utils/logger.js';
 
 export class Database {
   private pool: Pool;
+  private readonly logger = createChildLogger({ name: 'Database' });
 
   constructor(config: DatabaseConfig) {
     const poolConfig: PoolConfig = {
@@ -20,8 +22,7 @@ export class Database {
 
     // Handle pool errors
     this.pool.on('error', (err: Error) => {
-      // eslint-disable-next-line no-console
-      console.error('Unexpected error on idle client', err);
+      this.logger.error({ err }, 'Unexpected error on idle client');
       process.exit(-1);
     });
   }
@@ -39,7 +40,7 @@ export class Database {
       const result = await this.pool.query('SELECT NOW()');
       return !!result.rows[0];
     } catch (error) {
-      console.log(error)
+      this.logger.error({ error }, 'Database health check failed');
       return false;
     }
   }

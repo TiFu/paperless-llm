@@ -53,7 +53,7 @@ export class StepFactory {
     retryAfter: Date | null = null,
     startedAt: Date | null = null,
     parentStepId: string | null = null,
-    configuration: Record<string, any> | null = null
+    configuration: Record<string, unknown> | null = null
   ): IStep {
     // If no stepId provided, generate one app side
     stepId = stepId ? stepId : crypto.randomUUID();
@@ -90,13 +90,14 @@ export class StepFactory {
     }
   }
 
- private generateChildStepsForLLMGenerateFieldsStep(jobId: string, parentStepId: string, config: Record<string, any>) {
+ private generateChildStepsForLLMGenerateFieldsStep(jobId: string, parentStepId: string, config: Record<string, unknown>): IStep[] {
     if (!config || !Array.isArray(config.fields)) {
       throw new Error('LLMGenerateFieldsStep requires configuration with "fields" array');
     }
     const childSteps: IStep[] = [];
+    const fields = config.fields as string[];
 
-    for (const fieldName of config.fields) {
+    for (const fieldName of fields) {
       const stepType = this.FIELD_TO_STEP_TYPE_MAP[fieldName];
       if (!stepType) {
         throw new Error(`Unknown field name: ${fieldName}. Supported: ${Object.keys(this.FIELD_TO_STEP_TYPE_MAP).join(', ')}`);
@@ -164,16 +165,16 @@ export class StepFactory {
    * Create a step instance from a database row
    * Maps snake_case column names to the appropriate IStep subclass
    */
-  static fromDb(row: any, children: IStep[]): IStep {
-    const stepId = row.id;
-    const jobId = row.job_id;
+  static fromDb(row: Record<string, unknown>, children: IStep[]): IStep {
+    const stepId = row.id as string;
+    const jobId = row.job_id as string;
     const type = row.type as StepType;
     const status = row.status as StepStatus;
-    const retryCount = row.retry_count || 0;
-    const retryAfter = row.retry_after ? new Date(row.retry_after) : null;
-    const startedAt = row.started_at ? new Date(row.started_at) : null;
-    const parentStepId = row.parent_id || null;
-    const configuration = row.configuration || null;
+    const retryCount = (row.retry_count as number) || 0;
+    const retryAfter = row.retry_after ? new Date(row.retry_after as string) : null;
+    const startedAt = row.started_at ? new Date(row.started_at as string) : null;
+    const parentStepId = (row.parent_id as string) || null;
+    const configuration = (row.configuration as Record<string, unknown>) || null;
 
     const factory = new StepFactory()
     return factory.create(stepId, jobId, type, status, children, retryCount, retryAfter, startedAt, parentStepId, configuration);

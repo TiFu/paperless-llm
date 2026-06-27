@@ -2,6 +2,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createAppConfig } from '../config/AppConfig.js';
+import { RunnerOption } from 'node-pg-migrate';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,7 +17,7 @@ const __dirname = dirname(__filename);
  * Database connection details are loaded from config.yaml at runtime.
  */
 
-export function getMigrationConfig(): any {
+export function getMigrationConfig(): RunnerOption {
   const { database } = createAppConfig();
   const databaseUrl = `postgres://${database.username}:${database.password}@${database.host}:${database.port}/${database.database}`;
 

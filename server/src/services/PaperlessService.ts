@@ -3,7 +3,7 @@ import { IDocumentManagementSystem } from '../domain/document/IDocumentManagemen
 import { IPaperlessAuthService, PaperlessAuthResult } from '../domain/auth/IPaperlessAuthService.js';
 import { PaperlessConfig } from '../config/AppConfig.js';
 import { IDocument, PaginatedDocuments } from '../domain/document/IDocument.js';
-import { ITag, ICorrespondent, IDocumentType } from '../domain/document/IDocumentEntities.js';
+import { ITag, ICorrespondent, IDocumentType, AvailableFields } from '../domain/document/IDocumentEntities.js';
 import { decodeCursor, encodeCursor } from '../utils/cursorUtils.js';
 import { createChildLogger } from '../utils/logger.js';
 import pino from 'pino';
@@ -44,39 +44,6 @@ interface PaperlessPaginatedResponse<T> {
   results: T[];
 }
 
-class BidirectionalMap<A, B> {
-  private cacheAB: Map<A, B>;
-  private cacheBA: Map<B, A>;
-
-  constructor(){
-    this.cacheAB = new Map();
-    this.cacheBA = new Map();
-  }
-
-  set(a: A, b: B) {
-    this.cacheAB.set(a, b)
-    this.cacheBA.set(b, a)
-  }
-
-  hasA(a: A): boolean {
-    return this.cacheAB.has(a);
-  }
-
-  getA(a: A): B | undefined {
-    return this.cacheAB.get(a);
-  }
-
-  hasB(b: B): boolean {
-    return this.cacheBA.has(b);
-  }
-  
-  getB(b: B): A | undefined {
-    return this.cacheBA.get(b);
-  }
-
-
-}
-
 export class PaperlessService implements IDocumentManagementSystem, IPaperlessAuthService {
   private readonly client: AxiosInstance;
   private readonly authClient: AxiosInstance;
@@ -114,7 +81,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     }
   }
 
-  async getAvailableFields() {
+  async getAvailableFields(): Promise<AvailableFields> {
     const [tags, correspondents, documentTypes] = await Promise.all([
       this.getTags(),
       this.getCorrespondents(),
@@ -239,7 +206,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     } catch (error) {
       this.logger.error({ error, "api": "getDocumentsByTag"})      
       if (axios.isAxiosError(error)) {
-        throw new Error(`Paperless-NG API error: ${error.message}`);
+        throw new Error(`Paperless-NG API error: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -259,9 +226,9 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
       this.logger.error({ error, "api": "getDocument"})
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 404) {
-          throw new Error(`Document not found: ${documentId}`);
+          throw new Error(`Document not found: ${documentId}`, { cause: error });
         }
-        throw new Error(`Paperless-NG API error: ${error.message}`);
+        throw new Error(`Paperless-NG API error: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -280,9 +247,9 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
       // The updates object should have the metadata with tag IDs if tags are being updated
       if (updates.tags !== undefined) {
         // TODO: In this case, we need to return some info about the tags we have not applied/not found... for documentation purposes
-        const result = await Promise.all(updates.tags.map((t) => this.resolveTagId(t).catch((e) => { 
+        const result = await Promise.all(updates.tags.map((t) => this.resolveTagId(t).catch(() => {
           this.logger.info({ tagName: t, }, "Tag not found")
-          return null 
+          return null
         })));
         payload.tags = result.filter((f) => f != null)
       }
@@ -307,9 +274,9 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
       this.logger.error({ error, "api": "updateDocument"})
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 404) {
-          throw new Error(`Document not found: ${documentId}`);
+          throw new Error(`Document not found: ${documentId}`, { cause: error });
         }
-        throw new Error(`Paperless-NG API error: ${error.message}`);
+        throw new Error(`Paperless-NG API error: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -329,7 +296,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     } catch (error) {
       this.logger.error({ error, "api": "getDocumentTypeById"})
       if (axios.isAxiosError(error)) {
-        throw new Error(`Paperless-NG API error fetching tags: ${error.message}`);
+        throw new Error(`Paperless-NG API error fetching tags: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -350,7 +317,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     } catch (error) {
       this.logger.error({ error, "api": "getCorrespondentById"})
       if (axios.isAxiosError(error)) {
-        throw new Error(`Paperless-NG API error fetching tags: ${error.message}`);
+        throw new Error(`Paperless-NG API error fetching tags: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -378,7 +345,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     } catch (error) {
       this.logger.error({ error, "api": "getTags"})
       if (axios.isAxiosError(error)) {
-        throw new Error(`Paperless-NG API error fetching tags: ${error.message}`);
+        throw new Error(`Paperless-NG API error fetching tags: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -404,7 +371,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     } catch (error) {
       this.logger.error({ error, "api": "getCorrespondents"})
       if (axios.isAxiosError(error)) {
-        throw new Error(`Paperless-NG API error fetching correspondents: ${error.message}`);
+        throw new Error(`Paperless-NG API error fetching correspondents: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -430,7 +397,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     } catch (error) {
       this.logger.error({ error, "api": "getDocumentTypes"})
       if (axios.isAxiosError(error)) {
-        throw new Error(`Paperless-NG API error fetching document types: ${error.message}`);
+        throw new Error(`Paperless-NG API error fetching document types: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -460,7 +427,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     } catch (error) {
       this.logger.error({ error, "api": "resolveTagId"})
       if (axios.isAxiosError(error)) {
-        throw new Error(`Paperless-NG API error resolving tag: ${error.message}`);
+        throw new Error(`Paperless-NG API error resolving tag: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -491,7 +458,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     } catch (error) {
       this.logger.error({ error, "api": "resolveCorrespondentId"})
       if (axios.isAxiosError(error)) {
-        throw new Error(`Paperless-NG API error resolving correspondent: ${error.message}`);
+        throw new Error(`Paperless-NG API error resolving correspondent: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -521,7 +488,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     } catch (error) {
       this.logger.error({ error, "api": "resolveDocumentTypeId"})
       if (axios.isAxiosError(error)) {
-        throw new Error(`Paperless-NG API error resolving document type: ${error.message}`);
+        throw new Error(`Paperless-NG API error resolving document type: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -540,7 +507,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
         const tagId = await this.resolveTagId(tagName);
         if (tagId === null) {
           // Tag doesn't exist - log warning but continue
-          console.warn(`Tag "${tagName}" not found, skipping removal`);
+          this.logger.warn({ tagName }, "Tag not found, skipping removal");
           continue;
         }
         tagIds.push(tagId);
@@ -565,9 +532,9 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
       this.logger.error({ error, "api": "removeTagsFromDocument"})
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 404) {
-          throw new Error(`Document not found: ${documentId}`);
+          throw new Error(`Document not found: ${documentId}`, { cause: error });
         }
-        throw new Error(`Paperless-NG API error removing tags: ${error.message}`);
+        throw new Error(`Paperless-NG API error removing tags: ${error.message}`, { cause: error });
       }
       throw error;
     }
@@ -627,6 +594,6 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
   }
 
   async healthCheck(): Promise<boolean> {
-    return await this.client.get<any>('/api/').then((a) => true).catch((err) => false);
+    return await this.client.get('/api/').then(() => true).catch(() => false);
   }
 }

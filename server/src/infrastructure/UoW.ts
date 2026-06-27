@@ -2,16 +2,14 @@ import { AuditLogEntry } from "../domain/audit/AuditLogEntry.js";
 import { IAuditCollector, IAuditLogRepository } from "../domain/audit/IAuditLogRepository.js";
 import { IDocumentManagementSystem } from "../domain/document/IDocumentManagementSystem.js";
 import { IJobRepository } from "../domain/job/IJobRepository.js";
-import { ILLMService } from "../domain/llm/ILLMService.js";
 import { IPromptDomainService } from "../domain/prompt/IPromptDomainService.js";
 import { IPromptsRepository } from "../domain/prompt/IPromptsRepository.js";
 import { PromptService } from "../domain/prompt/PromptDomainService.js";
 import { StepExecutorDomainService } from "../domain/services/StepExecutorDomainService.js";
 import { WorkflowOrchestratorDomainService } from "../domain/services/WorkflowOrchestratorService.js";
 import { IStepRepository } from "../domain/steps/IStepRepository.js";
-import { DatabaseTransactionContext, DatabaseTransactionContextFactory, DBContextWithRepositoryFactory, RepositoryRegistry, RepositoryRegistryFactory } from "./TransactionManager.js";
+import { DatabaseTransactionContext, DatabaseTransactionContextFactory, DBContextWithRepositoryFactory, RepositoryRegistry } from "./TransactionManager.js";
 import { UserContext } from "../domain/auth/UserContext.js";
-import { IUsersRepository } from "../domain/auth/IUsersRepository.js";
 import { PaperlessService } from "../services/PaperlessService.js";
 import { CachedPaperlessServiceAdapter } from "../services/CachedPaperlessServiceAdapter.js";
 import { DMSCacheService } from "../services/CacheService.js";
@@ -19,6 +17,7 @@ import { PaperlessConfig } from "../config/AppConfig.js";
 import { IPermissionsRepository } from "../domain/authorization/IPermissionsRepository.js";
 import { CachedPermissionsRepositoryAdapter } from "../domain/authorization/CachedPermissionsRepositoryAdapter.js";
 import { IWorkerExecutionRepository } from "../domain/workerExecution/IWorkerExecutionRepository.js";
+import { DescribedAvailableFields } from "../domain/entityDescriptions/IDescribedEntities.js";
 
 export class AuditCollector implements IAuditCollector{
     private events: AuditLogEntry[];
@@ -101,7 +100,7 @@ export class UoWFactory {
 }
 
 export class UoWImplementation implements UoW {
-    private objectRegistry: Set<UoWRegistryEntry<any>>;
+    private objectRegistry: Set<UoWRegistryEntry<unknown>>;
     private promptDomainService: IPromptDomainService | null;
     private repositoryRegistry: RepositoryRegistry;
     private context: DatabaseTransactionContext;
@@ -138,7 +137,7 @@ export class UoWImplementation implements UoW {
         private dmsCacheService: DMSCacheService,
         user?: UserContext,
     ) {
-        this.objectRegistry = new Set<UoWRegistryEntry<any>>();
+        this.objectRegistry = new Set<UoWRegistryEntry<unknown>>();
         this.context = context.ctx;
         this.repositoryRegistry = context.repositoryFactory.create(this);
         this.promptDomainService = null;
@@ -167,7 +166,7 @@ export class UoWImplementation implements UoW {
     getPromptDomainService(): IPromptDomainService {
         if (!this.promptDomainService) {
             const entityDescriptionsRepo = this.repositoryRegistry.getEntityDescriptions();
-            const obtainer = () => entityDescriptionsRepo.findAllGrouped();
+            const obtainer = (): Promise<DescribedAvailableFields> => entityDescriptionsRepo.findAllGrouped();
             this.promptDomainService = new PromptService(this.getPrompts(), obtainer);
         }
         return this.promptDomainService;
@@ -230,6 +229,6 @@ export class UoWImplementation implements UoW {
 
         this.objectRegistry.clear();
         this.auditCollector.clear();
-        return Promise.all(promises).then((e) => {})
+        return Promise.all(promises).then(() => {})
     }
 }

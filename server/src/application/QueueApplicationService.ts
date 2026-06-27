@@ -6,6 +6,7 @@ import { getLogger } from '../utils/logger.js';
 import { DocumentEnriched, enrichAllWithDocument } from './util/documentEnrichment.js';
 import { AuditLogApplicationService } from './AuditLogApplicationService.js';
 import { UserContext } from '../domain/auth/UserContext.js';
+import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 
 /**
  * Queue statistics response
@@ -56,7 +57,7 @@ export class QueueApplicationService {
    * @param auditLogService Instance of AuditLogApplicationService
    * @returns Array of fallout items with audit log
    */
-  async getFallouts(user: UserContext, auditLogService: AuditLogApplicationService): Promise<(QueueItemWithDocument & { auditLog: any[] })[]> {
+  async getFallouts(user: UserContext, auditLogService: AuditLogApplicationService): Promise<(QueueItemWithDocument & { auditLog: AuditLogEntry[] })[]> {
     const { items: falloutItems } = await this.getQueueItems(user, 100, undefined, 'in_fallout');
     const enriched = await Promise.all(
       falloutItems.map(async (item) => {

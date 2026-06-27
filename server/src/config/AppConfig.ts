@@ -5,8 +5,6 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { WorkflowType } from '../domain/workflows/WorkflowType.js';
 import { DocumentField } from '../domain/steps/StepFactory.js';
-import pino from 'pino';
-import { createChildLogger } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -244,7 +242,6 @@ export class AppConfig {
     this.validate();
     this.validateLLMConfig();
     this.validateAutoQueueConfig();
-    console.log({ config: this, path: configPath}, "Loaded config")
   }
 
   private loadConfig(configPath?: string): RawConfig {
@@ -273,14 +270,14 @@ export class AppConfig {
       return config;
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Failed to load configuration: ${error.message}`);
+        throw new Error(`Failed to load configuration: ${error.message}`, { cause: error });
       }
       throw error;
     }
   }
 
-  private validateRequiredFields(config: any): void {
-    const required = [
+  private validateRequiredFields(config: Partial<RawConfig>): void {
+    const required: (keyof RawConfig)[] = [
       'database',
       'paperless',
       'llm',
@@ -298,10 +295,10 @@ export class AppConfig {
     }
 
     // Validate critical fields
-    if (!config.database.username || !config.database.password) {
+    if (!config.database!.username || !config.database!.password) {
       throw new Error('Missing required database credentials');
     }
-    if (!config.paperless.url || !config.paperless.token) {
+    if (!config.paperless!.url || !config.paperless!.token) {
       throw new Error('Missing required Paperless configuration');
     }
     if (!config.auth?.jwtSecret) {

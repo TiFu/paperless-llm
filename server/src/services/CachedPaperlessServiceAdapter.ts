@@ -1,8 +1,8 @@
-import { IDocument } from '../domain/document/IDocument.js';
+import { IDocument, PaginatedDocuments } from '../domain/document/IDocument.js';
 import { AvailableFields, ICorrespondent, IDocumentType, ITag } from '../domain/document/IDocumentEntities.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { PaperlessService } from './PaperlessService.js';
-import { CacheService, DMSCacheService } from './CacheService.js';
+import { DMSCacheService } from './CacheService.js';
 import pino from 'pino';
 import { createChildLogger } from '../utils/logger.js';
 
@@ -76,7 +76,7 @@ export class CachedPaperlessServiceAdapter implements IDocumentManagementSystem 
     return "" + id
   }
 
-  async getDocumentsByTag(tag: string, limit: number, cursor?: string) {
+  async getDocumentsByTag(tag: string, limit: number, cursor?: string): Promise<PaginatedDocuments> {
     // Tag-based caching can be complex; for now, do not cache this method
     return this.service.getDocumentsByTag(tag, limit, cursor);
   }

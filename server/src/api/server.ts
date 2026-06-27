@@ -1,11 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import pino from 'pino';
-import {pinoHttp} from 'pino-http';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
-import fs from 'fs';
+import {pinoHttp, Options as PinoHttpOptions} from 'pino-http';
 import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
@@ -30,11 +26,6 @@ import { EntitySyncApplicationService } from '../application/EntitySyncApplicati
 import { IPaperlessAuthService } from '../domain/auth/IPaperlessAuthService.js';
 import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
 import { AuthConfig } from '../config/AppConfig.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const require = createRequire(import.meta.url);
-const redoc = require('redoc-express');
 
 export interface ApiServerConfig {
   port: number;
@@ -71,7 +62,10 @@ export function createApiServer(
   // HTTP request logging with pino-http
   app.use(
     pinoHttp({
-      logger: logger as any,
+      // pino-http bundles its own (newer) copy of pino, whose Logger type is
+      // structurally incompatible with our top-level pino's — cast through
+      // unknown rather than depending on pino-http's nested pino types.
+      logger: logger as unknown as PinoHttpOptions['logger'],
       autoLogging: {
         ignore: (req) => req.url === '/health' || req.url === '/api/health',
       },

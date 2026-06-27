@@ -2,7 +2,7 @@ import { Job } from "../job/Job.js";
 import { Transition } from "../workflows/Transition.js";
 import { createChildLogger } from "../../utils/logger.js";
 import { CompositeStep } from "../steps/automated/CompositeStep.js";
-import { AuditLogEntry, StepCompletedMetadata, StepExecutionMetadata } from "../audit/AuditLogEntry.js";
+import { AuditLogEntry, StepCompletedMetadata } from "../audit/AuditLogEntry.js";
 import { IJobRepository } from "../job/IJobRepository.js";
 import { IStep, RetryConfig, StepResult, StepStatus } from "../steps/IStep.js";
 import { IStepRepository } from "../steps/IStepRepository.js";

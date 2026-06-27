@@ -1,4 +1,3 @@
-import { postMessageToThread } from "worker_threads";
 import { IStep, StepType } from "../steps/IStep.js";
 import { Job } from "../job/Job.js";
 
@@ -95,7 +94,7 @@ export interface StuckStepResetMetadata {
 /**
  * Union type for all possible metadata
  */
-export type AuditLogMetadata = 
+export type AuditLogMetadata =
   | JobCreatedMetadata
   | StepCreatedMetadata
   | StepExecutionMetadata
@@ -103,7 +102,8 @@ export type AuditLogMetadata =
   | StepManuallyRetriedMetadata
   | StepCancelledMetadata
   | StuckStepResetMetadata
-  | Record<string, any>; // Fallback for extensibility
+  | ErrorMetadata
+  | Record<string, unknown>; // Fallback for extensibility
 
 // TODO: We can improve type safety for AuditLogentry
 /**

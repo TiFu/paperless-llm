@@ -1,6 +1,4 @@
-import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { IDocument } from '../domain/document/IDocument.js';
-import { Job } from '../domain/job/Job.js';
 import { JobApplicationService } from './JobApplicationService.js';
 import { AutoQueueConfig } from '../config/AppConfig.js';
 import { createChildLogger } from '../utils/logger.js';

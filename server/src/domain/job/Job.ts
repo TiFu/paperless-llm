@@ -1,14 +1,12 @@
 import { WorkflowType as WorkflowType } from '../workflows/WorkflowType.js';
 import { JobState } from './JobState.js';
 import { DocumentAction } from '../actions/DocumentAction.js';
-import { BaseWorkflow, NextStepResult } from '../workflows/BaseWorkflow.js';
+import { NextStepResult } from '../workflows/BaseWorkflow.js';
 import { IWorkflow } from '../workflows/IWorkflow.js';
 import { AutomatedWorkflow } from '../workflows/AutomatedWorkflow.js';
 import { ApprovalWorkflow } from '../workflows/ApprovalWorkflow.js';
-import { error } from 'console';
 import { Transition } from '../workflows/Transition.js';
 import { DocumentField } from '../steps/StepFactory.js';
-import { AuditLogEntry } from '../audit/AuditLogEntry.js';
 
 /**
  * Job entity - stateful entity representing a workflow instance

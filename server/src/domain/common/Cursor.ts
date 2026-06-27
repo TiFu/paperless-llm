@@ -23,7 +23,7 @@ export function decodeCursor(encodedCursor: string): Cursor | null {
     return {
       stepId: payload.stepId,
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }

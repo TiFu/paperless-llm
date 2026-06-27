@@ -1,7 +1,6 @@
 import { PoolClient } from 'pg';
 import { IAuditLogRepository } from '../../domain/audit/IAuditLogRepository.js';
 import { AuditLogEntry, AuditEventType, AuditLogMetadata } from '../../domain/audit/AuditLogEntry.js';
-import { Saveable, UoW } from '../../infrastructure/UoW.js';
 
 /**
  * PostgreSQL implementation of the audit log repository
@@ -14,15 +13,15 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
   /**
    * Map database row to AuditLogEntry domain entity
    */
-  private mapRowToEntity(row: any): AuditLogEntry {
+  private mapRowToEntity(row: Record<string, unknown>): AuditLogEntry {
     return new AuditLogEntry(
-      row.id,
-      row.job_id,
-      row.step_id,
+      row.id as string | null,
+      row.job_id as string,
+      row.step_id as string | null,
       row.event_type as AuditEventType,
-      new Date(row.event_timestamp),
-      row.processing_start_time ? new Date(row.processing_start_time) : null,
-      row.processing_end_time ? new Date(row.processing_end_time) : null,
+      new Date(row.event_timestamp as string),
+      row.processing_start_time ? new Date(row.processing_start_time as string) : null,
+      row.processing_end_time ? new Date(row.processing_end_time as string) : null,
       row.metadata as AuditLogMetadata | null,
     );
   }
@@ -58,7 +57,7 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
   async createAll(entries: AuditLogEntry[]): Promise<void> {
     if (entries.length === 0) return;
 
-    const values: any[] = [];
+    const values: unknown[] = [];
     const valuePlaceholders: string[] = [];
     let paramIndex = 1;
 

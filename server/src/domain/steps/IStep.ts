@@ -1,5 +1,4 @@
 import { DocumentAction } from '../actions/DocumentAction.js';
-import { AuditLogEntry } from '../audit/AuditLogEntry.js';
 import { IDocumentManagementSystem } from '../document/IDocumentManagementSystem.js';
 import { Job } from '../job/Job.js';
 import { ILLMService } from '../llm/ILLMService.js';
@@ -80,7 +79,7 @@ export abstract class IStep {
     protected retryAfter: Date | null = null,
     protected startedAt: Date | null = null,
     protected parentStepId: string | null = null,
-    protected configuration: Record<string, any> | null = null
+    protected configuration: Record<string, unknown> | null = null
   ) {
   }
 
@@ -96,11 +95,11 @@ export abstract class IStep {
     return []
   }
 
-  public setStepState(state: StepStatus) {
+  public setStepState(state: StepStatus): void {
     this.stepState = state;
   }
 
-  public updateId(stepId: string) {
+  public updateId(stepId: string): void {
     this.stepId = stepId
   }
   
@@ -174,30 +173,30 @@ export abstract class IStep {
     this.retryAfter = null;
   }
 
-  public moveToInProgress() {
+  public moveToInProgress(): void {
     this.stepState = StepStatus.IN_PROGRESS
   }
 
-  public moveToFailed() {
+  public moveToFailed(): void {
     this.stepState = StepStatus.FAILED
   }
 
-  public moveToWaiting() {
+  public moveToWaiting(): void {
     this.stepState = StepStatus.WAITING
   }
 
-  public moveToCompleted() {
+  public moveToCompleted(): void {
     this.stepState = StepStatus.COMPLETED
   }
-  public isCompleted() {
+  public isCompleted(): boolean {
     return this.stepState == StepStatus.FAILED || this.stepState == StepStatus.COMPLETED
   }
-  
-  public isFailed() {
+
+  public isFailed(): boolean {
     return this.stepState == StepStatus.FAILED
   }
- 
-  public isInProgress() {
+
+  public isInProgress(): boolean {
     return this.stepState == StepStatus.IN_PROGRESS
   }
 
@@ -217,7 +216,7 @@ export abstract class IStep {
     return this.parentStepId
   }
 
-  public getConfiguration(): Record<string, any> | null {
+  public getConfiguration(): Record<string, unknown> | null {
     return this.configuration
   }
 

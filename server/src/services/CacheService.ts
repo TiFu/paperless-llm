@@ -1,6 +1,5 @@
 import { createClient } from 'redis';
 import { RedisConfig } from '../config/AppConfig.js';
-import { RedisClientType } from '@redis/client';
 import { IDocument } from '../domain/document/IDocument.js';
 import { ICorrespondent, IDocumentType, ITag } from '../domain/document/IDocumentEntities.js';
 import { createChildLogger } from '../utils/logger.js';
@@ -18,8 +17,6 @@ export interface CacheService<T> {
   getAll(key: string[]): Promise<(T | null)[]>;
   invalidate(key: string): Promise<void>;
 }
-
-type SimpleMap = { [key: string]: string}
 
 export interface IDMSSerializer {
   document: Serializer<IDocument>;
