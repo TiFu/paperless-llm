@@ -1,14 +1,14 @@
 # Configuration
 
-Paperless-LLM is configured via a single `config.yaml` file at the repo root, loaded by [`AppConfig`](server.md) on startup. Copy the template to get started:
+Paperless-LLM is configured via a single `config.yaml` file at the repo root, loaded by [`AppConfig`](../server.md) on startup. Copy the template to get started:
 
 ```bash
 cp config.example.yaml config.yaml
 ```
 
-`AppConfig` validates the file on startup (required sections/fields, numeric ranges like `llm.temperature` and the various `*PollIntervalMs`/`*TimeoutMs` minimums) and fails fast with a descriptive error if something's missing or out of range — see [`server/src/config/AppConfig.ts`](server.md) for the exact checks.
+`AppConfig` validates the file on startup (required sections/fields, numeric ranges like `llm.temperature` and the various `*PollIntervalMs`/`*TimeoutMs` minimums) and fails fast with a descriptive error if something's missing or out of range — see [`server/src/config/AppConfig.ts`](../server.md) for the exact checks.
 
-When deploying via Helm, the same structure is rendered into a Kubernetes Secret from `values.yaml`'s `config.*` keys — see [Installation > Helm](installation/helm.md).
+When deploying via Helm, the same structure is rendered into a Kubernetes Secret from `values.yaml`'s `config.*` keys — see [Installation > Helm](helm.md).
 
 ## Choosing an LLM model
 
@@ -20,7 +20,7 @@ If a worker process dies or hangs mid-step, the step stays claimed. The stuck-st
 
 ## Retry strategy
 
-`retry.*` controls exponential backoff for automated step failures: the delay before the *n*-th retry is `retryDelayInMs * retryExponent^n`. With the defaults (`retryDelayInMs: 30000`, `retryExponent: 2`), retries land at 30s, 60s, 120s, ... Increase `retryExponent` for sparser retries against flaky external services, or lower `maxRetries` to surface failures (as [fallouts](architecture/backend.md)) sooner.
+`retry.*` controls exponential backoff for automated step failures: the delay before the *n*-th retry is `retryDelayInMs * retryExponent^n`. With the defaults (`retryDelayInMs: 30000`, `retryExponent: 2`), retries land at 30s, 60s, 120s, ... Increase `retryExponent` for sparser retries against flaky external services, or lower `maxRetries` to surface failures (as [fallouts](../architecture/backend.md)) sooner.
 
 ## CORS and port
 
@@ -178,7 +178,7 @@ auth:
 
 ### Higher-throughput worker
 
-For larger document volumes, raise `workers.stepExecution.batchSize` and lower `workers.stepExecution.pollIntervalMs` to claim more work more often, and scale out by running multiple `--mode=worker` processes (see [Architecture > Backend](architecture/backend.md#scaling-performance-high-availability)):
+For larger document volumes, raise `workers.stepExecution.batchSize` and lower `workers.stepExecution.pollIntervalMs` to claim more work more often, and scale out by running multiple `--mode=worker` processes (see [Architecture > Backend](../architecture/backend.md#scaling-performance-high-availability)):
 
 ```yaml
 workers:
@@ -187,5 +187,5 @@ workers:
     pollIntervalMs: 1000
 ```
 
-See [Installation > Docker](installation/docker.md) for a docker-compose example and [Installation > Helm](installation/helm.md) for the Kubernetes equivalent (`replicaCount`, `resources`).
+See [Installation > Docker](docker.md) for a docker-compose example and [Installation > Helm](helm.md) for the Kubernetes equivalent (`replicaCount`, `resources`).
 

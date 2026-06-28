@@ -4,7 +4,7 @@ LLM steps (title, tags, correspondent, document type, created date generation) e
 
 ### Available variables
 
-Templates use `{{variableName}}` placeholders, substituted by [`PromptDomainService.renderPrompt()`](server.md) before the prompt is sent to the LLM:
+Templates use `{{variableName}}` placeholders, substituted by [`PromptDomainService.renderPrompt()`](../server.md) before the prompt is sent to the LLM:
 
 | Variable | Description |
 |---|---|
@@ -13,7 +13,7 @@ Templates use `{{variableName}}` placeholders, substituted by [`PromptDomainServ
 | `{{documentTags}}` | Tags currently assigned to the document. |
 | `{{documentType}}` | Current document type, or `(No document type)` if unset. |
 | `{{documentCorrespondent}}` | Current correspondent, or `(No correspondent)` if unset. |
-| `{{availableTags}}` | All tags known to Paperless, with descriptions where set (see [entity descriptions](architecture/backend.md)). |
+| `{{availableTags}}` | All tags known to Paperless, with descriptions where set (see [entity descriptions](../architecture/backend.md)). |
 | `{{availableCorrespondents}}` | All correspondents known to Paperless, with descriptions where set. |
 | `{{availableDocumentTypes}}` | All document types known to Paperless, with descriptions where set. |
 

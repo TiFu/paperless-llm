@@ -10,7 +10,7 @@ For a production setup, see [Installation > Docker](installation/docker.md) or t
 
 ## Configuration
 
-Copy `config.example.yaml` to `config.yaml` and fill in at least the `database`, `redis`, `llm`, and `paperless` sections. See [Configuration](configuration.md) for the full field reference.
+Copy `config.example.yaml` to `config.yaml` and fill in at least the `database`, `redis`, `llm`, and `paperless` sections. See [Configuration](installation/configuration.md) for the full field reference.
 
 ## Usage
 

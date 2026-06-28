@@ -72,7 +72,7 @@ nav:
       - Prompts: user_guide/prompts.md 
   - Development: development.md
   - Architecture:
-      - API Reference: api.md
+      - API Reference: architecture/api.md
       - Backend: architecture/backend.md
       - Frontend: architecture/frontend.md
   - Code Reference:

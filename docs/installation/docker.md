@@ -33,7 +33,7 @@ docker pull ghcr.io/TiFu/paperless-llm-frontend:latest
 The production server and frontend images are configured primarily through
 `config.yaml` (server) and `API_BASE_URL` (frontend) rather than a long list
 of environment variables — see `config.example.yaml` at the repo root, or
-[Configuration](../configuration.md), for the full set of config keys
+[Configuration](configuration.md), for the full set of config keys
 (`database`, `redis`, `paperless`, `llm`, `worker`, `api`, `auth`, `retry`,
 `autoQueue`, `entitySync`, `logging`).
 
