@@ -88,7 +88,7 @@ export function initializeLogger(config: AppConfig, processName: string = 'serve
     {
       level: config.logging.level,
       base: {
-        workerId: config.worker.instanceId,
+        workerId: config.workers.instanceId,
       },
       serializers: {
         error: errorSerializer,

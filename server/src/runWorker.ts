@@ -7,16 +7,16 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
 
   const stepExecutorService = applicationServiceFactory.createStepExecutorApplicationService();
   const stuckStepResetService = applicationServiceFactory.createStuckStepResetApplicationService(
-    config.worker.stuckStepTimeoutMs
+    config.workers.stuckStepReset.timeoutMs
   );
 
   const stepProcessorWorker = new WorkerExecutor(
     'step_processor',
     async (): Promise<WorkerRunResult> => {
-      const pending = await stepExecutorService.processPendingSteps(config.worker.batchSize);
+      const pending = await stepExecutorService.processPendingSteps(config.workers.stepExecution.batchSize);
       logger.debug({ processed: pending.processed }, 'Processed steps');
 
-      const retried = await stepExecutorService.processRetryQueue(config.worker.batchSize);
+      const retried = await stepExecutorService.processRetryQueue(config.workers.stepExecution.batchSize);
       logger.debug({ retried: retried.retried }, 'Processed retry queue');
 
       const items: WorkerExecutionItem[] = [
@@ -39,7 +39,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
 
       return { summary: { processed: pending.processed, retried: retried.retried }, items };
     },
-    config.worker.pollIntervalMs,
+    config.workers.stepExecution.pollIntervalMs,
     uowFactory,
     logger.child({ component: 'StepProcessorWorker' }),
   );
@@ -63,7 +63,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
 
       return { summary: { reset: result.reset, fallout: result.fallout }, items };
     },
-    config.worker.stuckStepCheckIntervalMs,
+    config.workers.stuckStepReset.checkIntervalMs,
     uowFactory,
     logger.child({ component: 'StuckStepResetWorker' }),
   );
@@ -82,14 +82,14 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
       }));
       return { summary: { users: result.items.length }, items };
     },
-    config.entitySync.pollIntervalMs,
+    config.workers.entitySync.pollIntervalMs,
     uowFactory,
     logger.child({ component: 'EntitySyncWorker' }),
   );
 
   let documentAutoQueueWorker: WorkerExecutor | null = null;
-  if (config.autoQueue.enabled) {
-    const autoQueueService = applicationServiceFactory.createDocumentAutoQueueApplicationService(config.autoQueue);
+  if (config.workers.autoQueue.enabled) {
+    const autoQueueService = applicationServiceFactory.createDocumentAutoQueueApplicationService(config.workers.autoQueue);
 
     documentAutoQueueWorker = new WorkerExecutor(
       'document_auto_queue',
@@ -116,7 +116,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
           items,
         };
       },
-      config.autoQueue.pollIntervalMs,
+      config.workers.autoQueue.pollIntervalMs,
       uowFactory,
       logger.child({ component: 'DocumentAutoQueueWorker' }),
     );
@@ -124,22 +124,21 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
 
   logger.info(
     {
-      workerId: config.worker.instanceId,
-      batchSize: config.worker.batchSize,
-      pollIntervalMs: config.worker.pollIntervalMs,
+      workerId: config.workers.instanceId,
+      batchSize: config.workers.stepExecution.batchSize,
+      pollIntervalMs: config.workers.stepExecution.pollIntervalMs,
     },
     'Starting workflow step processor',
   );
   stepProcessorWorker.start();
 
-  logger.info({ pollIntervalMs: config.entitySync.pollIntervalMs }, 'Starting entity sync worker');
+  logger.info({ pollIntervalMs: config.workers.entitySync.pollIntervalMs }, 'Starting entity sync worker');
   entitySyncWorker.start();
 
   logger.info(
     {
-      timeoutMs: config.worker.stuckStepTimeoutMs,
-      checkIntervalMs: config.worker.stuckStepCheckIntervalMs,
-      maxRetries: config.worker.maxStepRetries,
+      timeoutMs: config.workers.stuckStepReset.timeoutMs,
+      checkIntervalMs: config.workers.stuckStepReset.checkIntervalMs,
     },
     'Starting stuck step reset checker',
   );
@@ -148,10 +147,10 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
   if (documentAutoQueueWorker) {
     logger.info(
       {
-        enabled: config.autoQueue.enabled,
-        pollIntervalMs: config.autoQueue.pollIntervalMs,
-        workflowType: config.autoQueue.workflowType,
-        tag: config.autoQueue.tag,
+        enabled: config.workers.autoQueue.enabled,
+        pollIntervalMs: config.workers.autoQueue.pollIntervalMs,
+        workflowType: config.workers.autoQueue.workflowType,
+        tag: config.workers.autoQueue.tag,
       },
       'Starting document auto-queue worker',
     );

@@ -96,10 +96,8 @@ export class ApplicationServiceFactory {
   }
 
   /**
-   * Create a new 
    * Create a new StuckStepResetApplicationService instance.
    * @param timeoutMs Time in milliseconds before a step is considered stuck
-   * @param maxRetries Maximum number of retry attempts before marking as failed
    */
   createStuckStepResetApplicationService(
     timeoutMs: number

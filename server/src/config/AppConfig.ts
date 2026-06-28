@@ -42,25 +42,32 @@ export interface PaperlessConfig {
 }
 
 /**
- * Worker configuration
+ * Step-processor loop configuration
  */
-export interface WorkerConfig {
-  readonly instanceId: string;
+export interface StepExecutionConfig {
   readonly batchSize: number;
   readonly pollIntervalMs: number;
-  readonly maxRetries: number;
-  readonly claimTimeoutMs: number;
-  readonly stuckStepTimeoutMs: number;
-  readonly stuckStepCheckIntervalMs: number;
-  readonly maxStepRetries: number;
 }
 
 /**
- * Orchestration configuration for unified worker
+ * Stuck-step-reset loop configuration. Retry limits for the steps it resets
+ * come from RetryConfig, not from here.
  */
-export interface OrchestrationConfig {
-  readonly llmCycleDurationMs: number;
-  readonly docUpdateCycleDurationMs: number;
+export interface StuckStepResetConfig {
+  readonly timeoutMs: number;
+  readonly checkIntervalMs: number;
+}
+
+/**
+ * Unified worker process configuration: shared identity plus one section per
+ * independent polling loop started in runWorker.ts.
+ */
+export interface WorkersConfig {
+  readonly instanceId: string;
+  readonly stepExecution: StepExecutionConfig;
+  readonly stuckStepReset: StuckStepResetConfig;
+  readonly entitySync: EntitySyncConfig;
+  readonly autoQueue: AutoQueueConfig;
 }
 
 /**
@@ -135,17 +142,27 @@ interface RawConfig {
     jwtSecret: string;
     jwtExpiresIn?: string;
   };
-  worker: {
+  workers: {
     instanceId?: string | null;
-    batchSize: number;
-    pollIntervalMs: number;
-    maxRetries: number;
-    claimTimeoutMs: number;
-    stuckStepTimeoutMs?: number;
-    stuckStepCheckIntervalMs?: number;
-    maxStepRetries?: number;
+    stepExecution: {
+      batchSize: number;
+      pollIntervalMs: number;
+    };
+    stuckStepReset?: {
+      timeoutMs?: number;
+      checkIntervalMs?: number;
+    };
+    entitySync?: {
+      pollIntervalMs?: number;
+    };
+    autoQueue?: {
+      enabled?: boolean;
+      pollIntervalMs?: number;
+      workflowType?: string;
+      tag?: string;
+      fields?: DocumentField[]
+    };
   };
-  orchestration: OrchestrationConfig;
   logging: LoggingConfig;
   api: {
     port: number;
@@ -156,16 +173,6 @@ interface RawConfig {
     retryDelayInMs?: number;
     retryExponent?: number;
   };
-  autoQueue?: {
-    enabled?: boolean;
-    pollIntervalMs?: number;
-    workflowType?: string;
-    tag?: string;
-    fields?: DocumentField[]
-  };
-  entitySync?: {
-    pollIntervalMs?: number;
-  };
   redis: RedisConfig;
 }
 
@@ -175,16 +182,13 @@ interface RawConfig {
 export class AppConfig {
   public readonly redis: RedisConfig;
   public readonly database: DatabaseConfig;
-  public readonly worker: WorkerConfig;
-  public readonly orchestration: OrchestrationConfig;
+  public readonly workers: WorkersConfig;
   public readonly paperless: PaperlessConfig;
   public readonly logging: LoggingConfig;
   public readonly llm: LLMConfig;
   public readonly api: ApiConfig;
   public readonly auth: AuthConfig;
   public readonly retry: RetryConfig;
-  public readonly autoQueue: AutoQueueConfig;
-  public readonly entitySync: EntitySyncConfig;
 
   constructor(configPath?: string) {
     const rawConfig = this.loadConfig(configPath);
@@ -192,20 +196,6 @@ export class AppConfig {
     // Database Configuration
     this.database = rawConfig.database;
 
-    // Worker Configuration - auto-generate instanceId if not provided
-    this.worker = {
-      instanceId: rawConfig.worker.instanceId || `unified-worker-${Date.now()}`,
-      batchSize: rawConfig.worker.batchSize,
-      pollIntervalMs: rawConfig.worker.pollIntervalMs,
-      maxRetries: rawConfig.worker.maxRetries,
-      claimTimeoutMs: rawConfig.worker.claimTimeoutMs,
-      stuckStepTimeoutMs: rawConfig.worker.stuckStepTimeoutMs ?? 300000, // Default: 5 minutes
-      stuckStepCheckIntervalMs: rawConfig.worker.stuckStepCheckIntervalMs ?? 30000, // Default: 30 seconds
-      maxStepRetries: rawConfig.worker.maxStepRetries ?? 3, // Default: 3 retries
-    };
-
-    // Copy remaining configurations
-    this.orchestration = rawConfig.orchestration;
     this.paperless = rawConfig.paperless;
     this.logging = rawConfig.logging;
     this.llm = rawConfig.llm;
@@ -215,25 +205,35 @@ export class AppConfig {
       jwtExpiresIn: rawConfig.auth.jwtExpiresIn ?? '8h',
     };
 
-    // Retry Configuration
+    // Retry Configuration - shared retry/backoff policy for both automated
+    // step execution and stuck-step reset
     this.retry = {
       maxRetries: rawConfig.retry?.maxRetries ?? 3, // Default: 3 retries
       retryDelayInMs: rawConfig.retry?.retryDelayInMs ?? 30000, // Default: 30 seconds
       retryExponent: rawConfig.retry?.retryExponent ?? 2, // Default: exponential backoff base 2
     };
 
-    // Auto Queue Configuration
-    this.autoQueue = {
-      enabled: rawConfig.autoQueue?.enabled ?? false, // Default: disabled
-      pollIntervalMs: rawConfig.autoQueue?.pollIntervalMs ?? 60000, // Default: 60 seconds
-      workflowType: this.parseWorkflowType(rawConfig.autoQueue?.workflowType) ?? WorkflowType.AUTOMATED, // Default: AUTOMATED
-      tag: rawConfig.autoQueue?.tag ?? 'llm-auto-process', // Default: llm-auto-process
-      fields: rawConfig.autoQueue?.fields ?? [ 'title' ]
-    };
-
-    // Entity Sync Configuration
-    this.entitySync = {
-      pollIntervalMs: rawConfig.entitySync?.pollIntervalMs ?? 900000, // Default: 15 minutes
+    // Workers Configuration - auto-generate instanceId if not provided
+    this.workers = {
+      instanceId: rawConfig.workers.instanceId || `unified-worker-${Date.now()}`,
+      stepExecution: {
+        batchSize: rawConfig.workers.stepExecution.batchSize,
+        pollIntervalMs: rawConfig.workers.stepExecution.pollIntervalMs,
+      },
+      stuckStepReset: {
+        timeoutMs: rawConfig.workers.stuckStepReset?.timeoutMs ?? 300000, // Default: 5 minutes
+        checkIntervalMs: rawConfig.workers.stuckStepReset?.checkIntervalMs ?? 30000, // Default: 30 seconds
+      },
+      entitySync: {
+        pollIntervalMs: rawConfig.workers.entitySync?.pollIntervalMs ?? 900000, // Default: 15 minutes
+      },
+      autoQueue: {
+        enabled: rawConfig.workers.autoQueue?.enabled ?? false, // Default: disabled
+        pollIntervalMs: rawConfig.workers.autoQueue?.pollIntervalMs ?? 60000, // Default: 60 seconds
+        workflowType: this.parseWorkflowType(rawConfig.workers.autoQueue?.workflowType) ?? WorkflowType.AUTOMATED, // Default: AUTOMATED
+        tag: rawConfig.workers.autoQueue?.tag ?? 'llm-auto-process', // Default: llm-auto-process
+        fields: rawConfig.workers.autoQueue?.fields ?? [ 'title' ]
+      },
     };
 
     // Redis Configuration (optional)
@@ -281,8 +281,7 @@ export class AppConfig {
       'database',
       'paperless',
       'llm',
-      'worker',
-      'orchestration',
+      'workers',
       'logging',
       'api',
       'auth',
@@ -307,29 +306,17 @@ export class AppConfig {
   }
 
   private validate(): void {
-    if (this.worker.batchSize < 1) {
-      throw new Error('worker.batchSize must be greater than 0');
+    if (this.workers.stepExecution.batchSize < 1) {
+      throw new Error('workers.stepExecution.batchSize must be greater than 0');
     }
-    if (this.worker.maxRetries < 0) {
-      throw new Error('worker.maxRetries must be non-negative');
+    if (this.workers.stepExecution.pollIntervalMs < 100) {
+      throw new Error('workers.stepExecution.pollIntervalMs must be at least 100ms');
     }
-    if (this.worker.pollIntervalMs < 100) {
-      throw new Error('worker.pollIntervalMs must be at least 100ms');
+    if (this.workers.stuckStepReset.timeoutMs < 1000) {
+      throw new Error('workers.stuckStepReset.timeoutMs must be at least 1000ms');
     }
-    if (this.worker.stuckStepTimeoutMs < 1000) {
-      throw new Error('worker.stuckStepTimeoutMs must be at least 1000ms');
-    }
-    if (this.worker.stuckStepCheckIntervalMs < 1000) {
-      throw new Error('worker.stuckStepCheckIntervalMs must be at least 1000ms');
-    }
-    if (this.worker.maxStepRetries < 0) {
-      throw new Error('worker.maxStepRetries must be non-negative');
-    }
-    if (this.orchestration.llmCycleDurationMs < 1000) {
-      throw new Error('orchestration.llmCycleDurationMs must be at least 1000ms');
-    }
-    if (this.orchestration.docUpdateCycleDurationMs < 1000) {
-      throw new Error('orchestration.docUpdateCycleDurationMs must be at least 1000ms');
+    if (this.workers.stuckStepReset.checkIntervalMs < 1000) {
+      throw new Error('workers.stuckStepReset.checkIntervalMs must be at least 1000ms');
     }
   }
 
@@ -350,11 +337,11 @@ export class AppConfig {
   }
 
   private validateAutoQueueConfig(): void {
-    if (this.autoQueue.pollIntervalMs < 1000) {
-      throw new Error('autoQueue.pollIntervalMs must be at least 1000ms');
+    if (this.workers.autoQueue.pollIntervalMs < 1000) {
+      throw new Error('workers.autoQueue.pollIntervalMs must be at least 1000ms');
     }
-    if (!this.autoQueue.tag || this.autoQueue.tag.trim().length === 0) {
-      throw new Error('autoQueue.tag must be a non-empty string');
+    if (!this.workers.autoQueue.tag || this.workers.autoQueue.tag.trim().length === 0) {
+      throw new Error('workers.autoQueue.tag must be a non-empty string');
     }
   }
 }
