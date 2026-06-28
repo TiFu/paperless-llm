@@ -8,7 +8,7 @@ cp config.example.yaml config.yaml
 
 `AppConfig` validates the file on startup (required sections/fields, numeric ranges like `llm.temperature` and the various `*PollIntervalMs`/`*TimeoutMs` minimums) and fails fast with a descriptive error if something's missing or out of range — see [`server/src/config/AppConfig.ts`](server.md) for the exact checks.
 
-When deploying via Helm, the same structure is rendered into a Kubernetes Secret from `values.yaml`'s `server.config.*` keys — see [Installation > Helm](installation/helm.md).
+When deploying via Helm, the same structure is rendered into a Kubernetes Secret from `values.yaml`'s `config.*` keys — see [Installation > Helm](installation/helm.md).
 
 ## Choosing an LLM model
 
@@ -16,7 +16,7 @@ When deploying via Helm, the same structure is rendered into a Kubernetes Secret
 
 ## Stuck step recovery
 
-If a worker process dies or hangs mid-step, the step stays claimed. The stuck-step reset poller (`worker.stuckStepCheckIntervalMs`) periodically finds steps claimed longer than `worker.stuckStepTimeoutMs` and recovers them for retry, up to `worker.maxStepRetries` attempts before the step is marked failed.
+If a worker process dies or hangs mid-step, the step stays claimed. The stuck-step reset poller (`workers.stuckStepReset.checkIntervalMs`) periodically finds steps claimed longer than `workers.stuckStepReset.timeoutMs` and recovers them for retry, up to `retry.maxRetries` attempts before the step is marked failed.
 
 ## Retry strategy
 
@@ -51,25 +51,41 @@ If a worker process dies or hangs mid-step, the step stays claimed. The stuck-st
 | `password` | `string` | Yes | - | PostgreSQL password. |
 | `database` | `string` | Yes | - | PostgreSQL database name. |
 
-### `worker`
+### `workers`
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `instanceId` | `string` | No | `unified-worker-<timestamp>` | Identifier for this worker process, used in claim/lock bookkeeping so multiple worker instances don't double-process the same step. Auto-generated if omitted or null. |
+| `instanceId` | `string` | No | `unified-worker-<timestamp>` | Identifier for this worker process. Currently only used to label log lines — auto-generated if omitted or null. |
+
+### `workers.stepExecution`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
 | `batchSize` | `number` | Yes | - | Number of steps a single poll cycle claims and processes at once. |
 | `pollIntervalMs` | `number` | Yes | - | How often the step-processing poller checks for newly claimable steps. Must be at least 100ms. |
-| `maxRetries` | `number` | Yes | - | Maximum claim attempts for a step before it's treated as failed. |
-| `claimTimeoutMs` | `number` | Yes | - | How long a claimed-but-unfinished step is considered actively in-progress before it's eligible to be reclaimed. |
-| `stuckStepTimeoutMs` | `number` | No | 300000 (5 minutes) | Time a step can sit claimed without completing before the stuck-step reset poller considers it stuck and recovers it. Must be at least 1000ms. |
-| `stuckStepCheckIntervalMs` | `number` | No | 30000 (30 seconds) | How often the stuck-step reset poller scans for stuck steps. Must be at least 1000ms. |
-| `maxStepRetries` | `number` | No | 3 | Maximum retry attempts for an individual step before it's marked failed and surfaced as a fallout. |
 
-### `orchestration`
+### `workers.stuckStepReset`
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `llmCycleDurationMs` | `number` | Yes | not read at runtime | Validated at startup (must be at least 1000ms) but not currently consumed by any poller — each worker loop (step processing, stuck-step reset, entity sync, auto-queue) uses its own interval instead (`worker.pollIntervalMs`, `worker.stuckStepCheckIntervalMs`, `entitySync.pollIntervalMs`, `autoQueue.pollIntervalMs`). Kept for config-shape compatibility; do not rely on it to control timing. |
-| `docUpdateCycleDurationMs` | `number` | Yes | not read at runtime | Same status as `orchestration.llmCycleDurationMs` — validated but currently unused by any poller. |
+| `timeoutMs` | `number` | No | 300000 (5 minutes) | Time a step can sit claimed without completing before the stuck-step reset poller considers it stuck and recovers it. Must be at least 1000ms. |
+| `checkIntervalMs` | `number` | No | 30000 (30 seconds) | How often the stuck-step reset poller scans for stuck steps. Must be at least 1000ms. |
+
+### `workers.entitySync`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `pollIntervalMs` | `number` | No | 900000 (15 minutes) | How often the entity-sync poller refreshes cached tag/correspondent/document-type descriptions from Paperless. |
+
+### `workers.autoQueue`
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `enabled` | `boolean` | No | false | Enables the automatic document pickup queue, which periodically tag-checks Paperless and creates jobs without manual submission. |
+| `pollIntervalMs` | `number` | No | 60000 (60 seconds) | How often the auto-queue poller checks Paperless for newly tagged documents. Must be at least 1000ms. |
+| `workflowType` | `WorkflowType` | No | automated | Workflow type to use for auto-created jobs: `automated` (no human approval) or `approval` (steps pause for review). |
+| `tag` | `string` | No | llm-auto-process | Paperless tag used to identify documents that should be auto-picked-up. Must be non-empty. |
+| `fields` | `DocumentField[]` | No | ["title"] | Document fields the auto-queue should generate (e.g. `title`, `tags`) when it creates a job for a picked-up document. |
 
 ### `paperless`
 
@@ -113,25 +129,9 @@ If a worker process dies or hangs mid-step, the step stays claimed. The stuck-st
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `maxRetries` | `number` | No | 3 | Maximum retry attempts for an automated step before it's surfaced as a fallout. |
+| `maxRetries` | `number` | No | 3 | Maximum retry attempts for an automated step, or for a step reset by the stuck-step poller, before it's surfaced as a fallout. |
 | `retryDelayInMs` | `number` | No | 30000 (30 seconds) | Base delay before the first retry; subsequent retries back off exponentially from this value. |
 | `retryExponent` | `number` | No | 2 | Exponential backoff multiplier applied per retry attempt (delay = retryDelayInMs * retryExponent^attempt). |
-
-### `autoQueue`
-
-| Field | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `enabled` | `boolean` | No | false | Enables the automatic document pickup queue, which periodically tags-checks Paperless and creates jobs without manual submission. |
-| `pollIntervalMs` | `number` | No | 60000 (60 seconds) | How often the auto-queue poller checks Paperless for newly tagged documents. Must be at least 1000ms. |
-| `workflowType` | `WorkflowType` | No | automated | Workflow type to use for auto-created jobs: `automated` (no human approval) or `approval` (steps pause for review). |
-| `tag` | `string` | No | llm-auto-process | Paperless tag used to identify documents that should be auto-picked-up. Must be non-empty. |
-| `fields` | `DocumentField[]` | No | ["title"] | Document fields the auto-queue should generate (e.g. `title`, `tags`) when it creates a job for a picked-up document. |
-
-### `entitySync`
-
-| Field | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `pollIntervalMs` | `number` | No | 900000 (15 minutes) | How often the entity-sync poller refreshes cached tag/correspondent/document-type descriptions from Paperless. |
 
 <!-- END GENERATED CONFIG REFERENCE -->
 
@@ -162,14 +162,10 @@ llm:
   model: qwen3:4b
   temperature: 0.7
   timeoutMs: 300000
-worker:
-  batchSize: 5
-  pollIntervalMs: 3000
-  maxRetries: 3
-  claimTimeoutMs: 300000
-orchestration:
-  llmCycleDurationMs: 30000
-  docUpdateCycleDurationMs: 30000
+workers:
+  stepExecution:
+    batchSize: 5
+    pollIntervalMs: 3000
 logging:
   level: debug
   pretty: true
@@ -182,14 +178,13 @@ auth:
 
 ### Higher-throughput worker
 
-For larger document volumes, raise `worker.batchSize` and lower `worker.pollIntervalMs` to claim more work more often, and scale out by running multiple `--mode=worker` processes (see [Architecture > Backend](architecture/backend.md#scaling-performance-high-availability)):
+For larger document volumes, raise `workers.stepExecution.batchSize` and lower `workers.stepExecution.pollIntervalMs` to claim more work more often, and scale out by running multiple `--mode=worker` processes (see [Architecture > Backend](architecture/backend.md#scaling-performance-high-availability)):
 
 ```yaml
-worker:
-  batchSize: 20
-  pollIntervalMs: 1000
-  maxRetries: 5
-  claimTimeoutMs: 300000
+workers:
+  stepExecution:
+    batchSize: 20
+    pollIntervalMs: 1000
 ```
 
 See [Installation > Docker](installation/docker.md) for a docker-compose example and [Installation > Helm](installation/helm.md) for the Kubernetes equivalent (`replicaCount`, `resources`).

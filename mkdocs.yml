@@ -1,5 +1,6 @@
 site_name: Paperless-LLM
 site_description: Automated document metadata generation for Paperless-NGX using LLMs
+site_url: https://tifu.github.io/paperless-llm/
 repo_url: https://github.com/TiFu/paperless-llm
 edit_uri: edit/master/docs/
 
@@ -55,9 +56,14 @@ markdown_extensions:
   - toc:
       permalink: true
 
+extra:
+  version:
+    provider: mike
+
 nav:
   - Home: index.md
   - Quick start: quick-start.md
+  - Changelog: changelog.md
   - Installation:
       - Docker: installation/docker.md
       - Helm: installation/helm.md

@@ -51,18 +51,21 @@ config:
     model: llama3
     temperature: 0.7
     timeoutMs: 30000
-  worker:
+  workers:
     instanceId: null
-    batchSize: 5
-    pollIntervalMs: 3000
-    maxRetries: 3
-    claimTimeoutMs: 300000
-    stuckStepTimeoutMs: 300000
-    stuckStepCheckIntervalMs: 30000
-    maxStepRetries: 3
-  orchestration:
-    llmCycleDurationMs: 30000
-    docUpdateCycleDurationMs: 30000
+    stepExecution:
+      batchSize: 5
+      pollIntervalMs: 3000
+    stuckStepReset:
+      timeoutMs: 300000
+      checkIntervalMs: 30000
+    entitySync:
+      pollIntervalMs: 900000
+    autoQueue:
+      enabled: false
+      pollIntervalMs: 60000
+      workflowType: automated
+      tag: llm-auto-process
   logging:
     level: info
     pretty: false
@@ -77,13 +80,6 @@ config:
     maxRetries: 3
     retryDelayInMs: 30000
     retryExponent: 2
-  autoQueue:
-    enabled: false
-    pollIntervalMs: 60000
-    workflowType: automated
-    tag: llm-auto-process
-  entitySync:
-    pollIntervalMs: 900000
   redisCache:
     ttlInSeconds: 300
 

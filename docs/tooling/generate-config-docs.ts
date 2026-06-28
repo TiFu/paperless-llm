@@ -13,13 +13,13 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { load as parseYaml } from 'js-yaml';
-import { Project } from 'ts-morph';
+import { InterfaceDeclaration, Project, SourceFile } from 'ts-morph';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const APP_CONFIG_PATH = path.join(REPO_ROOT, 'server/src/config/AppConfig.ts');
 const MANIFEST_PATH = path.join(__dirname, 'config-descriptions.yaml');
-const CONFIGURATION_MD_PATH = path.join(REPO_ROOT, 'docs/configuration.md');
+const CONFIGURATION_MD_PATH = path.join(REPO_ROOT, 'docs/installation/configuration.md');
 
 const BEGIN_MARKER = '<!-- BEGIN GENERATED CONFIG REFERENCE -->';
 const END_MARKER = '<!-- END GENERATED CONFIG REFERENCE -->';
@@ -34,6 +34,27 @@ interface ManifestEntry {
   required: boolean;
   default?: string;
   description: string;
+}
+
+// Sections can nest local config interfaces (e.g. WorkersConfig.stepExecution:
+// StepExecutionConfig) — recurse into those so leaf fields like
+// workers.stepExecution.batchSize get their own documented row, instead of
+// rendering the nested interface name as an opaque "type".
+function collectFields(iface: InterfaceDeclaration, sourceFile: SourceFile, sectionPath: string, fields: FieldInfo[]): void {
+  for (const sig of iface.getProperties()) {
+    const typeName = sig.getType().getSymbol()?.getName();
+    const nestedIface = typeName ? sourceFile.getInterface(typeName) : undefined;
+
+    if (nestedIface) {
+      collectFields(nestedIface, sourceFile, `${sectionPath}.${sig.getName()}`, fields);
+    } else {
+      fields.push({
+        section: sectionPath,
+        field: sig.getName(),
+        type: sig.getTypeNode()?.getText() ?? sig.getType().getText(),
+      });
+    }
+  }
 }
 
 function extractFields(): FieldInfo[] {
@@ -51,13 +72,7 @@ function extractFields(): FieldInfo[] {
     }
 
     const iface = sourceFile.getInterfaceOrThrow(typeName);
-    for (const sig of iface.getProperties()) {
-      fields.push({
-        section,
-        field: sig.getName(),
-        type: sig.getTypeNode()?.getText() ?? sig.getType().getText(),
-      });
-    }
+    collectFields(iface, sourceFile, section, fields);
   }
 
   return fields;
@@ -129,19 +144,19 @@ function main(): void {
 
   if (mode === 'generate') {
     writeFileSync(CONFIGURATION_MD_PATH, nextContent);
-    console.log('docs/configuration.md generated block updated.');
+    console.log('docs/installation/configuration.md generated block updated.');
     return;
   }
 
   // --check
   if (nextContent !== currentContent) {
     console.error(
-      'docs/configuration.md is out of date with server/src/config/AppConfig.ts.\n' +
+      'docs/installation/configuration.md is out of date with server/src/config/AppConfig.ts.\n' +
         'Run: npm run docs:generate-config',
     );
     process.exit(1);
   }
-  console.log('docs/configuration.md is up to date.');
+  console.log('docs/installation/configuration.md is up to date.');
 }
 
 main();

@@ -171,8 +171,12 @@ jobs:
   docs:
     needs: [server, frontend]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -199,8 +203,49 @@ jobs:
       - name: Install docs Python requirements
         run: pip install -r docs/requirements.txt
 
+      - name: Configure git identity for mike
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install git-cliff
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
+
+      - name: Generate changelog entry
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: git-cliff --tag "${{ steps.version.outputs.version }}" --unreleased --prepend docs/changelog.md --config cliff.toml
+
+      - name: Commit changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          if grep -qF "## [${{ steps.version.outputs.version }}]" docs/changelog.md; then
+            git add docs/changelog.md
+            git commit -m "docs(changelog): add ${{ steps.version.outputs.version }} release notes"
+            git push origin HEAD:master
+          else
+            echo "No conventional commits since the last tag; skipping changelog commit."
+            git checkout -- docs/changelog.md
+          fi
+
       - name: Build docs site
         run: mkdocs build --strict
+
+      - name: Deploy versioned docs with mike
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: mike deploy --push --update-aliases "${{ steps.version.outputs.version }}" latest
+
+      - name: Set default docs version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: mike set-default --push latest
 
   helm:
     runs-on: ubuntu-latest

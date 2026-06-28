@@ -298,10 +298,10 @@ Rather than a single hard-coded "LLM cycle" and "document-update cycle," the bac
 
 | Worker | What it does | Interval source |
 |---|---|---|
-| `step_processor` | Claims and executes `waiting` steps in batches, then moves due `retrying` steps back to `waiting` | `worker.pollIntervalMs` |
-| `stuck_step_reset` | Finds steps stuck `in_progress` past a timeout and fails or retries them | `worker.stuckStepCheckIntervalMs` |
-| `entity_sync` | Periodically syncs Paperless entity metadata (tags, correspondents, document types) used for descriptions | `entitySync.pollIntervalMs` |
-| `document_auto_queue` | Optional: watches Paperless for documents tagged for auto-processing and creates jobs for them | `autoQueue.pollIntervalMs` (only runs if `autoQueue.enabled`) |
+| `step_processor` | Claims and executes `waiting` steps in batches, then moves due `retrying` steps back to `waiting` | `workers.stepExecution.pollIntervalMs` |
+| `stuck_step_reset` | Finds steps stuck `in_progress` past a timeout and fails or retries them | `workers.stuckStepReset.checkIntervalMs` |
+| `entity_sync` | Periodically syncs Paperless entity metadata (tags, correspondents, document types) used for descriptions | `workers.entitySync.pollIntervalMs` |
+| `document_auto_queue` | Optional: watches Paperless for documents tagged for auto-processing and creates jobs for them | `workers.autoQueue.pollIntervalMs` (only runs if `workers.autoQueue.enabled`) |
 
 Multiple worker processes can run these pollers concurrently — each claims a non-overlapping batch via row-level locking, and there is no leader election or explicit worker-to-worker coordination required.
 
@@ -332,7 +332,7 @@ Every failure goes through an automatic retry decision first: `failed --> retryi
 
 ### Stuck step detection
 
-Steps can get stuck `in_progress` if a worker process crashes or hangs mid-execution. `StuckStepResetApplicationService`, run by the `stuck_step_reset` poller, periodically finds steps that have been `in_progress` longer than `worker.stuckStepTimeoutMs` and resets them — either back into the retry cycle or straight to `in_fallout`, depending on how many attempts remain — so a single crashed worker can't permanently wedge a job.
+Steps can get stuck `in_progress` if a worker process crashes or hangs mid-execution. `StuckStepResetApplicationService`, run by the `stuck_step_reset` poller, periodically finds steps that have been `in_progress` longer than `workers.stuckStepReset.timeoutMs` and resets them — either back into the retry cycle or straight to `in_fallout`, depending on how many attempts remain — so a single crashed worker can't permanently wedge a job.
 
 ### Manual intervention
 
@@ -355,7 +355,7 @@ The trade-off of database-as-queue is that scaling workers also scales load on P
 
 ### Vertical scaling
 
-Within a single worker instance, throughput can be tuned via `worker.batchSize` (more steps claimed per poll cycle) and `worker.pollIntervalMs` (shorter intervals mean lower latency but more frequent queries). These two knobs trade database load against processing latency directly — a larger batch size amortizes per-poll overhead but increases the time a single claim transaction holds locks; a shorter poll interval reduces the time documents sit `waiting` but increases query volume against the `steps` table.
+Within a single worker instance, throughput can be tuned via `workers.stepExecution.batchSize` (more steps claimed per poll cycle) and `workers.stepExecution.pollIntervalMs` (shorter intervals mean lower latency but more frequent queries). These two knobs trade database load against processing latency directly — a larger batch size amortizes per-poll overhead but increases the time a single claim transaction holds locks; a shorter poll interval reduces the time documents sit `waiting` but increases query volume against the `steps` table.
 
 ### Database scaling considerations
 

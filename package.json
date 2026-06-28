@@ -10,6 +10,7 @@
     "docs:typedoc": "typedoc"
   },
   "devDependencies": {
+    "@commitlint/config-conventional": "^19.0.0",
     "@types/js-yaml": "^4.0.9",
     "js-yaml": "^4.1.0",
     "ts-morph": "^24.0.0",

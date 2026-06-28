@@ -148,20 +148,22 @@ git commit -m "docs(readme): update installation instructions"
 
 Common types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`.
 
-CI lints every pull request's commit messages against this convention (the `commitlint` job in `.github/workflows/ci.yml`, using [commitlint](https://commitlint.js.org/)). To catch violations locally before pushing, install a `commit-msg` hook that runs the same check on each commit:
+CI lints every pull request's commit messages against this convention (the `commitlint` job in `.github/workflows/ci.yml`, using [commitlint](https://commitlint.js.org/) with the root `commitlint.config.cjs`). To catch violations locally before pushing, install a `commit-msg` hook that runs the same check on each commit:
 
 ```bash
-npm install --no-save @commitlint/cli @commitlint/config-conventional
+npm install --no-save @commitlint/cli
 
 mkdir -p .git/hooks
 cat > .git/hooks/commit-msg <<'EOF'
 #!/usr/bin/env sh
-npx --no -- commitlint --edit "$1" --extends @commitlint/config-conventional
+npx --no -- commitlint --edit "$1"
 EOF
 chmod +x .git/hooks/commit-msg
 ```
 
 This rejects non-conventional commit messages immediately instead of waiting for CI to catch them.
+
+Notable changes are tracked in [docs/changelog.md](changelog.md). Each tagged release (`vX.Y.Z`) automatically gets a dated section there, generated from the conventional commits merged since the previous tag — see the `Generate changelog entry` step in the `docs` job of `.github/workflows/ci.yml` and the grouping rules in `cliff.toml`.
 
 ### Pull Request Process
 

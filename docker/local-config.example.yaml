@@ -30,16 +30,16 @@ llm:
   temperature: 0.7
   timeoutMs: 30000
 
-worker:
+workers:
   instanceId: null
-  batchSize: 5
-  pollIntervalMs: 3000
-  maxRetries: 3
-  claimTimeoutMs: 300000
-
-orchestration:
-  llmCycleDurationMs: 30000
-  docUpdateCycleDurationMs: 30000
+  stepExecution:
+    batchSize: 5
+    pollIntervalMs: 3000
+  autoQueue:
+    enabled: false
+    pollIntervalMs: 60000
+    workflowType: automated
+    tag: llm-auto-process
 
 logging:
   level: info
@@ -58,9 +58,3 @@ retry:
   maxRetries: 3
   retryDelayInMs: 30000
   retryExponent: 2
-
-autoQueue:
-  enabled: false
-  pollIntervalMs: 60000
-  workflowType: automated
-  tag: llm-auto-process

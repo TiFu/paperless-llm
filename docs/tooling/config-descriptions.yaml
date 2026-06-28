@@ -1,12 +1,13 @@
-# Hand-curated descriptions/defaults for each config.yaml field, keyed by
-# "section.field" (matching the AppConfig class property + its *Config
-# interface field). docs/tooling/generate-config-docs.ts cross-references this
-# against server/src/config/AppConfig.ts and fails if a field here is missing
-# or stale relative to the source.
+# Hand-curated descriptions/defaults for each config.yaml field, keyed by the
+# dotted path from the AppConfig class property through any nested *Config
+# interfaces down to the leaf field. docs/tooling/generate-config-docs.ts
+# cross-references this against server/src/config/AppConfig.ts and fails if a
+# field here is missing or stale relative to the source.
 #
 # "required" reflects what config.yaml must supply: whole sections (retry,
-# autoQueue, entitySync) can be omitted entirely, in which case every field
-# in them falls back to its default below.
+# workers.stuckStepReset, workers.entitySync, workers.autoQueue) can be
+# omitted entirely, in which case every field in them falls back to its
+# default below.
 
 redis.host:
   required: true
@@ -43,43 +44,48 @@ database.database:
   required: true
   description: PostgreSQL database name.
 
-worker.instanceId:
+workers.instanceId:
   required: false
   default: "`unified-worker-<timestamp>`"
-  description: Identifier for this worker process, used in claim/lock bookkeeping so multiple worker instances don't double-process the same step. Auto-generated if omitted or null.
-worker.batchSize:
+  description: Identifier for this worker process. Currently only used to label log lines — auto-generated if omitted or null.
+workers.stepExecution.batchSize:
   required: true
   description: Number of steps a single poll cycle claims and processes at once.
-worker.pollIntervalMs:
+workers.stepExecution.pollIntervalMs:
   required: true
   description: How often the step-processing poller checks for newly claimable steps. Must be at least 100ms.
-worker.maxRetries:
-  required: true
-  description: Maximum claim attempts for a step before it's treated as failed.
-worker.claimTimeoutMs:
-  required: true
-  description: How long a claimed-but-unfinished step is considered actively in-progress before it's eligible to be reclaimed.
-worker.stuckStepTimeoutMs:
+workers.stuckStepReset.timeoutMs:
   required: false
   default: "300000 (5 minutes)"
   description: Time a step can sit claimed without completing before the stuck-step reset poller considers it stuck and recovers it. Must be at least 1000ms.
-worker.stuckStepCheckIntervalMs:
+workers.stuckStepReset.checkIntervalMs:
   required: false
   default: "30000 (30 seconds)"
   description: How often the stuck-step reset poller scans for stuck steps. Must be at least 1000ms.
-worker.maxStepRetries:
+workers.entitySync.pollIntervalMs:
   required: false
-  default: "3"
-  description: Maximum retry attempts for an individual step before it's marked failed and surfaced as a fallout.
-
-orchestration.llmCycleDurationMs:
-  required: true
-  default: "not read at runtime"
-  description: Validated at startup (must be at least 1000ms) but not currently consumed by any poller — each worker loop (step processing, stuck-step reset, entity sync, auto-queue) uses its own interval instead (`worker.pollIntervalMs`, `worker.stuckStepCheckIntervalMs`, `entitySync.pollIntervalMs`, `autoQueue.pollIntervalMs`). Kept for config-shape compatibility; do not rely on it to control timing.
-orchestration.docUpdateCycleDurationMs:
-  required: true
-  default: "not read at runtime"
-  description: Same status as `orchestration.llmCycleDurationMs` — validated but currently unused by any poller.
+  default: "900000 (15 minutes)"
+  description: How often the entity-sync poller refreshes cached tag/correspondent/document-type descriptions from Paperless.
+workers.autoQueue.enabled:
+  required: false
+  default: "false"
+  description: Enables the automatic document pickup queue, which periodically tag-checks Paperless and creates jobs without manual submission.
+workers.autoQueue.pollIntervalMs:
+  required: false
+  default: "60000 (60 seconds)"
+  description: How often the auto-queue poller checks Paperless for newly tagged documents. Must be at least 1000ms.
+workers.autoQueue.workflowType:
+  required: false
+  default: automated
+  description: "Workflow type to use for auto-created jobs: `automated` (no human approval) or `approval` (steps pause for review)."
+workers.autoQueue.tag:
+  required: false
+  default: llm-auto-process
+  description: Paperless tag used to identify documents that should be auto-picked-up. Must be non-empty.
+workers.autoQueue.fields:
+  required: false
+  default: "[\"title\"]"
+  description: Document fields the auto-queue should generate (e.g. `title`, `tags`) when it creates a job for a picked-up document.
 
 paperless.url:
   required: true
@@ -121,7 +127,7 @@ api.corsOrigins:
 retry.maxRetries:
   required: false
   default: "3"
-  description: Maximum retry attempts for an automated step before it's surfaced as a fallout.
+  description: Maximum retry attempts for an automated step, or for a step reset by the stuck-step poller, before it's surfaced as a fallout.
 retry.retryDelayInMs:
   required: false
   default: "30000 (30 seconds)"
@@ -131,11 +137,6 @@ retry.retryExponent:
   default: "2"
   description: "Exponential backoff multiplier applied per retry attempt (delay = retryDelayInMs * retryExponent^attempt)."
 
-entitySync.pollIntervalMs:
-  required: false
-  default: "900000 (15 minutes)"
-  description: How often the entity-sync poller refreshes cached tag/correspondent/document-type descriptions from Paperless.
-
 auth.jwtSecret:
   required: true
   description: Secret used to sign and verify login JWTs. Must be a long, random value — never reuse the example/default.
@@ -143,24 +144,3 @@ auth.jwtExpiresIn:
   required: false
   default: "8h"
   description: "JWT expiry duration, in [jsonwebtoken](https://github.com/auth0/node-jsonwebtoken) `expiresIn` format (e.g. `8h`, `30m`)."
-
-autoQueue.enabled:
-  required: false
-  default: "false"
-  description: Enables the automatic document pickup queue, which periodically tags-checks Paperless and creates jobs without manual submission.
-autoQueue.pollIntervalMs:
-  required: false
-  default: "60000 (60 seconds)"
-  description: How often the auto-queue poller checks Paperless for newly tagged documents. Must be at least 1000ms.
-autoQueue.workflowType:
-  required: false
-  default: automated
-  description: "Workflow type to use for auto-created jobs: `automated` (no human approval) or `approval` (steps pause for review)."
-autoQueue.tag:
-  required: false
-  default: llm-auto-process
-  description: Paperless tag used to identify documents that should be auto-picked-up. Must be non-empty.
-autoQueue.fields:
-  required: false
-  default: "[\"title\"]"
-  description: Document fields the auto-queue should generate (e.g. `title`, `tags`) when it creates a job for a picked-up document.
