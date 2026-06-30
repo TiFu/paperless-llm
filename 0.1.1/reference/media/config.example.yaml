@@ -1,0 +1,67 @@
+# Paperless LLM Configuration Example
+# Copy this file to config.yaml and update with your settings
+
+database:
+  host: localhost
+  port: 5432
+  username: paperless_llm
+  password: devpassword
+  database: paperless_llm_dev
+
+redis:
+  host: localhost
+  port: 6379
+  username: ""
+  password: null
+  db: 0
+  ttlInSeconds: 300
+
+paperless:
+  url: http://localhost:8000
+  token: your_paperless_token_here
+  tags: llm-process
+
+llm:
+  url: http://localhost:11434
+  model: llama3
+  temperature: 0.7
+  timeoutMs: 30000
+
+auth:
+  jwtSecret: change_me_to_a_long_random_secret   # required - used to sign/verify login JWTs
+  jwtExpiresIn: 8h                               # optional, defaults to 8h
+
+workers:
+  instanceId: null  # Auto-generated if not specified
+  stepExecution:
+    batchSize: 5
+    pollIntervalMs: 3000
+  # Stuck step recovery settings (all optional, defaults shown). Retry limits
+  # for stuck steps come from retry.* below, not from here.
+  stuckStepReset:
+    timeoutMs: 300000        # 5 minutes - time before a step is considered stuck
+    checkIntervalMs: 30000   # 30 seconds - how often to check for stuck steps
+  # How often cached tag/correspondent/document-type descriptions are refreshed from Paperless
+  entitySync:
+    pollIntervalMs: 900000   # 15 minutes
+  # Automated document pickup queue
+  # Periodically checks Paperless for documents with a specific tag and creates jobs automatically
+  autoQueue:
+    enabled: false                # Enable/disable auto-processing queue
+    pollIntervalMs: 60000         # How often to check for new documents (60 seconds)
+    workflowType: automated       # Job type to create: 'automated' or 'approval'
+    tag: llm-auto-process         # Paperless tag to identify documents for auto-processing
+
+logging:
+  level: debug
+  pretty: true
+
+api:
+  port: 3000
+  corsOrigins:
+    - "*"
+
+retry:
+  maxRetries: 3                 # Maximum retry attempts for automated steps and stuck-step reset
+  retryDelayInMs: 30000         # Base delay in milliseconds (30 seconds)
+  retryExponent: 2              # Exponential backoff multiplier (2^retryCount)

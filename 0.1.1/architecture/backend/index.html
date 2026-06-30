@@ -1,0 +1,1670 @@
+
+<!DOCTYPE html>
+
+<html class="no-js" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<meta content="Automated document metadata generation for Paperless-NGX using LLMs" name="description"/>
+<link href="https://tifu.github.io/paperless-llm/0.1.1/architecture/backend/" rel="canonical"/>
+<link href="../api/" rel="prev"/>
+<link href="../frontend/" rel="next"/>
+<link href="../../assets/images/favicon.png" rel="icon"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.7.6" name="generator"/>
+<title>Backend - Paperless-LLM</title>
+<link href="../../assets/stylesheets/main.484c7ddc.min.css" rel="stylesheet"/>
+<link href="../../assets/stylesheets/palette.ab4e12ef.min.css" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+<script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+</head>
+<body data-md-color-accent="indigo" data-md-color-primary="indigo" data-md-color-scheme="default" dir="ltr">
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#backend-architecture">
+          Skip to content
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<div data-md-color-scheme="default" data-md-component="outdated" hidden="">
+</div>
+<header class="md-header md-header--shadow" data-md-component="header">
+<nav aria-label="Header" class="md-header__inner md-grid">
+<a aria-label="Paperless-LLM" class="md-header__button md-logo" data-md-component="logo" href="../.." title="Paperless-LLM">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            Paperless-LLM
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              Backend
+            
+          </span>
+</div>
+</div>
+</div>
+<form class="md-header__option" data-md-component="palette">
+<input aria-label="Switch to dark mode" class="md-option" data-md-color-accent="indigo" data-md-color-media="(prefers-color-scheme: light)" data-md-color-primary="indigo" data-md-color-scheme="default" id="__palette_0" name="__palette" type="radio"/>
+<label class="md-header__button md-icon" for="__palette_1" hidden="" title="Switch to dark mode">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"></path></svg>
+</label>
+<input aria-label="Switch to light mode" class="md-option" data-md-color-accent="indigo" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-primary="indigo" data-md-color-scheme="slate" id="__palette_1" name="__palette" type="radio"/>
+<label class="md-header__button md-icon" for="__palette_0" hidden="" title="Switch to light mode">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"></path></svg>
+</label>
+</form>
+<script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+<label class="md-header__button md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+</label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input aria-label="Search" autocapitalize="off" autocomplete="off" autocorrect="off" class="md-search__input" data-md-component="search-query" name="query" placeholder="Search" required="" spellcheck="false" type="text"/>
+<label class="md-search__icon md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+</label>
+<nav aria-label="Search" class="md-search__options">
+<button aria-label="Clear" class="md-search__icon md-icon" tabindex="-1" title="Clear" type="reset">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+</button>
+</nav>
+<div class="md-search__suggest" data-md-component="search-suggest"></div>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix="" tabindex="0">
+<div class="md-search-result" data-md-component="search-result">
+<div class="md-search-result__meta">
+            Initializing search
+          </div>
+<ol class="md-search-result__list" role="presentation"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md-header__source">
+<a class="md-source" data-md-component="source" href="https://github.com/TiFu/paperless-llm" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"></path></svg>
+</div>
+<div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+</div>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Navigation" class="md-nav md-nav--primary" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="Paperless-LLM" class="md-nav__button md-logo" data-md-component="logo" href="../.." title="Paperless-LLM">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+</a>
+    Paperless-LLM
+  </label>
+<div class="md-nav__source">
+<a class="md-source" data-md-component="source" href="https://github.com/TiFu/paperless-llm" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"></path></svg>
+</div>
+<div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+</div>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../..">
+<span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../quick-start/">
+<span class="md-ellipsis">
+    
+  
+    Quick start
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../changelog/">
+<span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--section md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_4" type="checkbox"/>
+<label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+<span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_4_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_4">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    Installation
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../installation/docker/">
+<span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../installation/helm/">
+<span class="md-ellipsis">
+    
+  
+    Helm
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../installation/configuration/">
+<span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--section md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_5" type="checkbox"/>
+<label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+<span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_5_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_5">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../user_guide/prompts/">
+<span class="md-ellipsis">
+    
+  
+    Prompts
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../development/">
+<span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" id="__nav_7" type="checkbox"/>
+<label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+<span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="true" aria-labelledby="__nav_7_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_7">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../api/">
+<span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
+<label class="md-nav__link md-nav__link--active" for="__toc">
+<span class="md-ellipsis">
+    
+  
+    Backend
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<a class="md-nav__link md-nav__link--active" href="./">
+<span class="md-ellipsis">
+    
+  
+    Backend
+  
+
+    
+  </span>
+</a>
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#overview">
+<span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+</a>
+<nav aria-label="Overview" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#project-structure">
+<span class="md-ellipsis">
+      
+        Project Structure
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#domain-model">
+<span class="md-ellipsis">
+      
+        Domain Model
+      
+    </span>
+</a>
+<nav aria-label="Domain Model" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#jobs">
+<span class="md-ellipsis">
+      
+        Jobs
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#steps">
+<span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#workflows">
+<span class="md-ellipsis">
+      
+        Workflows
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#actions">
+<span class="md-ellipsis">
+      
+        Actions
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#prompts">
+<span class="md-ellipsis">
+      
+        Prompts
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#document">
+<span class="md-ellipsis">
+      
+        Document
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#relationships">
+<span class="md-ellipsis">
+      
+        Relationships
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#ddd-layers-transaction-boundaries">
+<span class="md-ellipsis">
+      
+        DDD Layers &amp; Transaction Boundaries
+      
+    </span>
+</a>
+<nav aria-label="DDD Layers &amp; Transaction Boundaries" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#domain-layer-serversrcdomain">
+<span class="md-ellipsis">
+      
+        Domain layer (server/src/domain/)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#application-layer-serversrcapplication">
+<span class="md-ellipsis">
+      
+        Application layer (server/src/application/)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#infrastructure-layer-serversrcinfrastructure-serversrcrepositories-serversrcservices">
+<span class="md-ellipsis">
+      
+        Infrastructure layer (server/src/infrastructure/, server/src/repositories/, server/src/services/)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#transaction-boundaries">
+<span class="md-ellipsis">
+      
+        Transaction boundaries
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#adding-new-step-types-or-workflows">
+<span class="md-ellipsis">
+      
+        Adding new step types or workflows
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#workflow-orchestration">
+<span class="md-ellipsis">
+      
+        Workflow Orchestration
+      
+    </span>
+</a>
+<nav aria-label="Workflow Orchestration" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#state-machine">
+<span class="md-ellipsis">
+      
+        State machine
+      
+    </span>
+</a>
+<nav aria-label="State machine" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#automatedworkflow">
+<span class="md-ellipsis">
+      
+        AutomatedWorkflow
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#approvalworkflow">
+<span class="md-ellipsis">
+      
+        ApprovalWorkflow
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#progression-flow">
+<span class="md-ellipsis">
+      
+        Progression flow
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#queue-system">
+<span class="md-ellipsis">
+      
+        Queue System
+      
+    </span>
+</a>
+<nav aria-label="Queue System" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#polling-model">
+<span class="md-ellipsis">
+      
+        Polling model
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#retry-error-handling">
+<span class="md-ellipsis">
+      
+        Retry &amp; Error Handling
+      
+    </span>
+</a>
+<nav aria-label="Retry &amp; Error Handling" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#automatic-retry">
+<span class="md-ellipsis">
+      
+        Automatic retry
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#step-status-lifecycle">
+<span class="md-ellipsis">
+      
+        Step status lifecycle
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#stuck-step-detection">
+<span class="md-ellipsis">
+      
+        Stuck step detection
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#manual-intervention">
+<span class="md-ellipsis">
+      
+        Manual intervention
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#retry-configuration">
+<span class="md-ellipsis">
+      
+        Retry configuration
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#scaling-performance-high-availability">
+<span class="md-ellipsis">
+      
+        Scaling, Performance &amp; High Availability
+      
+    </span>
+</a>
+<nav aria-label="Scaling, Performance &amp; High Availability" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#horizontal-worker-scaling">
+<span class="md-ellipsis">
+      
+        Horizontal worker scaling
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#vertical-scaling">
+<span class="md-ellipsis">
+      
+        Vertical scaling
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#database-scaling-considerations">
+<span class="md-ellipsis">
+      
+        Database scaling considerations
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#high-availability">
+<span class="md-ellipsis">
+      
+        High availability
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#key-design-decisions">
+<span class="md-ellipsis">
+      
+        Key Design Decisions
+      
+    </span>
+</a>
+<nav aria-label="Key Design Decisions" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#polling-vs-message-queue">
+<span class="md-ellipsis">
+      
+        Polling vs. message queue
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#step-based-workflow-decomposition">
+<span class="md-ellipsis">
+      
+        Step-based workflow decomposition
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#external-then-transactional-pattern">
+<span class="md-ellipsis">
+      
+        External-then-transactional pattern
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#explicit-transaction-context">
+<span class="md-ellipsis">
+      
+        Explicit transaction context
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#generic-worker-poller-reused-across-job-types">
+<span class="md-ellipsis">
+      
+        Generic worker poller reused across job types
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#uniform-retry-configuration">
+<span class="md-ellipsis">
+      
+        Uniform retry configuration
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../frontend/">
+<span class="md-ellipsis">
+    
+  
+    Frontend
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--section md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_8" type="checkbox"/>
+<label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+<span class="md-ellipsis">
+    
+  
+    Code Reference
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_8_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_8">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    Code Reference
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../server/">
+<span class="md-ellipsis">
+    
+  
+    Server
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../frontend/">
+<span class="md-ellipsis">
+    
+  
+    Frontend
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#overview">
+<span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+</a>
+<nav aria-label="Overview" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#project-structure">
+<span class="md-ellipsis">
+      
+        Project Structure
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#domain-model">
+<span class="md-ellipsis">
+      
+        Domain Model
+      
+    </span>
+</a>
+<nav aria-label="Domain Model" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#jobs">
+<span class="md-ellipsis">
+      
+        Jobs
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#steps">
+<span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#workflows">
+<span class="md-ellipsis">
+      
+        Workflows
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#actions">
+<span class="md-ellipsis">
+      
+        Actions
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#prompts">
+<span class="md-ellipsis">
+      
+        Prompts
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#document">
+<span class="md-ellipsis">
+      
+        Document
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#relationships">
+<span class="md-ellipsis">
+      
+        Relationships
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#ddd-layers-transaction-boundaries">
+<span class="md-ellipsis">
+      
+        DDD Layers &amp; Transaction Boundaries
+      
+    </span>
+</a>
+<nav aria-label="DDD Layers &amp; Transaction Boundaries" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#domain-layer-serversrcdomain">
+<span class="md-ellipsis">
+      
+        Domain layer (server/src/domain/)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#application-layer-serversrcapplication">
+<span class="md-ellipsis">
+      
+        Application layer (server/src/application/)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#infrastructure-layer-serversrcinfrastructure-serversrcrepositories-serversrcservices">
+<span class="md-ellipsis">
+      
+        Infrastructure layer (server/src/infrastructure/, server/src/repositories/, server/src/services/)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#transaction-boundaries">
+<span class="md-ellipsis">
+      
+        Transaction boundaries
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#adding-new-step-types-or-workflows">
+<span class="md-ellipsis">
+      
+        Adding new step types or workflows
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#workflow-orchestration">
+<span class="md-ellipsis">
+      
+        Workflow Orchestration
+      
+    </span>
+</a>
+<nav aria-label="Workflow Orchestration" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#state-machine">
+<span class="md-ellipsis">
+      
+        State machine
+      
+    </span>
+</a>
+<nav aria-label="State machine" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#automatedworkflow">
+<span class="md-ellipsis">
+      
+        AutomatedWorkflow
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#approvalworkflow">
+<span class="md-ellipsis">
+      
+        ApprovalWorkflow
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#progression-flow">
+<span class="md-ellipsis">
+      
+        Progression flow
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#queue-system">
+<span class="md-ellipsis">
+      
+        Queue System
+      
+    </span>
+</a>
+<nav aria-label="Queue System" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#polling-model">
+<span class="md-ellipsis">
+      
+        Polling model
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#retry-error-handling">
+<span class="md-ellipsis">
+      
+        Retry &amp; Error Handling
+      
+    </span>
+</a>
+<nav aria-label="Retry &amp; Error Handling" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#automatic-retry">
+<span class="md-ellipsis">
+      
+        Automatic retry
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#step-status-lifecycle">
+<span class="md-ellipsis">
+      
+        Step status lifecycle
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#stuck-step-detection">
+<span class="md-ellipsis">
+      
+        Stuck step detection
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#manual-intervention">
+<span class="md-ellipsis">
+      
+        Manual intervention
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#retry-configuration">
+<span class="md-ellipsis">
+      
+        Retry configuration
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#scaling-performance-high-availability">
+<span class="md-ellipsis">
+      
+        Scaling, Performance &amp; High Availability
+      
+    </span>
+</a>
+<nav aria-label="Scaling, Performance &amp; High Availability" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#horizontal-worker-scaling">
+<span class="md-ellipsis">
+      
+        Horizontal worker scaling
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#vertical-scaling">
+<span class="md-ellipsis">
+      
+        Vertical scaling
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#database-scaling-considerations">
+<span class="md-ellipsis">
+      
+        Database scaling considerations
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#high-availability">
+<span class="md-ellipsis">
+      
+        High availability
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#key-design-decisions">
+<span class="md-ellipsis">
+      
+        Key Design Decisions
+      
+    </span>
+</a>
+<nav aria-label="Key Design Decisions" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#polling-vs-message-queue">
+<span class="md-ellipsis">
+      
+        Polling vs. message queue
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#step-based-workflow-decomposition">
+<span class="md-ellipsis">
+      
+        Step-based workflow decomposition
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#external-then-transactional-pattern">
+<span class="md-ellipsis">
+      
+        External-then-transactional pattern
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#explicit-transaction-context">
+<span class="md-ellipsis">
+      
+        Explicit transaction context
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#generic-worker-poller-reused-across-job-types">
+<span class="md-ellipsis">
+      
+        Generic worker poller reused across job types
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#uniform-retry-configuration">
+<span class="md-ellipsis">
+      
+        Uniform retry configuration
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<h1 id="backend-architecture">Backend Architecture<a class="headerlink" href="#backend-architecture" title="Permanent link">¶</a></h1>
+<p>Paperless-LLM's backend (<code>server/</code>) is a Domain-Driven Design (DDD) structured Express/TypeScript application that integrates Ollama with Paperless-NGX to automatically generate document titles, tags, correspondents, document types, and creation dates. It exposes a REST API and runs one or more background workers that poll a PostgreSQL-backed queue.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">¶</a></h2>
+<p>The system has four moving parts: a frontend, an API server, one or more worker processes, and the external services they coordinate (PostgreSQL, Paperless-NGX, Ollama, and an optional Redis cache).</p>
+<pre class="mermaid"><code>flowchart TB
+    FE["Frontend (React + Vite)"]
+    API["API Server (Express)"]
+    WRK["Worker Process(es)"]
+    DB[("PostgreSQL")]
+    PAP["Paperless-NGX"]
+    LLM["Ollama"]
+    REDIS[("Redis (DMS cache)")]
+
+    FE -- HTTP/JSON --&gt; API
+    API -- reads/writes --&gt; DB
+    WRK -- polls/claims --&gt; DB
+    WRK -- generates content --&gt; LLM
+    WRK -- applies updates --&gt; PAP
+    API -- cached reads --&gt; REDIS
+    WRK -- cached reads --&gt; REDIS
+    REDIS -. backed by .-&gt; PAP
+</code></pre>
+<p>The API server and worker logic share a single codebase and bootstrap process (<code>server/src/bootstrap.ts</code>). They can run together in one Node.js process or as separate processes — see <a href="#scaling-performance-high-availability">Scaling, Performance &amp; High Availability</a>.</p>
+<h3 id="project-structure">Project Structure<a class="headerlink" href="#project-structure" title="Permanent link">¶</a></h3>
+<div class="highlight"><pre><span></span><code>server/src/
+├── api/              # Express routes, middleware (HTTP layer)
+│   ├── routes/
+│   └── middleware/
+├── application/      # Application services (use-case orchestration)
+│   └── util/
+├── domain/           # Pure business logic (entities, workflows, steps, actions)
+│   ├── job/
+│   ├── steps/
+│   ├── workflows/
+│   ├── actions/
+│   ├── prompt/
+│   ├── document/
+│   ├── llm/
+│   ├── audit/
+│   ├── auth/
+│   ├── authorization/
+│   ├── entityDescriptions/
+│   ├── workerExecution/
+│   ├── common/
+│   └── services/
+├── infrastructure/   # Database, transaction management, worker scheduling
+├── repositories/      # Repository implementations
+│   └── postgresql/
+├── services/         # External service clients (Paperless, Ollama, cache)
+├── map/              # Mapping between domain objects and DTOs
+├── web/               # API-facing DTOs
+│   └── dtos/
+├── config/            # AppConfig (config.yaml loading and validation)
+├── utils/             # Logger and other shared utilities
+├── bootstrap.ts       # Shared startup: config, DB, migrations, services
+├── runServer.ts       # API server entry point
+├── runWorker.ts        # Worker process entry point
+└── main.ts             # CLI entry point (--mode=server / --mode=worker)
+</code></pre></div>
+<p>This reflects the current source layout. Older internal notes describe a <code>worker/</code> directory and a generic <code>repositories/interfaces</code> split — the codebase has since consolidated around <code>server/src/</code> with <code>domain</code>, <code>application</code>, <code>infrastructure</code>, <code>repositories</code>, <code>services</code>, <code>api</code>, <code>web</code>, <code>map</code>, <code>config</code>, and <code>utils</code> as the top-level layers.</p>
+<h2 id="domain-model">Domain Model<a class="headerlink" href="#domain-model" title="Permanent link">¶</a></h2>
+<p>The domain layer is built around a small set of cooperating concepts: a <strong>Job</strong> tracks a document's processing lifecycle, a <strong>Workflow</strong> defines what states and steps that lifecycle has, <strong>Steps</strong> are the executable units within a job, <strong>Actions</strong> are the document mutations a step proposes, and <strong>Prompts</strong> are the templates used to ask the LLM for content. A <strong>Document</strong> is the Paperless-NGX resource being acted on.</p>
+<div class="highlight"><pre><span></span><code>Document (in Paperless) → Job → Steps → Document Actions → Updated Document
+                            │
+                            ├── uses a Workflow (state transition rules)
+                            └── steps use Prompts (LLM template + variables)
+</code></pre></div>
+<h3 id="jobs">Jobs<a class="headerlink" href="#jobs" title="Permanent link">¶</a></h3>
+<p>A <code>Job</code> (<code>server/src/domain/job/Job.ts</code>) represents one document-processing task. It tracks:</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Unique identifier</td>
+</tr>
+<tr>
+<td><code>documentId</code></td>
+<td>Paperless document ID</td>
+</tr>
+<tr>
+<td><code>state</code></td>
+<td>Current <code>JobState</code></td>
+</tr>
+<tr>
+<td><code>workflowType</code></td>
+<td><code>AUTOMATED</code> or <code>APPROVAL</code> (<code>server/src/domain/workflows/WorkflowType.ts</code>)</td>
+</tr>
+<tr>
+<td><code>fields</code></td>
+<td>Which document fields to generate (<code>title</code>, <code>tags</code>, <code>correspondent</code>, <code>document_type</code>, <code>created_date</code>)</td>
+</tr>
+<tr>
+<td><code>createdAt</code> / <code>updatedAt</code></td>
+<td>Lifecycle timestamps</td>
+</tr>
+</tbody>
+</table>
+<p>Jobs advance through a series of <code>JobState</code> values (<code>server/src/domain/job/JobState.ts</code>): <code>pending</code>, <code>llm_processing</code>, <code>pending_approval</code>, <code>updating_document</code>, <code>removing_tags</code>, <code>completed</code>, <code>failed</code>, <code>rejected</code>. The exact transitions are determined by the job's <code>Workflow</code> — see <a href="#workflow-orchestration">Workflow Orchestration</a>.</p>
+<h3 id="steps">Steps<a class="headerlink" href="#steps" title="Permanent link">¶</a></h3>
+<p>A <code>Step</code> is an atomic unit of work belonging to a job (<code>server/src/domain/steps/IStep.ts</code>). Steps carry their own status independent of the job:</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>stepId</code></td>
+<td>Unique identifier</td>
+</tr>
+<tr>
+<td><code>jobId</code></td>
+<td>Parent job</td>
+</tr>
+<tr>
+<td><code>stepType</code></td>
+<td><code>StepType</code> — what the step does</td>
+</tr>
+<tr>
+<td><code>stepState</code></td>
+<td><code>StepStatus</code>: <code>waiting</code>, <code>in_progress</code>, <code>completed</code>, <code>failed</code>, <code>retrying</code>, <code>in_fallout</code></td>
+</tr>
+<tr>
+<td><code>retryCount</code> / <code>retryAfter</code></td>
+<td>Retry bookkeeping</td>
+</tr>
+<tr>
+<td><code>parentStepId</code></td>
+<td>Set for child steps spawned by a composite step</td>
+</tr>
+</tbody>
+</table>
+<p>Step types include <code>LLM_GENERATE_TITLE</code>, <code>LLM_GENERATE_TAGS</code>, <code>LLM_GENERATE_CORRESPONDENT</code>, <code>LLM_GENERATE_DOCUMENT_TYPE</code>, <code>LLM_GENERATE_CREATED_DATE</code>, the composite <code>LLM_GENERATE_FIELDS</code> (which fans out into the per-field LLM steps a job actually requested), <code>REQUIRE_APPROVAL</code> (a manual/user-interaction step), <code>UPDATE_DOCUMENT</code>, and <code>REMOVE_TAGS</code>. Steps are <code>kind: "composite" | "manual" | "executable"</code> — composite steps spawn and track child steps, manual steps wait on a human (e.g. approval), and executable steps run autonomously and may call Ollama or Paperless.</p>
+<p>Steps are designed to be idempotent: retried or re-claimed steps should produce the same outcome without double-applying side effects.</p>
+<h3 id="workflows">Workflows<a class="headerlink" href="#workflows" title="Permanent link">¶</a></h3>
+<p>A <code>Workflow</code> (<code>server/src/domain/workflows/</code>) defines the state machine a job follows — which <code>JobState</code> follows another for a given transition result, and which <code>Step</code> to create for each state. Two implementations exist today, <code>AutomatedWorkflow</code> and <code>ApprovalWorkflow</code> (see <a href="#workflow-orchestration">Workflow Orchestration</a> for their transition tables). The interface (<code>BaseWorkflow</code>/<code>IWorkflow</code>) is designed so additional workflow types can be added without touching job or step code.</p>
+<h3 id="actions">Actions<a class="headerlink" href="#actions" title="Permanent link">¶</a></h3>
+<p>A <code>DocumentAction</code> (<code>server/src/domain/actions/DocumentAction.ts</code>) is a proposed mutation to a Paperless document, produced by an LLM-generation step and applied later by <code>UPDATE_DOCUMENT</code> or <code>REMOVE_TAGS</code>. Each action records both <code>oldValue</code> and <code>newValue</code>, which doubles as the audit trail for what changed. Action types (<code>DocumentActionType</code>, in <code>server/src/domain/actions/ActionType.ts</code>): <code>update_title</code>, <code>update_tags</code>, <code>update_correspondent</code>, <code>update_document_type</code>, <code>update_created_date</code>, <code>remove_tags</code>. Each action also declares a <code>fieldType</code> (<code>string</code>, <code>tag</code>, <code>correspondent</code>, <code>document_type</code>, <code>date</code>) and whether its value <code>isMultiple</code>, which the frontend uses to render the right editor control during approval review.</p>
+<h3 id="prompts">Prompts<a class="headerlink" href="#prompts" title="Permanent link">¶</a></h3>
+<p>A <code>Prompt</code> (<code>server/src/domain/prompt/Prompt.ts</code>) is a versioned template used to build an LLM request for a given step type. It has a <code>stepType</code>, a <code>template</code> string containing <code>{{variable}}</code> placeholders, and a <code>version</code> that increments whenever the template is edited. See Configuration &gt; Prompt Customization for how to edit these and how variable substitution works — this page only covers the entity shape.</p>
+<h3 id="document">Document<a class="headerlink" href="#document" title="Permanent link">¶</a></h3>
+<p>A <code>Document</code> represents a Paperless-NGX document. Documents are never stored in the Paperless-LLM database — they're fetched and updated live through <code>IDocumentManagementSystem</code>, optionally through a caching adapter (<code>CachedPaperlessServiceAdapter</code>) backed by Redis.</p>
+<h3 id="relationships">Relationships<a class="headerlink" href="#relationships" title="Permanent link">¶</a></h3>
+<div class="highlight"><pre><span></span><code>Document (external, in Paperless)
+      │ 1:N
+      ▼
+    Job ── uses ──&gt; Workflow
+      │ 1:N
+      ▼
+   Step ── may reference ──&gt; Prompt
+      │ 1:N
+      ▼
+DocumentAction
+</code></pre></div>
+<ul>
+<li>One Document can have many Jobs over time.</li>
+<li>One Job has exactly one Workflow (determined by <code>workflowType</code>) and many sequential Steps.</li>
+<li>One Step may use one Prompt (for LLM-generation steps) and can produce many DocumentActions.</li>
+<li>DocumentActions are consumed by later steps (<code>UPDATE_DOCUMENT</code>, <code>REMOVE_TAGS</code>) in the same job.</li>
+</ul>
+<p>For the literal SQL schema (columns, indexes, foreign keys) for the <code>jobs</code>, <code>steps</code>, <code>document_actions</code>, and <code>prompts</code> tables, see the Schema Overview section of the migrations README (<code>server/README.md</code>) rather than this page.</p>
+<h2 id="ddd-layers-transaction-boundaries">DDD Layers &amp; Transaction Boundaries<a class="headerlink" href="#ddd-layers-transaction-boundaries" title="Permanent link">¶</a></h2>
+<p>The codebase is organized into three layers with one-way dependency rules, plus a thin API layer on top.</p>
+<pre class="mermaid"><code>flowchart TB
+    A["API Layer<br/>(Express routes, middleware)"] --&gt; B
+    B["Application Layer<br/>(Application Services, orchestration)"] --&gt; C
+    B --&gt; D
+    C["Domain Layer<br/>(Entities, Workflows, Steps, Actions)"]
+    D["Infrastructure Layer<br/>(Repositories, TransactionManager, external clients)"] --&gt; C
+</code></pre>
+<p><strong>Allowed dependencies:</strong> API → Application, Application → Domain, Application → Infrastructure, Infrastructure → Domain (via interfaces).</p>
+<p><strong>Forbidden dependencies:</strong> Domain → Application, Domain → Infrastructure, Infrastructure → Application.</p>
+<h3 id="domain-layer-serversrcdomain">Domain layer (<code>server/src/domain/</code>)<a class="headerlink" href="#domain-layer-serversrcdomain" title="Permanent link">¶</a></h3>
+<p>Pure business logic with no framework or I/O dependencies: no database access, no HTTP calls, no <code>await</code> on infrastructure. Entities (<code>Job</code>, <code>Step</code> implementations, <code>DocumentAction</code> implementations, <code>Prompt</code>) encapsulate business rules; value objects and enums (<code>JobState</code>, <code>StepType</code>, <code>StepStatus</code>, <code>DocumentActionType</code>) are immutable; domain services (workflow classes, <code>PromptDomainService</code>) hold stateless domain operations; interfaces (<code>IDocumentManagementSystem</code>, <code>ILLMService</code>, repository interfaces) define contracts that infrastructure must satisfy. This keeps domain logic trivially unit-testable and decoupled from Postgres, Express, or any specific LLM provider.</p>
+<h3 id="application-layer-serversrcapplication">Application layer (<code>server/src/application/</code>)<a class="headerlink" href="#application-layer-serversrcapplication" title="Permanent link">¶</a></h3>
+<p>Orchestrates domain operations and coordinates with infrastructure: application services such as <code>StepExecutorApplicationService</code>, <code>JobApplicationService</code>, <code>ApprovalApplicationService</code>, <code>QueueApplicationService</code>, <code>StepRetryApplicationService</code>, and <code>StuckStepResetApplicationService</code>, wired together by <code>ApplicationServiceFactory</code>. This layer owns transaction boundaries, retrieves and persists domain objects, talks to external services, and handles/logs errors.</p>
+<h3 id="infrastructure-layer-serversrcinfrastructure-serversrcrepositories-serversrcservices">Infrastructure layer (<code>server/src/infrastructure/</code>, <code>server/src/repositories/</code>, <code>server/src/services/</code>)<a class="headerlink" href="#infrastructure-layer-serversrcinfrastructure-serversrcrepositories-serversrcservices" title="Permanent link">¶</a></h3>
+<p>Handles persistence, transaction lifecycle, and external communication: PostgreSQL repository implementations, <code>TransactionManager</code>/unit-of-work plumbing (<code>UoW.ts</code>), the generic <code>WorkerExecutor</code> poller, and external service clients (<code>PaperlessService</code>, <code>OllamaService</code>, the Redis-backed <code>CacheService</code>).</p>
+<h3 id="transaction-boundaries">Transaction boundaries<a class="headerlink" href="#transaction-boundaries" title="Permanent link">¶</a></h3>
+<p><strong>Principle:</strong> external API calls happen <em>outside</em> transactions, since they cannot be rolled back; database writes happen <em>inside</em> short transactions to keep consistency without holding connections open.</p>
+<p>Consider the naive approach:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// BAD: external call inside a transaction</span>
+<span class="k">await</span><span class="w"> </span><span class="nx">using</span><span class="w"> </span><span class="nx">context</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">txManager</span><span class="p">.</span><span class="nx">createContext</span><span class="p">();</span>
+<span class="nx">context</span><span class="p">.</span><span class="nx">start</span><span class="p">();</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">title</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">llmService</span><span class="p">.</span><span class="nx">generateTitle</span><span class="p">(</span><span class="nx">content</span><span class="p">);</span><span class="w"> </span><span class="c1">// holds the DB connection for seconds</span>
+<span class="k">await</span><span class="w"> </span><span class="nx">repos</span><span class="p">.</span><span class="nx">steps</span><span class="p">.</span><span class="nx">update</span><span class="p">(</span><span class="nx">step</span><span class="p">);</span>
+<span class="nx">context</span><span class="p">.</span><span class="nx">commit</span><span class="p">();</span>
+</code></pre></div>
+<p>This blocks other workers and wastes pool connections for as long as Ollama takes to respond. The fix is to fetch what's needed, call the external service with no transaction open, then persist the result in a fresh, short transaction:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// GOOD: external call outside the transaction</span>
+<span class="k">await</span><span class="w"> </span><span class="nx">using</span><span class="w"> </span><span class="nx">context1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">txManager</span><span class="p">.</span><span class="nx">createContext</span><span class="p">();</span>
+<span class="nx">context1</span><span class="p">.</span><span class="nx">start</span><span class="p">();</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">step</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">repos</span><span class="p">.</span><span class="nx">steps</span><span class="p">.</span><span class="nx">findById</span><span class="p">(</span><span class="nx">stepId</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">repos</span><span class="p">.</span><span class="nx">documents</span><span class="p">.</span><span class="nx">findById</span><span class="p">(</span><span class="nx">step</span><span class="p">.</span><span class="nx">documentId</span><span class="p">);</span>
+<span class="nx">context1</span><span class="p">.</span><span class="nx">commit</span><span class="p">();</span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">title</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">llmService</span><span class="p">.</span><span class="nx">generateTitle</span><span class="p">(</span><span class="nx">doc</span><span class="p">.</span><span class="nx">content</span><span class="p">);</span><span class="w"> </span><span class="c1">// no DB connection held</span>
+
+<span class="k">await</span><span class="w"> </span><span class="nx">using</span><span class="w"> </span><span class="nx">context2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">txManager</span><span class="p">.</span><span class="nx">createContext</span><span class="p">();</span>
+<span class="nx">context2</span><span class="p">.</span><span class="nx">start</span><span class="p">();</span>
+<span class="nx">step</span><span class="p">.</span><span class="nx">markCompleted</span><span class="p">();</span>
+<span class="k">await</span><span class="w"> </span><span class="nx">repos</span><span class="p">.</span><span class="nx">steps</span><span class="p">.</span><span class="nx">update</span><span class="p">(</span><span class="nx">step</span><span class="p">);</span>
+<span class="nx">context2</span><span class="p">.</span><span class="nx">commit</span><span class="p">();</span>
+</code></pre></div>
+<p>All repository access requires an active transaction context obtained from the transaction manager/unit-of-work factory — there is no implicit auto-commit. This is deliberate: it makes transactional scope explicit and visible at every call site, gives type-safe repository access bound to the active context, and makes concurrency easier to reason about, at the cost of slightly more verbose call sites than an ORM with implicit sessions would require.</p>
+<p>External services are abstracted behind domain interfaces (<code>IDocumentManagementSystem</code>, <code>ILLMService</code>), which keeps the application layer testable and makes the LLM/DMS backends swappable in principle, and external calls are idempotent where possible (document updates overwrite rather than increment; step execution short-circuits if the step is already completed), so retries are safe.</p>
+<h3 id="adding-new-step-types-or-workflows">Adding new step types or workflows<a class="headerlink" href="#adding-new-step-types-or-workflows" title="Permanent link">¶</a></h3>
+<p>Following DDD discipline when extending the system: new step types live in <code>server/src/domain/steps/</code>, implement the step's <code>execute()</code>-equivalent contract, and are wired into <code>StepFactory</code>; new workflows live in <code>server/src/domain/workflows/</code>, implement the workflow interface, and define their own transition table. Domain code added this way stays free of database or HTTP calls — orchestration and persistence belong in the application and infrastructure layers, not in the entity itself.</p>
+<h2 id="workflow-orchestration">Workflow Orchestration<a class="headerlink" href="#workflow-orchestration" title="Permanent link">¶</a></h2>
+<h3 id="state-machine">State machine<a class="headerlink" href="#state-machine" title="Permanent link">¶</a></h3>
+<p>Jobs move through <code>JobState</code> values under the control of their <code>Workflow</code>. The two workflow implementations that exist today are <code>AutomatedWorkflow</code> and <code>ApprovalWorkflow</code>; both are driven by the same step-execution and transition machinery (<code>Transition</code>, <code>TransitionMap</code>, <code>BaseWorkflow</code>), just with different transition tables.</p>
+<h4 id="automatedworkflow">AutomatedWorkflow<a class="headerlink" href="#automatedworkflow" title="Permanent link">¶</a></h4>
+<p>Fully automated processing, no human gate:</p>
+<pre class="mermaid"><code>stateDiagram-v2
+    [*] --&gt; pending
+    pending --&gt; llm_processing: SUCCESS
+    pending --&gt; failed: FAILURE
+    llm_processing --&gt; updating_document: SUCCESS
+    llm_processing --&gt; failed: FAILURE
+    updating_document --&gt; removing_tags: SUCCESS
+    updating_document --&gt; failed: FAILURE
+    removing_tags --&gt; completed: SUCCESS
+    removing_tags --&gt; failed: FAILURE
+    completed --&gt; [*]
+    failed --&gt; [*]
+</code></pre>
+<p>Step mapping: <code>llm_processing</code> creates a composite <code>LLM_GENERATE_FIELDS</code> step (which fans out into the per-field LLM steps the job actually requested — title, tags, correspondent, document type, created date); <code>updating_document</code> creates <code>UPDATE_DOCUMENT</code>; <code>removing_tags</code> creates <code>REMOVE_TAGS</code> (clearing the trigger tag once processing succeeds).</p>
+<h4 id="approvalworkflow">ApprovalWorkflow<a class="headerlink" href="#approvalworkflow" title="Permanent link">¶</a></h4>
+<p>Adds a manual approval gate between LLM generation and applying changes:</p>
+<pre class="mermaid"><code>stateDiagram-v2
+    [*] --&gt; pending
+    pending --&gt; llm_processing: SUCCESS
+    pending --&gt; failed: FAILURE
+    llm_processing --&gt; pending_approval: SUCCESS
+    llm_processing --&gt; failed: FAILURE
+    pending_approval --&gt; updating_document: SUCCESS (approved)
+    pending_approval --&gt; rejected: FAILURE (rejected)
+    updating_document --&gt; removing_tags: SUCCESS
+    updating_document --&gt; failed: FAILURE
+    removing_tags --&gt; completed: SUCCESS
+    removing_tags --&gt; failed: FAILURE
+    completed --&gt; [*]
+    failed --&gt; [*]
+    rejected --&gt; [*]
+</code></pre>
+<p>Step mapping is identical to <code>AutomatedWorkflow</code> except <code>pending_approval</code> creates a <code>REQUIRE_APPROVAL</code> step — a manual step that blocks until a user approves or rejects the proposed <code>DocumentAction</code>s via the API/frontend.</p>
+<p>Both workflows share <code>removing_tags</code> as a step after document update, and both treat <code>completed</code>, <code>failed</code>, and (for approval) <code>rejected</code> as terminal states once reached.</p>
+<h3 id="progression-flow">Progression flow<a class="headerlink" href="#progression-flow" title="Permanent link">¶</a></h3>
+<p>When a step finishes, the application layer asks the job's workflow for the next state given the transition result, persists the new job state, and — if the new state is non-terminal — creates the next step for that state. Job and step changes are persisted together so a job is never left pointing at a state with no corresponding step.</p>
+<h2 id="queue-system">Queue System<a class="headerlink" href="#queue-system" title="Permanent link">¶</a></h2>
+<p>Paperless-LLM uses PostgreSQL itself as the work queue rather than a dedicated message broker (Bull, RabbitMQ, SQS). Steps live in the <code>steps</code> table with a <code>status</code> column (<code>waiting</code>, <code>in_progress</code>, <code>completed</code>, <code>failed</code>, <code>retrying</code>, <code>in_fallout</code>); workers claim batches of <code>waiting</code> steps using row-level locking, execute them, and update their status — all without any inter-worker coordination protocol beyond the database itself.</p>
+<p><strong>Advantages:</strong> single source of truth, transactional consistency between queue state and business data, no additional infrastructure to operate, full SQL query power for inspecting the queue.</p>
+<p><strong>Trade-offs:</strong> higher database load than an in-memory broker, polling-driven latency (seconds, not milliseconds), and throughput bounded by what Postgres can sustain for claim/update churn — acceptable for this system's expected document-processing volumes.</p>
+<h3 id="polling-model">Polling model<a class="headerlink" href="#polling-model" title="Permanent link">¶</a></h3>
+<p>Rather than a single hard-coded "LLM cycle" and "document-update cycle," the backend uses one generic poller class, <code>WorkerExecutor</code> (<code>server/src/infrastructure/WorkerExecutor.ts</code>), instantiated multiple times with different work functions and intervals. Each instance:</p>
+<ol>
+<li>Schedules its next run with <code>setTimeout</code>, not a tight loop.</li>
+<li>Measures how long the previous run took and subtracts that from the configured interval before scheduling the next run, keeping a consistent rhythm under load (adaptive timing) rather than drifting.</li>
+<li>Records its own start/success/failure in the <code>worker_executions</code> / <code>worker_execution_items</code> tables via short-lived system units of work, independent of whatever transaction the actual work used — so worker activity is itself observable through the API (see <code>WorkerExecutionsPage</code> in the frontend).</li>
+</ol>
+<p><code>runWorker.ts</code> wires up the actual pollers running in a worker process:</p>
+<table>
+<thead>
+<tr>
+<th>Worker</th>
+<th>What it does</th>
+<th>Interval source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>step_processor</code></td>
+<td>Claims and executes <code>waiting</code> steps in batches, then moves due <code>retrying</code> steps back to <code>waiting</code></td>
+<td><code>workers.stepExecution.pollIntervalMs</code></td>
+</tr>
+<tr>
+<td><code>stuck_step_reset</code></td>
+<td>Finds steps stuck <code>in_progress</code> past a timeout and fails or retries them</td>
+<td><code>workers.stuckStepReset.checkIntervalMs</code></td>
+</tr>
+<tr>
+<td><code>entity_sync</code></td>
+<td>Periodically syncs Paperless entity metadata (tags, correspondents, document types) used for descriptions</td>
+<td><code>workers.entitySync.pollIntervalMs</code></td>
+</tr>
+<tr>
+<td><code>document_auto_queue</code></td>
+<td>Optional: watches Paperless for documents tagged for auto-processing and creates jobs for them</td>
+<td><code>workers.autoQueue.pollIntervalMs</code> (only runs if <code>workers.autoQueue.enabled</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Multiple worker processes can run these pollers concurrently — each claims a non-overlapping batch via row-level locking, and there is no leader election or explicit worker-to-worker coordination required.</p>
+<h2 id="retry-error-handling">Retry &amp; Error Handling<a class="headerlink" href="#retry-error-handling" title="Permanent link">¶</a></h2>
+<h3 id="automatic-retry">Automatic retry<a class="headerlink" href="#automatic-retry" title="Permanent link">¶</a></h3>
+<p>When a step fails, <code>IStep.markExecutionFailed()</code> increments its retry count and, if under the configured maximum, moves it to <code>retrying</code> with an exponentially increasing <code>retryAfter</code> timestamp (<code>retryDelayInMs * retryExponent^retryCount</code>). Once the limit is exceeded, the step moves to <code>in_fallout</code> instead, which blocks the job at that state until a human intervenes.</p>
+<h3 id="step-status-lifecycle">Step status lifecycle<a class="headerlink" href="#step-status-lifecycle" title="Permanent link">¶</a></h3>
+<pre class="mermaid"><code>stateDiagram-v2
+    [*] --&gt; waiting
+    waiting --&gt; in_progress: claimed by worker
+    in_progress --&gt; completed
+    in_progress --&gt; failed
+    failed --&gt; retrying: retryCount &lt; maxRetries
+    failed --&gt; in_fallout: retryCount &gt;= maxRetries
+    retrying --&gt; waiting: retryAfter elapsed, or manual retry
+    retrying --&gt; [*]: manual cancel (job fails)
+    in_fallout --&gt; waiting: manual retry
+    in_fallout --&gt; [*]: manual cancel (job fails)
+    completed --&gt; [*]
+</code></pre>
+<p>Every failure goes through an automatic retry decision first: <code>failed --&gt; retrying</code> if attempts remain, <code>failed --&gt; in_fallout</code> only once <code>retryCount</code> has already exceeded <code>maxRetries</code>. A step never skips straight from <code>failed</code> to a human-facing dead end on its own — <code>in_fallout</code> is reached only after the automatic retries are exhausted, and even then it isn't terminal by itself: a human must either retry it (back to <code>waiting</code>) or cancel it (terminal failure). The <code>step_processor</code> worker's retry pass moves <code>retrying</code> steps whose <code>retryAfter</code> has elapsed back to <code>waiting</code> automatically; manual retry does the same thing on demand, before the timer would otherwise fire.</p>
+<h3 id="stuck-step-detection">Stuck step detection<a class="headerlink" href="#stuck-step-detection" title="Permanent link">¶</a></h3>
+<p>Steps can get stuck <code>in_progress</code> if a worker process crashes or hangs mid-execution. <code>StuckStepResetApplicationService</code>, run by the <code>stuck_step_reset</code> poller, periodically finds steps that have been <code>in_progress</code> longer than <code>workers.stuckStepReset.timeoutMs</code> and resets them — either back into the retry cycle or straight to <code>in_fallout</code>, depending on how many attempts remain — so a single crashed worker can't permanently wedge a job.</p>
+<h3 id="manual-intervention">Manual intervention<a class="headerlink" href="#manual-intervention" title="Permanent link">¶</a></h3>
+<p>Steps in <code>in_fallout</code> require manual action through the API (and the frontend's Fallouts page):</p>
+<ul>
+<li><code>POST /api/steps/:stepId/retry</code> resets the step to <code>waiting</code> (<code>retryCount</code> back to 0) for re-execution.</li>
+<li><code>POST /api/steps/:stepId/cancel</code> marks the step failed and advances the job to its terminal failed state.</li>
+</ul>
+<h3 id="retry-configuration">Retry configuration<a class="headerlink" href="#retry-configuration" title="Permanent link">¶</a></h3>
+<p>Retry behavior is currently uniform across all step types, configured globally under <code>retry</code> in <code>config.yaml</code> (<code>maxRetries</code>, <code>retryDelayInMs</code>, <code>retryExponent</code>). This is simpler to operate and reason about than per-step-type policies, at the cost of not being able to tune, say, LLM-generation retries differently from document-update retries.</p>
+<h2 id="scaling-performance-high-availability">Scaling, Performance &amp; High Availability<a class="headerlink" href="#scaling-performance-high-availability" title="Permanent link">¶</a></h2>
+<h3 id="horizontal-worker-scaling">Horizontal worker scaling<a class="headerlink" href="#horizontal-worker-scaling" title="Permanent link">¶</a></h3>
+<p>Because the queue lives in PostgreSQL and claims use row-level locking, horizontal scaling is just "run more worker processes" — there's no shared in-memory state to coordinate, no leader election, and no sticky routing. Each <code>step_processor</code> instance independently claims a batch of <code>waiting</code> steps; Postgres guarantees no two workers claim the same row. This is why the all-in-one vs. separate-workers deployment split (described in the installation guides) exists at all: splitting workers out of the API process lets you scale worker replica count independently of API replica count, and isolate worker resource usage (CPU/memory spent rendering prompts, waiting on Ollama, talking to Paperless) from the API's request-handling resources.</p>
+<p>The trade-off of database-as-queue is that scaling workers also scales load on PostgreSQL — every claim, status update, and retry check is a query. Throughput is ultimately bounded by what the database can sustain for that churn, not by worker count alone, which is why connection pooling and database tuning matter more here than they would with an external broker absorbing that load.</p>
+<h3 id="vertical-scaling">Vertical scaling<a class="headerlink" href="#vertical-scaling" title="Permanent link">¶</a></h3>
+<p>Within a single worker instance, throughput can be tuned via <code>workers.stepExecution.batchSize</code> (more steps claimed per poll cycle) and <code>workers.stepExecution.pollIntervalMs</code> (shorter intervals mean lower latency but more frequent queries). These two knobs trade database load against processing latency directly — a larger batch size amortizes per-poll overhead but increases the time a single claim transaction holds locks; a shorter poll interval reduces the time documents sit <code>waiting</code> but increases query volume against the <code>steps</code> table.</p>
+<h3 id="database-scaling-considerations">Database scaling considerations<a class="headerlink" href="#database-scaling-considerations" title="Permanent link">¶</a></h3>
+<p>Because PostgreSQL is both the system of record and the queue, its connection pool is a shared resource between API request handling and every worker poller. Read replicas can offload reporting-style queries (e.g. dashboard stats, audit log browsing) without competing with the write-heavy claim/update traffic on the primary, and partitioning becomes relevant once the <code>steps</code> or <code>document_actions</code> tables grow large enough that index maintenance or vacuum overhead becomes noticeable — neither is needed at small scale, but both are available levers as job volume grows.</p>
+<h3 id="high-availability">High availability<a class="headerlink" href="#high-availability" title="Permanent link">¶</a></h3>
+<p>High availability for this system has two largely independent dimensions: the API tier and the worker tier. The API tier is stateless per-request (aside from the JWT-based auth context), so running multiple API replicas behind a load balancer with health checks is enough to tolerate individual instance failure — there's no session affinity to worry about. The worker tier is HA almost by construction: because workers coordinate purely through database row locks rather than through each other, losing a worker process mid-step does not corrupt state — the stuck-step detector will eventually notice the abandoned <code>in_progress</code> step and recover it, and any other running worker can pick up newly <code>waiting</code> work immediately.</p>
+<p>The dimension that genuinely needs deliberate HA design is PostgreSQL itself, since both the API and every worker depend on it being reachable: a primary/replica setup with automated failover removes it as a single point of failure, and synchronous replication is the option that trades a little write latency for not losing committed jobs/steps if the primary fails. Because Paperless-LLM treats the database as its queue as well as its system of record, database downtime stops both new job intake and all in-flight step processing — there's no buffering tier in front of it to ride out an outage, which makes database HA more load-bearing here than it would be in an architecture with a separate message broker.</p>
+<h2 id="key-design-decisions">Key Design Decisions<a class="headerlink" href="#key-design-decisions" title="Permanent link">¶</a></h2>
+<h3 id="polling-vs-message-queue">Polling vs. message queue<a class="headerlink" href="#polling-vs-message-queue" title="Permanent link">¶</a></h3>
+<p><strong>Decision:</strong> poll PostgreSQL instead of running a dedicated message broker (Bull, RabbitMQ, SQS).</p>
+<p><strong>Rationale:</strong> a single source of truth shared with the business data, transactional consistency between queue state and domain state, no extra infrastructure to deploy or operate, and throughput that comfortably covers expected document-processing volumes.</p>
+<p><strong>Trade-off:</strong> higher database load and second-scale latency rather than millisecond-scale latency — acceptable given documents are processed in the background, not on a user-facing request path.</p>
+<h3 id="step-based-workflow-decomposition">Step-based workflow decomposition<a class="headerlink" href="#step-based-workflow-decomposition" title="Permanent link">¶</a></h3>
+<p><strong>Decision:</strong> break each job into discrete, idempotent steps rather than executing a job as one monolithic operation.</p>
+<p><strong>Rationale:</strong> clear pause/resume boundaries (e.g. waiting for approval), independent retry per step instead of re-running an entire job on any failure, a step-level audit trail, and steps that are testable in isolation.</p>
+<h3 id="external-then-transactional-pattern">External-then-transactional pattern<a class="headerlink" href="#external-then-transactional-pattern" title="Permanent link">¶</a></h3>
+<p><strong>Decision:</strong> always call Ollama/Paperless outside of a database transaction, and persist results in a separate, short transaction.</p>
+<p><strong>Rationale:</strong> prevents long-held database connections while waiting on slow external calls, allows other workers to keep processing concurrently, and isolates external-service failures from database transaction state.</p>
+<p><strong>Consequence:</strong> requires external operations to be safely retryable/idempotent, since a crash between the external call and the follow-up transaction means the step will be retried.</p>
+<h3 id="explicit-transaction-context">Explicit transaction context<a class="headerlink" href="#explicit-transaction-context" title="Permanent link">¶</a></h3>
+<p><strong>Decision:</strong> require an explicitly created and started transaction context for any repository access — no implicit auto-commit.</p>
+<p><strong>Rationale:</strong> transactional scope is visible at every call site, repository access is type-safe and bound to the active context, and concurrent behavior is easier to reason about than with an ORM that begins/commits transactions implicitly.</p>
+<h3 id="generic-worker-poller-reused-across-job-types">Generic worker poller reused across job types<a class="headerlink" href="#generic-worker-poller-reused-across-job-types" title="Permanent link">¶</a></h3>
+<p><strong>Decision:</strong> implement one <code>WorkerExecutor</code> class with adaptive timing and self-recording execution history, and instantiate it per worker responsibility (step processing, stuck-step recovery, entity sync, document auto-queue) rather than writing bespoke polling loops for each.</p>
+<p><strong>Rationale:</strong> consistent operational behavior (timing, error handling, observability via <code>worker_executions</code>) across very different background jobs, and new periodic workers can be added by supplying a work function and an interval rather than reimplementing scheduling.</p>
+<h3 id="uniform-retry-configuration">Uniform retry configuration<a class="headerlink" href="#uniform-retry-configuration" title="Permanent link">¶</a></h3>
+<p><strong>Decision:</strong> apply one global retry policy (<code>maxRetries</code>, <code>retryDelayInMs</code>, <code>retryExponent</code>) across all step types rather than per-step-type policies.</p>
+<p><strong>Rationale:</strong> simpler configuration surface and consistent, predictable backoff behavior system-wide.</p>
+<p><strong>Possible future direction:</strong> per-step-type retry configuration, if different step types (e.g. LLM calls vs. document updates) turn out to need meaningfully different retry tuning.</p>
+</article>
+</div>
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+</div>
+<button class="md-top md-icon" data-md-component="top" hidden="" type="button">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"></path></svg>
+  Back to top
+</button>
+</main>
+<footer class="md-footer">
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+      Material for MkDocs
+    </a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.sections", "navigation.top", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+<script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+<script type="module">import mermaid from "https://unpkg.com/mermaid@10.4.0/dist/mermaid.esm.min.mjs";
+window.mermaidConfig = {default: {
+    startOnLoad: false
+}};</script><script>document$.subscribe(() => {
+            const dark_scheme_name = "slate"
+            
+            window.scheme = document.body.getAttribute("data-md-color-scheme")
+            const options = {
+                attributeFilter: ['data-md-color-scheme'],
+            };
+            function color_scheme_callback(mutations) {
+                for (let mutation of mutations) {
+                    if (mutation.attributeName === "data-md-color-scheme") {
+                        scheme = document.body.getAttribute("data-md-color-scheme")
+                        var iframe_list = document.getElementsByClassName("redoc-iframe")
+                        for(var i = 0; i < iframe_list.length; i++) {
+                            var ele = iframe_list.item(i);
+                            if (ele) {
+                                if (scheme === dark_scheme_name) {
+                                    ele.contentWindow.enable_dark_mode();
+                                } else {
+                                    ele.contentWindow.disable_dark_mode();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            observer = new MutationObserver(color_scheme_callback);
+            observer.observe(document.body, options);
+            })</script></body>
+</html>
