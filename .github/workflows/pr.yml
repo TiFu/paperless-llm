@@ -19,8 +19,12 @@ jobs:
   tests:
     uses: ./.github/workflows/tests.yml
 
+  e2e:
+    needs: [commitlint, tests]
+    uses: ./.github/workflows/e2e.yml
+
   docker:
-    needs: tests
+    needs: [tests, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -99,7 +103,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   docs:
-    needs: tests
+    needs: [tests, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -135,7 +139,7 @@ jobs:
         run: mkdocs build --strict
 
   helm:
-    needs: tests
+    needs: [tests, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read
