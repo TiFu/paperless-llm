@@ -1,0 +1,68 @@
+# config.yaml for docker-compose.e2e.yml — used by the e2e/ Playwright suite
+# and the `e2e` CI job. Hosts point at compose service names (bridge network).
+# Only ever runs in throwaway containers, so secrets here are fixed placeholders.
+
+redis:
+  host: pllm-redis
+  port: 6379
+  username: ""
+  password: null
+  db: 0
+  ttlInSeconds: 300
+
+database:
+  host: pllm-postgres
+  port: 5432
+  username: paperless_llm
+  password: e2epassword
+  database: paperless_llm
+
+paperless:
+  url: http://paperless:8000
+  # Unused for document/tag operations — those always go through the
+  # per-user token captured at login time (see server/src/infrastructure/UoW.ts).
+  # Only needs to be a non-empty string to pass config validation.
+  token: e2e-placeholder
+  tags: e2e-process
+
+llm:
+  url: http://stub-llm:80
+  model: stub-model
+  temperature: 0
+  timeoutMs: 10000
+
+workers:
+  instanceId: null
+  stepExecution:
+    batchSize: 5
+    pollIntervalMs: 1000
+  stuckStepReset:
+    timeoutMs: 300000
+    checkIntervalMs: 30000
+  entitySync:
+    pollIntervalMs: 900000
+  autoQueue:
+    enabled: true
+    pollIntervalMs: 3000
+    workflowType: automated
+    tag: e2e-process
+    fields:
+      - tags
+
+logging:
+  level: debug
+  pretty: true
+
+api:
+  port: 3000
+  corsOrigins:
+    - "*"
+
+auth:
+  jwtSecret: e2e-jwt-secret-not-for-production
+  jwtExpiresIn: 8h
+
+retry:
+  maxRetries: 3
+  retryDelayInMs: 1000
+  retryExponent: 2
