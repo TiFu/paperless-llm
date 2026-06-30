@@ -55,6 +55,20 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm run test:unit -- --passWithNoTests
+      - name: Start Paperless
+        run: docker compose -f ../docker/docker-compose.e2e.yml up -d paperless
+      - name: Wait for Paperless health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000 > /dev/null; then
+              echo "Paperless is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Paperless did not become healthy in time"
+          docker compose -f ../docker/docker-compose.e2e.yml logs paperless
+          exit 1
       - run: npm run test:integration -- --passWithNoTests
         env:
           DB_HOST: localhost
@@ -62,6 +76,12 @@ jobs:
           DB_USER: paperless_llm
           DB_PASSWORD: testpassword
           DB_NAME: paperless_llm_test
+          PAPERLESS_URL: http://localhost:8000
+          PAPERLESS_ADMIN_USER: admin
+          PAPERLESS_ADMIN_PASSWORD: admin
+      - name: Tear down Paperless
+        if: always()
+        run: docker compose -f ../docker/docker-compose.e2e.yml down -v
 
   frontend:
     runs-on: ubuntu-latest

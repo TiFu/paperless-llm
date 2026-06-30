@@ -1,0 +1,76 @@
+# Dependencies for `npm run test:integration` (server/tests/integration/):
+# a throwaway Postgres for the repository tests, and a real paperless-ngx
+# instance (mirroring docker-compose.e2e.yml's `paperless` service, but
+# without the rest of the e2e stack — no frontend/server/stub-llm) for the
+# PaperlessService tests. Credentials/ports match the defaults baked into
+# tests/integration/helpers/dbConfig.ts and paperlessClient.ts, so the test
+# suite needs no env vars when run against this file.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.integration-test.yml up -d --wait
+#   cd server && npm run test:integration
+#   docker compose -f docker/docker-compose.integration-test.yml down -v
+#
+# Explicit project name, same reasoning as docker-compose.e2e.yml: avoids
+# Compose treating this as the same project as the other compose files in
+# this directory, which reuse the same service names (paperless, etc.).
+name: paperless-llm-integration-test
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: paperless_llm
+      POSTGRES_PASSWORD: testpassword
+      POSTGRES_DB: paperless_llm_test
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless_llm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  paperless-postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: paperless
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  paperless-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      paperless-postgres:
+        condition: service_healthy
+      paperless-redis:
+        condition: service_started
+    environment:
+      PAPERLESS_REDIS: redis://paperless-redis:6379
+      PAPERLESS_DBHOST: paperless-postgres
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_DBPASS: paperless
+      PAPERLESS_ADMIN_USER: admin
+      PAPERLESS_ADMIN_PASSWORD: admin
+      PAPERLESS_URL: http://localhost:8000
+      PAPERLESS_CSRF_TRUSTED_ORIGINS: http://localhost:8000
+      PAPERLESS_ALLOWED_HOSTS: localhost,127.0.0.1,paperless
+      PAPERLESS_SECRET_KEY: integration-test-secret-key
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
