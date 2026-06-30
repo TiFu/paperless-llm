@@ -1,5 +1,7 @@
 
 ## [0.1.0-alpha] - 2026-06-30
+
+## [0.1.0-alpha] - 2026-06-30
 # Changelog
 
 All notable changes to this project are documented here, grouped by release. Until the first tagged release, all changes are listed under **Unreleased**.
