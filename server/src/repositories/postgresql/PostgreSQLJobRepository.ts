@@ -161,6 +161,10 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
       return e.fields.map(f => [e.jobId, f]) as string[][];
     }).flat(1);
 
+    if (paramArray.length === 0) {
+      return;
+    }
+
     const values = paramArray.map((e, idx) => `($${2*idx+1}, $${2*idx+2})`).join(', ')
 
     const params = paramArray.flat()
