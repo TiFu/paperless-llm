@@ -11,8 +11,12 @@ jobs:
   tests:
     uses: ./.github/workflows/tests.yml
 
-  docker:
+  e2e:
     needs: tests
+    uses: ./.github/workflows/e2e.yml
+
+  docker:
+    needs: [tests, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -81,7 +85,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   docs:
-    needs: tests
+    needs: [tests, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -153,7 +157,7 @@ jobs:
         run: mike set-default --push latest
 
   helm:
-    needs: tests
+    needs: [tests, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read
