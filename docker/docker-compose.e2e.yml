@@ -1,0 +1,128 @@
+# Full-stack environment for the e2e/ Playwright suite (and the `e2e` CI job):
+# real paperless-ngx, real server/frontend production images, plus a stub LLM
+# server standing in for Ollama so runs are fast and deterministic.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.e2e.yml up -d --build
+#   cd e2e && npm ci && npx playwright install --with-deps chromium && npm test
+#   docker compose -f docker/docker-compose.e2e.yml down -v
+#
+# Explicit project name: docker-compose.dev.yml and docker-compose.local.yml
+# reuse the same service names (pllm-postgres, paperless, etc.) and, like this
+# file, don't set `name:` themselves — without this, Compose defaults every
+# file in this directory to the same project and will recreate (i.e. replace)
+# whichever one of them is currently running.
+name: paperless-llm-e2e
+
+services:
+  pllm-postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: paperless_llm
+      POSTGRES_USER: paperless_llm
+      POSTGRES_PASSWORD: e2epassword
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless_llm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pllm-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  paperless-postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: paperless
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  paperless-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      paperless-postgres:
+        condition: service_healthy
+      paperless-redis:
+        condition: service_started
+    environment:
+      PAPERLESS_REDIS: redis://paperless-redis:6379
+      PAPERLESS_DBHOST: paperless-postgres
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_DBPASS: paperless
+      PAPERLESS_ADMIN_USER: admin
+      PAPERLESS_ADMIN_PASSWORD: admin
+      PAPERLESS_URL: http://localhost:8000
+      PAPERLESS_CSRF_TRUSTED_ORIGINS: http://localhost:8000
+      PAPERLESS_ALLOWED_HOSTS: localhost,127.0.0.1,paperless
+      PAPERLESS_SECRET_KEY: e2e-secret-key
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  stub-llm:
+    image: node:20-alpine
+    command: ["node", "/stub/server.mjs"]
+    environment:
+      PORT: "80"
+    volumes:
+      - ../e2e/stub-llm:/stub:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:80"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: ..
+      dockerfile: docker/server.Dockerfile
+    image: paperless-llm-server:e2e
+    depends_on:
+      pllm-postgres:
+        condition: service_healthy
+      pllm-redis:
+        condition: service_started
+      paperless:
+        condition: service_healthy
+      stub-llm:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./e2e-config.yaml:/config.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    image: paperless-llm-frontend:e2e
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    environment:
+      # Browser-facing URL — the host's published port, since Playwright's
+      # browser runs on the host, not inside the compose network.
+      API_BASE_URL: http://localhost:3000/api
