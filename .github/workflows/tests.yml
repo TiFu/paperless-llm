@@ -87,6 +87,7 @@ jobs:
       - run: npm run lint
 
   e2e:
+    needs: [server, frontend]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
