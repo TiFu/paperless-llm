@@ -1,0 +1,5 @@
+mkdocs==1.6.*
+mkdocs-material==9.7.*
+mkdocs-mermaid2-plugin==1.2.*
+mkdocs-redoc-tag==0.2.*
+mike==2.*

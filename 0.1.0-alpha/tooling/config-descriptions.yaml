@@ -1,0 +1,146 @@
+# Hand-curated descriptions/defaults for each config.yaml field, keyed by the
+# dotted path from the AppConfig class property through any nested *Config
+# interfaces down to the leaf field. docs/tooling/generate-config-docs.ts
+# cross-references this against server/src/config/AppConfig.ts and fails if a
+# field here is missing or stale relative to the source.
+#
+# "required" reflects what config.yaml must supply: whole sections (retry,
+# workers.stuckStepReset, workers.entitySync, workers.autoQueue) can be
+# omitted entirely, in which case every field in them falls back to its
+# default below.
+
+redis.host:
+  required: true
+  description: Redis host used for caching Paperless API responses.
+redis.port:
+  required: true
+  description: Redis port.
+redis.username:
+  required: true
+  description: Redis username (use an empty string if your Redis instance has no ACL user configured).
+redis.password:
+  required: true
+  description: Redis password (use an empty string if your Redis instance has no auth configured).
+redis.db:
+  required: true
+  description: Redis logical database index.
+redis.ttlInSeconds:
+  required: true
+  description: How long cached Paperless API responses are kept in Redis before they're refetched.
+
+database.host:
+  required: true
+  description: PostgreSQL host.
+database.port:
+  required: true
+  description: PostgreSQL port.
+database.username:
+  required: true
+  description: PostgreSQL username.
+database.password:
+  required: true
+  description: PostgreSQL password.
+database.database:
+  required: true
+  description: PostgreSQL database name.
+
+workers.instanceId:
+  required: false
+  default: "`unified-worker-<timestamp>`"
+  description: Identifier for this worker process. Currently only used to label log lines — auto-generated if omitted or null.
+workers.stepExecution.batchSize:
+  required: true
+  description: Number of steps a single poll cycle claims and processes at once.
+workers.stepExecution.pollIntervalMs:
+  required: true
+  description: How often the step-processing poller checks for newly claimable steps. Must be at least 100ms.
+workers.stuckStepReset.timeoutMs:
+  required: false
+  default: "300000 (5 minutes)"
+  description: Time a step can sit claimed without completing before the stuck-step reset poller considers it stuck and recovers it. Must be at least 1000ms.
+workers.stuckStepReset.checkIntervalMs:
+  required: false
+  default: "30000 (30 seconds)"
+  description: How often the stuck-step reset poller scans for stuck steps. Must be at least 1000ms.
+workers.entitySync.pollIntervalMs:
+  required: false
+  default: "900000 (15 minutes)"
+  description: How often the entity-sync poller refreshes cached tag/correspondent/document-type descriptions from Paperless.
+workers.autoQueue.enabled:
+  required: false
+  default: "false"
+  description: Enables the automatic document pickup queue, which periodically tag-checks Paperless and creates jobs without manual submission.
+workers.autoQueue.pollIntervalMs:
+  required: false
+  default: "60000 (60 seconds)"
+  description: How often the auto-queue poller checks Paperless for newly tagged documents. Must be at least 1000ms.
+workers.autoQueue.workflowType:
+  required: false
+  default: automated
+  description: "Workflow type to use for auto-created jobs: `automated` (no human approval) or `approval` (steps pause for review)."
+workers.autoQueue.tag:
+  required: false
+  default: llm-auto-process
+  description: Paperless tag used to identify documents that should be auto-picked-up. Must be non-empty.
+workers.autoQueue.fields:
+  required: false
+  default: "[\"title\"]"
+  description: Document fields the auto-queue should generate (e.g. `title`, `tags`) when it creates a job for a picked-up document.
+
+paperless.url:
+  required: true
+  description: Base URL of the Paperless-NGX instance to read/write documents from.
+paperless.token:
+  required: true
+  description: Paperless-NGX API token. Generate one from the Paperless-NGX admin UI under your user profile.
+paperless.tags:
+  required: false
+  description: Comma-separated Paperless tag(s) used as the default filter when listing documents to process.
+
+logging.level:
+  required: true
+  description: "Pino log level (e.g. `debug`, `info`, `warn`, `error`)."
+logging.pretty:
+  required: true
+  description: Enable human-readable pretty-printed logs instead of structured JSON. Useful for local development, should generally be `false` in production.
+
+llm.url:
+  required: true
+  description: Base URL of the Ollama (or Ollama-compatible) LLM server.
+llm.model:
+  required: true
+  description: Model name to request from the LLM server (e.g. `qwen3:4b`, `llama3`).
+llm.temperature:
+  required: true
+  description: Sampling temperature passed to the LLM. Must be between 0 and 2.
+llm.timeoutMs:
+  required: true
+  description: Request timeout for a single LLM call before it's treated as failed.
+
+api.port:
+  required: true
+  description: Port the Express API server listens on.
+api.corsOrigins:
+  required: true
+  description: List of allowed CORS origins for the API (use `["*"]` to allow any origin, e.g. in local development).
+
+retry.maxRetries:
+  required: false
+  default: "3"
+  description: Maximum retry attempts for an automated step, or for a step reset by the stuck-step poller, before it's surfaced as a fallout.
+retry.retryDelayInMs:
+  required: false
+  default: "30000 (30 seconds)"
+  description: Base delay before the first retry; subsequent retries back off exponentially from this value.
+retry.retryExponent:
+  required: false
+  default: "2"
+  description: "Exponential backoff multiplier applied per retry attempt (delay = retryDelayInMs * retryExponent^attempt)."
+
+auth.jwtSecret:
+  required: true
+  description: Secret used to sign and verify login JWTs. Must be a long, random value — never reuse the example/default.
+auth.jwtExpiresIn:
+  required: false
+  default: "8h"
+  description: "JWT expiry duration, in [jsonwebtoken](https://github.com/auth0/node-jsonwebtoken) `expiresIn` format (e.g. `8h`, `30m`)."
