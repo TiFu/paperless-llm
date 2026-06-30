@@ -1,0 +1,145 @@
+name: Master
+
+on:
+  push:
+    branches: [master]
+
+env:
+  HELM_VERSION: '3.17.3'
+
+jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
+  docker:
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Dockerfiles
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/server.Dockerfile
+      - name: Lint frontend Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/frontend.Dockerfile
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Server image metadata
+        id: meta-server
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/paperless-llm-server
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=semver,pattern={{version}}
+
+      - name: Build and push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/server.Dockerfile
+          push: true
+          tags: ${{ steps.meta-server.outputs.tags }}
+          labels: ${{ steps.meta-server.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Frontend image metadata
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/paperless-llm-frontend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=semver,pattern={{version}}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/frontend.Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  docs:
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: npm ci
+
+      - name: Install server deps (TypeDoc type-checks server/src)
+        working-directory: server
+        run: npm ci && npm run generate:api
+
+      - name: Install frontend deps (TypeDoc type-checks frontend/src)
+        working-directory: frontend
+        run: npm ci && npm run generate:api
+
+      - name: Check generated configuration.md is up to date
+        run: npm run docs:check-config
+
+      - name: Install docs Python requirements
+        run: pip install -r docs/requirements.txt
+
+      - name: Build docs site
+        run: mkdocs build --strict
+
+  helm:
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - run: helm dependency update helm/paperless-llm
+
+      - run: helm lint helm/paperless-llm
+
+      - name: Render sanity check
+        run: |
+          helm template ci helm/paperless-llm \
+            --set server.image.repository=ghcr.io/${{ github.repository_owner }}/paperless-llm-server \
+            --set frontend.image.repository=ghcr.io/${{ github.repository_owner }}/paperless-llm-frontend \
+            --set server.config.auth.jwtSecret=ci-placeholder \
+            --set server.config.paperless.token=ci-placeholder
+
+      - name: Package chart
+        run: |
+          mkdir -p .out
+          helm package helm/paperless-llm --destination .out

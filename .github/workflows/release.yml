@@ -1,0 +1,193 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+env:
+  HELM_VERSION: '3.17.3'
+
+jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
+  docker:
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Dockerfiles
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/server.Dockerfile
+      - name: Lint frontend Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/frontend.Dockerfile
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Server image metadata
+        id: meta-server
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/paperless-llm-server
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=semver,pattern={{version}}
+
+      - name: Build and push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/server.Dockerfile
+          push: true
+          tags: ${{ steps.meta-server.outputs.tags }}
+          labels: ${{ steps.meta-server.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Frontend image metadata
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/paperless-llm-frontend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=semver,pattern={{version}}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/frontend.Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  docs:
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: npm ci
+
+      - name: Install server deps (TypeDoc type-checks server/src)
+        working-directory: server
+        run: npm ci && npm run generate:api
+
+      - name: Install frontend deps (TypeDoc type-checks frontend/src)
+        working-directory: frontend
+        run: npm ci && npm run generate:api
+
+      - name: Check generated configuration.md is up to date
+        run: npm run docs:check-config
+
+      - name: Install docs Python requirements
+        run: pip install -r docs/requirements.txt
+
+      - name: Configure git identity for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install git-cliff
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
+
+      - name: Generate changelog entry
+        run: git-cliff --tag "${{ steps.version.outputs.version }}" --unreleased --prepend docs/changelog.md --config cliff.toml
+
+      - name: Commit changelog
+        run: |
+          if grep -qF "## [${{ steps.version.outputs.version }}]" docs/changelog.md; then
+            git add docs/changelog.md
+            git commit -m "docs(changelog): add ${{ steps.version.outputs.version }} release notes"
+            git push origin HEAD:master
+          else
+            echo "No conventional commits since the last tag; skipping changelog commit."
+            git checkout -- docs/changelog.md
+          fi
+
+      - name: Build docs site
+        run: mkdocs build --strict
+
+      - name: Deploy versioned docs with mike
+        run: mike deploy --push --update-aliases "${{ steps.version.outputs.version }}" latest
+
+      - name: Set default docs version
+        run: mike set-default --push latest
+
+  helm:
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - run: helm dependency update helm/paperless-llm
+
+      - run: helm lint helm/paperless-llm
+
+      - name: Render sanity check
+        run: |
+          helm template ci helm/paperless-llm \
+            --set server.image.repository=ghcr.io/${{ github.repository_owner }}/paperless-llm-server \
+            --set frontend.image.repository=ghcr.io/${{ github.repository_owner }}/paperless-llm-frontend \
+            --set server.config.auth.jwtSecret=ci-placeholder \
+            --set server.config.paperless.token=ci-placeholder
+
+      - name: Package chart
+        run: |
+          mkdir -p .out
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          helm package helm/paperless-llm --destination .out --version "$VERSION" --app-version "$VERSION"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push chart to GHCR
+        run: helm push .out/paperless-llm-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
