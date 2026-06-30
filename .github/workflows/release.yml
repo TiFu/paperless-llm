@@ -172,11 +172,15 @@ jobs:
 
       - run: helm lint helm/paperless-llm
 
+      - name: Lowercase repository owner
+        id: owner
+        run: echo "name=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Render sanity check
         run: |
           helm template ci helm/paperless-llm \
-            --set server.image.repository=ghcr.io/${{ github.repository_owner }}/paperless-llm-server \
-            --set frontend.image.repository=ghcr.io/${{ github.repository_owner }}/paperless-llm-frontend \
+            --set server.image.repository=ghcr.io/${{ steps.owner.outputs.name }}/paperless-llm-server \
+            --set frontend.image.repository=ghcr.io/${{ steps.owner.outputs.name }}/paperless-llm-frontend \
             --set server.config.auth.jwtSecret=ci-placeholder \
             --set server.config.paperless.token=ci-placeholder
 
@@ -194,4 +198,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push chart to GHCR
-        run: helm push .out/paperless-llm-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+        run: helm push .out/paperless-llm-*.tgz oci://ghcr.io/${{ steps.owner.outputs.name }}/charts
