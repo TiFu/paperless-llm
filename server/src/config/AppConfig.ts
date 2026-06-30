@@ -297,7 +297,7 @@ export class AppConfig {
     if (!config.database!.username || !config.database!.password) {
       throw new Error('Missing required database credentials');
     }
-    if (!config.paperless!.url || !config.paperless!.token) {
+    if (!config.paperless!.url) {
       throw new Error('Missing required Paperless configuration');
     }
     if (!config.auth?.jwtSecret) {
