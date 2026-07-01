@@ -4,13 +4,13 @@
 // .js file and fail, so this strips the suffix and lets moduleFileExtensions
 // (which lists "ts" first) resolve to the real .ts file instead.
 const moduleNameMapper = {
-  // src/utils/logger.ts requires a full AppConfig and writes a log file as a
-  // side effect of initializeLogger() — swap in a silent test double instead.
-  // Must come before the generic .js-stripper below since Jest uses the
-  // first matching pattern.
-  '.*/utils/logger\\.js$': '<rootDir>/tests/helpers/loggerMock.ts',
   '^(\\.{1,2}/.*)\\.js$': '$1',
 };
+
+// Stands up the real logger (see tests/helpers/initTestLogger.ts) so
+// getLogger()/createChildLogger() work in every test file without a
+// hand-maintained double.
+const setupFilesAfterEnv = ['<rootDir>/tests/helpers/initTestLogger.ts'];
 
 // Root tsconfig.json excludes "tests" and only lists "node" in `types`, so
 // test files (which use Jest's ambient describe/it/expect globals) need this
@@ -55,6 +55,7 @@ module.exports = {
       testEnvironment: 'node',
       moduleNameMapper,
       transform,
+      setupFilesAfterEnv,
     },
     {
       displayName: 'integration',
@@ -64,7 +65,7 @@ module.exports = {
       moduleNameMapper,
       transform,
       globalSetup: '<rootDir>/tests/integration/helpers/globalSetup.ts',
-      setupFilesAfterEnv: ['<rootDir>/tests/integration/helpers/jestSetup.ts'],
+      setupFilesAfterEnv: [...setupFilesAfterEnv, '<rootDir>/tests/integration/helpers/jestSetup.ts'],
     },
   ],
 };

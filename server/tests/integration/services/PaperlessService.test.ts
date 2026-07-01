@@ -32,7 +32,7 @@ describe('PaperlessService (integration)', () => {
 
   beforeAll(async () => {
     token = await paperlessLogin(PAPERLESS_ADMIN_USER, PAPERLESS_ADMIN_PASSWORD);
-    service = new PaperlessService({ url: PAPERLESS_URL, token, tags: 'integration-test-processing' });
+    service = new PaperlessService({ url: PAPERLESS_URL, token, tags: 'integration-test-processing', autoProcessTags: ['integration-auto-test-processing'] });
   });
 
   beforeEach(() => {
@@ -228,12 +228,18 @@ describe('PaperlessService (integration)', () => {
     it('removeProcessingTag removes the configured processing tag', async () => {
       const processingTagName = 'integration-test-processing';
       const processingTagId = await seedTag(processingTagName);
-      const documentId = await seedDocument(uniqueName('Integration Test Document'), [processingTagId]);
+
+      const processingTagName2 = 'integration-auto-test-processing';
+      const processingTagId2 = await seedTag(processingTagName2);
+
+      const documentId = await seedDocument(uniqueName('Integration Test Document'), [processingTagId, processingTagId2]);
+
 
       await service.removeProcessingTag(documentId);
 
       const doc = await service.getDocument(documentId);
       expect(doc.tags).not.toContain(processingTagName);
+      expect(doc.tags).not.toContain(processingTagName2);
     });
   });
 });

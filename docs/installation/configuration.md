@@ -94,6 +94,7 @@ If a worker process dies or hangs mid-step, the step stays claimed. The stuck-st
 | `url` | `string` | Yes | - | Base URL of the Paperless-NGX instance to read/write documents from. |
 | `token` | `string` | Yes | - | Paperless-NGX API token. Generate one from the Paperless-NGX admin UI under your user profile. |
 | `tags` | `string` | No | - | Comma-separated Paperless tag(s) used as the default filter when listing documents to process. |
+| `autoProcessTags` | `string[]` | No | [] | Tag(s) considered to mark a document as auto-processed, in addition to `workers.autoQueue.tag`. Used to detect and clean up auto-processing tags on documents. Accepts a single string or a list of strings. |
 
 ### `logging`
 
