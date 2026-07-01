@@ -33,6 +33,7 @@ config:
     url: http://paperless.example.com
     token: ""
     tags: llm-process
+    autoProcessTags: []   # Extra tags to remove after processing (autoQueue.tag is always included automatically)
   llm:
     url: http://ollama.example.com:11434
     model: llama3
@@ -51,7 +52,7 @@ config:
     autoQueue:
       enabled: false
       pollIntervalMs: 60000
-      workflowType: automated
+      workflowType: approval
       tag: llm-auto-process
   logging:
     level: info

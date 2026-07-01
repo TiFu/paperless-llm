@@ -4,7 +4,7 @@ import { PaperlessConfig, RedisConfig } from '../../../src/config/AppConfig.js';
 import { DMSCacheService, DMSSerializers } from '../../../src/services/CacheService.js';
 import { CachedPaperlessServiceAdapter } from '../../../src/services/CachedPaperlessServiceAdapter.js';
 
-const paperlessConfig: PaperlessConfig = { url: 'https://paperless.example.com', token: 'system-token' };
+const paperlessConfig: PaperlessConfig = { url: 'https://paperless.example.com', token: 'system-token', autoProcessTags: [] };
 const redisConfig: RedisConfig = { host: 'localhost', port: 6379, username: '', password: '', db: 0, ttlInSeconds: 60 };
 
 function makeFakeContext(): DBContextWithRepositoryFactory {
