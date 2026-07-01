@@ -39,6 +39,7 @@ export interface PaperlessConfig {
   readonly url: string;
   readonly token: string;
   readonly tags?: string;
+  readonly autoProcessTags: string[];
 }
 
 /**
@@ -136,7 +137,7 @@ export interface AutoQueueConfig {
  */
 interface RawConfig {
   database: DatabaseConfig;
-  paperless: PaperlessConfig;
+  paperless: Omit<PaperlessConfig, 'autoProcessTags'> & { autoProcessTags?: string | string[] };
   llm: LLMConfig;
   auth: {
     jwtSecret: string;
@@ -196,7 +197,16 @@ export class AppConfig {
     // Database Configuration
     this.database = rawConfig.database;
 
-    this.paperless = rawConfig.paperless;
+    const explicitAutoProcessTags = rawConfig.paperless.autoProcessTags
+      ? (Array.isArray(rawConfig.paperless.autoProcessTags)
+          ? rawConfig.paperless.autoProcessTags
+          : [rawConfig.paperless.autoProcessTags])
+      : [];
+    const autoQueueTag = rawConfig.workers.autoQueue?.tag ?? 'llm-auto-process';
+    this.paperless = {
+      ...rawConfig.paperless,
+      autoProcessTags: [...new Set([...explicitAutoProcessTags, autoQueueTag])],
+    };
     this.logging = rawConfig.logging;
     this.llm = rawConfig.llm;
     this.api = rawConfig.api;

@@ -545,13 +545,12 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
    * Uses the configured processing tag
    */
   async removeProcessingTag(documentId: number): Promise<void> {
-    const processingTag = this.paperlessConfig.tags;
-    if (!processingTag) {
-      // No processing tag configured, nothing to remove
-      return;
-    }
-    
-    await this.removeTagsFromDocument(documentId, [processingTag]);
+    const tags = [
+      ...(this.paperlessConfig.tags ? [this.paperlessConfig.tags] : []),
+      ...this.paperlessConfig.autoProcessTags,
+    ];
+    if (tags.length === 0) return;
+    await this.removeTagsFromDocument(documentId, tags);
   }
 
   private async convertToIDocument(doc: PaperlessDocument): Promise<IDocument> {
