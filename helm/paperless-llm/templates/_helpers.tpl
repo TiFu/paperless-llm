@@ -1,33 +1,19 @@
-{{/*
-Resolved Postgres connection, using the bundled Bitnami subchart when enabled,
-otherwise falling back to externalDatabase.
-*/}}
-{{- define "paperless-llm.database.host" -}}
-{{- if .Values.postgresql.enabled }}{{ printf "%s-postgresql" .Release.Name }}{{- else }}{{ .Values.externalDatabase.host }}{{- end }}
-{{- end }}
+{{- define "paperless-llm.database.host" -}}{{ .Values.externalDatabase.host }}{{- end }}
+{{- define "paperless-llm.database.port" -}}{{ .Values.externalDatabase.port }}{{- end }}
+{{- define "paperless-llm.database.username" -}}{{ .Values.externalDatabase.username }}{{- end }}
+{{- define "paperless-llm.database.password" -}}{{ .Values.externalDatabase.password }}{{- end }}
+{{- define "paperless-llm.database.name" -}}{{ .Values.externalDatabase.database }}{{- end }}
 
-{{- define "paperless-llm.database.port" -}}
-{{- if .Values.postgresql.enabled }}5432{{- else }}{{ .Values.externalDatabase.port }}{{- end }}
-{{- end }}
-
-{{- define "paperless-llm.database.username" -}}
-{{- if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.username }}{{- else }}{{ .Values.externalDatabase.username }}{{- end }}
-{{- end }}
-
-{{- define "paperless-llm.database.password" -}}
-{{- if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.password }}{{- else }}{{ .Values.externalDatabase.password }}{{- end }}
-{{- end }}
-
-{{- define "paperless-llm.database.name" -}}
-{{- if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.database }}{{- else }}{{ .Values.externalDatabase.database }}{{- end }}
+{{- define "paperless-llm.redis.fullname" -}}
+{{- printf "%s-redis" .Release.Name -}}
 {{- end }}
 
 {{/*
-Resolved Redis connection, using the bundled Bitnami subchart when enabled,
+Resolved Redis connection, using the in-cluster deployment when enabled,
 otherwise falling back to externalRedis.
 */}}
 {{- define "paperless-llm.redis.host" -}}
-{{- if .Values.redis.enabled }}{{ printf "%s-redis-master" .Release.Name }}{{- else }}{{ .Values.externalRedis.host }}{{- end }}
+{{- if .Values.redis.enabled }}{{ include "paperless-llm.redis.fullname" . }}{{- else }}{{ .Values.externalRedis.host }}{{- end }}
 {{- end }}
 
 {{- define "paperless-llm.redis.port" -}}
@@ -39,7 +25,7 @@ otherwise falling back to externalRedis.
 {{- end }}
 
 {{- define "paperless-llm.redis.password" -}}
-{{- if .Values.redis.enabled }}{{ .Values.redis.auth.password }}{{- else }}{{ .Values.externalRedis.password }}{{- end }}
+{{- if .Values.redis.enabled }}{{- else }}{{ .Values.externalRedis.password }}{{- end }}
 {{- end }}
 
 {{- define "paperless-llm.redis.db" -}}

@@ -1,21 +1,9 @@
-# Optional in-cluster Postgres (Bitnami subchart). Disabled by default — point
-# externalDatabase at a pre-existing database instead.
-postgresql:
-  enabled: false
-  auth:
-    username: paperless_llm
-    password: ""
-    database: paperless_llm
-
-# Optional in-cluster Redis (Bitnami subchart). Disabled by default — point
+# Optional in-cluster Redis deployment. Disabled by default — point
 # externalRedis at a pre-existing Redis instead.
 redis:
   enabled: false
-  auth:
-    enabled: true
-    password: ""
+  resources: {}
 
-# Used when postgresql.enabled is false.
 externalDatabase:
   host: ""
   port: 5432
@@ -23,7 +11,6 @@ externalDatabase:
   password: ""
   database: paperless_llm
 
-# Used when redis.enabled is false.
 externalRedis:
   host: ""
   port: 6379
