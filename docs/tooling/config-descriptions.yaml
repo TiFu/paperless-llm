@@ -96,6 +96,10 @@ paperless.token:
 paperless.tags:
   required: false
   description: Comma-separated Paperless tag(s) used as the default filter when listing documents to process.
+paperless.autoProcessTags:
+  required: false
+  default: "[]"
+  description: "Tag(s) considered to mark a document as auto-processed, in addition to `workers.autoQueue.tag`. Used to detect and clean up auto-processing tags on documents. Accepts a single string or a list of strings."
 
 logging.level:
   required: true

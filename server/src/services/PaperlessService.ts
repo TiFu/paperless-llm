@@ -502,7 +502,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
   async removeTagsFromDocument(documentId: number, tagNames: string[]): Promise<void> {
     try {
       // Resolve tag names to IDs
-      const tagIds: number[] = [];
+      const tagIds: Set<number> = new Set<number>();;
       for (const tagName of tagNames) {
         const tagId = await this.resolveTagId(tagName);
         if (tagId === null) {
@@ -510,11 +510,11 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
           this.logger.warn({ tagName }, "Tag not found, skipping removal");
           continue;
         }
-        tagIds.push(tagId);
+        tagIds.add(tagId);
       }
 
       // If no valid tags to remove, exit early
-      if (tagIds.length === 0) {
+      if (tagIds.size === 0) {
         return;
       }
 
@@ -525,7 +525,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
         method: 'modify_tags',
         parameters: {
           add_tags: [],
-          remove_tags: tagIds
+          remove_tags: Array.from(tagIds)
         },
       });
     } catch (error) {
@@ -545,13 +545,12 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
    * Uses the configured processing tag
    */
   async removeProcessingTag(documentId: number): Promise<void> {
-    const processingTag = this.paperlessConfig.tags;
-    if (!processingTag) {
-      // No processing tag configured, nothing to remove
-      return;
-    }
-    
-    await this.removeTagsFromDocument(documentId, [processingTag]);
+    const tags = [
+      ...(this.paperlessConfig.tags ? [this.paperlessConfig.tags] : []),
+      ...this.paperlessConfig.autoProcessTags,
+    ];
+    if (tags.length === 0) return;
+    await this.removeTagsFromDocument(documentId, tags);
   }
 
   private async convertToIDocument(doc: PaperlessDocument): Promise<IDocument> {

@@ -1,7 +1,15 @@
 import pino from 'pino';
-import { AppConfig } from '../config/AppConfig.js';
+import { LoggingConfig, WorkersConfig } from '../config/AppConfig.js';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// Only the two config sections initializeLogger actually reads — kept
+// narrower than the full AppConfig so callers (e.g. tests) don't need to
+// assemble database/paperless/llm config just to stand up a logger.
+export interface LoggerConfig {
+  readonly logging: LoggingConfig;
+  readonly workers: Pick<WorkersConfig, 'instanceId'>;
+}
 
 let logger: pino.Logger;
 
@@ -56,12 +64,13 @@ function errorSerializer(err: unknown): unknown {
   return serialized;
 }
 
-export function initializeLogger(config: AppConfig, processName: string = 'server'): pino.Logger {
-  // Create log file in server directory
-  const logFilePath = path.join(process.cwd(), `dev-${processName}.log`);
-  const logFileStream = fs.createWriteStream(logFilePath, { flags: 'a' });
-
-  // Create streams for both console and file
+/**
+ * @param fileLogging Set false to skip the log-file stream (and the pino-pretty
+ * worker thread it implies). Tests set this to false — a fresh module registry
+ * per test file means initializeLogger runs repeatedly, and file streams /
+ * transport threads it opens are never closed, leaking handles across the run.
+ */
+export function initializeLogger(config: LoggerConfig, processName: string = 'server', fileLogging: boolean = true): pino.Logger {
   const streams: pino.StreamEntry[] = [
     // Console stream with pretty printing
     {
@@ -77,12 +86,15 @@ export function initializeLogger(config: AppConfig, processName: string = 'serve
           })
         : process.stdout,
     },
-    // File stream with JSON output
-    {
-      level: config.logging.level as pino.Level,
-      stream: logFileStream,
-    },
   ];
+
+  if (fileLogging) {
+    const logFilePath = path.join(process.cwd(), `dev-${processName}.log`);
+    streams.push({
+      level: config.logging.level as pino.Level,
+      stream: fs.createWriteStream(logFilePath, { flags: 'a' }),
+    });
+  }
 
   logger = pino(
     {
