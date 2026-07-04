@@ -40,6 +40,8 @@ If a worker process dies or hangs mid-step, the step stays claimed. The stuck-st
 | `password` | `string` | Yes | - | Redis password (use an empty string if your Redis instance has no auth configured). |
 | `db` | `number` | Yes | - | Redis logical database index. |
 | `ttlInSeconds` | `number` | Yes | - | How long cached Paperless API responses are kept in Redis before they're refetched. |
+| `reconnectBaseDelayMs` | `number` | No | 500 | Initial delay before retrying a failed Redis connection; subsequent retries back off exponentially (doubling) from this value. While disconnected, caching is skipped and requests pass through to Paperless. |
+| `reconnectMaxDelayMs` | `number` | No | 30000 (30 seconds) | Cap on the exponential backoff delay between Redis reconnection attempts. Reconnection retries forever, never giving up. |
 
 ### `database`
 

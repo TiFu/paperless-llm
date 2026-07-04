@@ -27,6 +27,14 @@ redis.db:
 redis.ttlInSeconds:
   required: true
   description: How long cached Paperless API responses are kept in Redis before they're refetched.
+redis.reconnectBaseDelayMs:
+  required: false
+  default: "500"
+  description: Initial delay before retrying a failed Redis connection; subsequent retries back off exponentially (doubling) from this value. While disconnected, caching is skipped and requests pass through to Paperless.
+redis.reconnectMaxDelayMs:
+  required: false
+  default: "30000 (30 seconds)"
+  description: Cap on the exponential backoff delay between Redis reconnection attempts. Reconnection retries forever, never giving up.
 
 database.host:
   required: true

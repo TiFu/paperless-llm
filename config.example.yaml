@@ -15,6 +15,10 @@ redis:
   password: null
   db: 0
   ttlInSeconds: 300
+  # If Redis is unreachable, the app keeps running with the cache disabled
+  # (pass-through to Paperless) and retries with exponential backoff forever.
+  reconnectBaseDelayMs: 500
+  reconnectMaxDelayMs: 30000
 
 paperless:
   url: http://localhost:8000
