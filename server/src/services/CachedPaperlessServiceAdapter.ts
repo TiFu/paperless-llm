@@ -164,12 +164,12 @@ export class CachedPaperlessServiceAdapter implements IDocumentManagementSystem 
   }
 
   async healthCheck(): Promise<boolean> {
-    // Check both Redis and Paperless
-    try {
-      await this.cache.ping();
-      return this.service.healthCheck();
-    } catch {
-      return false;
+    // Cache is a soft dependency: an unavailable Redis falls back to
+    // pass-through, so it must not fail the overall health check.
+    const cacheAvailable = await this.cache.ping();
+    if (!cacheAvailable) {
+      this.logger.warn('Redis cache unavailable, operating in pass-through mode');
     }
+    return this.service.healthCheck();
   }
 }

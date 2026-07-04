@@ -14,6 +14,8 @@ export interface RedisConfig {
   readonly password: string;
   readonly db: number;
   readonly ttlInSeconds: number;
+  readonly reconnectBaseDelayMs?: number;
+  readonly reconnectMaxDelayMs?: number;
 }
 
 /**
@@ -247,7 +249,11 @@ export class AppConfig {
     };
 
     // Redis Configuration (optional)
-    this.redis = rawConfig.redis;
+    this.redis = {
+      ...rawConfig.redis,
+      reconnectBaseDelayMs: rawConfig.redis.reconnectBaseDelayMs ?? 500, // Default: 500ms initial backoff
+      reconnectMaxDelayMs: rawConfig.redis.reconnectMaxDelayMs ?? 30000, // Default: cap backoff at 30s
+    };
 
     this.validate();
     this.validateLLMConfig();

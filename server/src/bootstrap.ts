@@ -61,9 +61,10 @@ export async function createAppContext(processName: string): Promise<AppContext>
 
   const txManager = new PostgresqlTransactionManager(pool);
   const dmsCacheService = new DMSCacheService(config.redis, DMSSerializers);
-  await dmsCacheService.connect();
-  await dmsCacheService.ping();
-  logger.info('Cache connection established');
+  // Cache is a soft dependency: connect() never throws (it retries forever
+  // in the background with exponential backoff), so this never blocks
+  // startup. Until it's ready, cache reads/writes just pass through.
+  void dmsCacheService.connect();
 
   const usersRepo = new PostgreSQLUsersRepository(pool);
 
