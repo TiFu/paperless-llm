@@ -41,12 +41,24 @@ export interface AutoProcessTagConfig {
 }
 
 /**
+ * A single auto-processing tag configuration: documents carrying `tag` in
+ * Paperless are picked up by the auto-queue and processed to generate
+ * `fields`, using `workflowType`.
+ */
+export interface AutoProcessTagConfig {
+  readonly tag: string;
+  readonly fields: DocumentField[];
+  readonly workflowType: WorkflowType;
+}
+
+/**
  * Paperless-NG configuration
  */
 export interface PaperlessConfig {
   readonly url: string;
   readonly token: string;
   readonly tags?: string;
+  readonly autoProcessTags: AutoProcessTagConfig[];
   readonly autoProcessTags: AutoProcessTagConfig[];
 }
 
@@ -133,6 +145,9 @@ export interface AuthConfig {
  * Automated document queue configuration. Which tags trigger auto-processing
  * (and which fields/workflowType they use) is configured via
  * paperless.autoProcessTags, not here.
+ * Automated document queue configuration. Which tags trigger auto-processing
+ * (and which fields/workflowType they use) is configured via
+ * paperless.autoProcessTags, not here.
  */
 export interface AutoQueueConfig {
   readonly enabled: boolean;
@@ -144,6 +159,9 @@ export interface AutoQueueConfig {
  */
 interface RawConfig {
   database: DatabaseConfig;
+  paperless: Omit<PaperlessConfig, 'autoProcessTags'> & {
+    autoProcessTags?: Array<{ tag: string; fields?: DocumentField[]; workflowType?: string }>;
+  };
   paperless: Omit<PaperlessConfig, 'autoProcessTags'> & {
     autoProcessTags?: Array<{ tag: string; fields?: DocumentField[]; workflowType?: string }>;
   };
@@ -208,8 +226,14 @@ export class AppConfig {
       fields: t.fields ?? [...DOCUMENT_FIELDS],
       workflowType: this.parseWorkflowType(t.workflowType) ?? WorkflowType.AUTOMATED,
     }));
+    const autoProcessTags: AutoProcessTagConfig[] = (rawConfig.paperless.autoProcessTags ?? []).map(t => ({
+      tag: t.tag,
+      fields: t.fields ?? [...DOCUMENT_FIELDS],
+      workflowType: this.parseWorkflowType(t.workflowType) ?? WorkflowType.AUTOMATED,
+    }));
     this.paperless = {
       ...rawConfig.paperless,
+      autoProcessTags,
       autoProcessTags,
     };
     this.logging = rawConfig.logging;
@@ -358,6 +382,20 @@ export class AppConfig {
     if (this.workers.autoQueue.pollIntervalMs < 1000) {
       throw new Error('workers.autoQueue.pollIntervalMs must be at least 1000ms');
     }
+
+    for (const { tag } of this.paperless.autoProcessTags) {
+      if (!tag || tag.trim().length === 0) {
+        throw new Error('paperless.autoProcessTags[].tag must be a non-empty string');
+      }
+    }
+    const tagNames = this.paperless.autoProcessTags.map(t => t.tag);
+    const duplicates = tagNames.filter((tag, index) => tagNames.indexOf(tag) !== index);
+    if (duplicates.length > 0) {
+      throw new Error(`paperless.autoProcessTags contains duplicate tag(s): ${[...new Set(duplicates)].join(', ')}`);
+    }
+
+    if (this.workers.autoQueue.enabled && this.paperless.autoProcessTags.length === 0) {
+      throw new Error('workers.autoQueue.enabled is true but paperless.autoProcessTags is empty');
 
     for (const { tag } of this.paperless.autoProcessTags) {
       if (!tag || tag.trim().length === 0) {
