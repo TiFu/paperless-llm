@@ -23,8 +23,10 @@ paperless:
   # then restart the server service with it set here.
   token: REPLACE_ME_AFTER_FIRST_PAPERLESS_LOGIN
   tags: llm-process
-  # autoProcessTags:        # Optional: extra tags to remove after processing (autoQueue.tag is always included automatically)
-  #   - llm-process
+  # Tags that trigger auto-processing when workers.autoQueue.enabled is true.
+  # fields defaults to all fields, workflowType defaults to automated.
+  # autoProcessTags:
+  #   - tag: llm-auto-process
 
 llm:
   url: http://host.docker.internal:11434
@@ -40,8 +42,6 @@ workers:
   autoQueue:
     enabled: false
     pollIntervalMs: 60000
-    workflowType: automated
-    tag: llm-auto-process
 
 logging:
   level: info

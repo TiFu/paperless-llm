@@ -1,13 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { WorkflowType } from '../domain/workflows/WorkflowType.js';
-import { DocumentField } from '../domain/steps/StepFactory.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { DOCUMENT_FIELDS, DocumentField } from '../domain/steps/StepFactory.js';
 
 /**
  * Redis configuration
@@ -33,13 +28,24 @@ export interface DatabaseConfig {
 }
 
 /**
+ * A single auto-processing tag configuration: documents carrying `tag` in
+ * Paperless are picked up by the auto-queue and processed to generate
+ * `fields`, using `workflowType`.
+ */
+export interface AutoProcessTagConfig {
+  readonly tag: string;
+  readonly fields: DocumentField[];
+  readonly workflowType: WorkflowType;
+}
+
+/**
  * Paperless-NG configuration
  */
 export interface PaperlessConfig {
   readonly url: string;
   readonly token: string;
   readonly tags?: string;
-  readonly autoProcessTags: string[];
+  readonly autoProcessTags: AutoProcessTagConfig[];
 }
 
 /**
@@ -122,14 +128,13 @@ export interface AuthConfig {
 }
 
 /**
- * Automated document queue configuration
+ * Automated document queue configuration. Which tags trigger auto-processing
+ * (and which fields/workflowType they use) is configured via
+ * paperless.autoProcessTags, not here.
  */
 export interface AutoQueueConfig {
   readonly enabled: boolean;
   readonly pollIntervalMs: number;
-  readonly workflowType: WorkflowType;
-  readonly tag: string;
-  readonly fields: DocumentField[]
 }
 
 /**
@@ -137,7 +142,9 @@ export interface AutoQueueConfig {
  */
 interface RawConfig {
   database: DatabaseConfig;
-  paperless: Omit<PaperlessConfig, 'autoProcessTags'> & { autoProcessTags?: string | string[] };
+  paperless: Omit<PaperlessConfig, 'autoProcessTags'> & {
+    autoProcessTags?: Array<{ tag: string; fields?: DocumentField[]; workflowType?: string }>;
+  };
   llm: LLMConfig;
   auth: {
     jwtSecret: string;
@@ -159,9 +166,6 @@ interface RawConfig {
     autoQueue?: {
       enabled?: boolean;
       pollIntervalMs?: number;
-      workflowType?: string;
-      tag?: string;
-      fields?: DocumentField[]
     };
   };
   logging: LoggingConfig;
@@ -197,15 +201,14 @@ export class AppConfig {
     // Database Configuration
     this.database = rawConfig.database;
 
-    const explicitAutoProcessTags = rawConfig.paperless.autoProcessTags
-      ? (Array.isArray(rawConfig.paperless.autoProcessTags)
-          ? rawConfig.paperless.autoProcessTags
-          : [rawConfig.paperless.autoProcessTags])
-      : [];
-    const autoQueueTag = rawConfig.workers.autoQueue?.tag ?? 'llm-auto-process';
+    const autoProcessTags: AutoProcessTagConfig[] = (rawConfig.paperless.autoProcessTags ?? []).map(t => ({
+      tag: t.tag,
+      fields: t.fields ?? [...DOCUMENT_FIELDS],
+      workflowType: this.parseWorkflowType(t.workflowType) ?? WorkflowType.AUTOMATED,
+    }));
     this.paperless = {
       ...rawConfig.paperless,
-      autoProcessTags: [...new Set([...explicitAutoProcessTags, autoQueueTag])],
+      autoProcessTags,
     };
     this.logging = rawConfig.logging;
     this.llm = rawConfig.llm;
@@ -240,9 +243,6 @@ export class AppConfig {
       autoQueue: {
         enabled: rawConfig.workers.autoQueue?.enabled ?? false, // Default: disabled
         pollIntervalMs: rawConfig.workers.autoQueue?.pollIntervalMs ?? 60000, // Default: 60 seconds
-        workflowType: this.parseWorkflowType(rawConfig.workers.autoQueue?.workflowType) ?? WorkflowType.AUTOMATED, // Default: AUTOMATED
-        tag: rawConfig.workers.autoQueue?.tag ?? 'llm-auto-process', // Default: llm-auto-process
-        fields: rawConfig.workers.autoQueue?.fields ?? [ 'title' ]
       },
     };
 
@@ -255,9 +255,11 @@ export class AppConfig {
   }
 
   private loadConfig(configPath?: string): RawConfig {
-    // Look for config.yaml in project root (three levels up from src/config/)
-    const defaultPath = path.resolve(__dirname, '../../../config.yaml');
-    const finalPath = configPath || defaultPath;
+    // Explicit constructor arg wins; then CONFIG_PATH (set by every real
+    // deployment — see docker/server.Dockerfile, the Helm chart, and the
+    // dev-*.sh scripts); then a cwd-relative fallback for zero-config local
+    // runs from the repo root.
+    const finalPath = configPath || process.env.CONFIG_PATH || path.resolve(process.cwd(), 'config.yaml');
 
     if (!fs.existsSync(finalPath)) {
       throw new Error(
@@ -350,8 +352,20 @@ export class AppConfig {
     if (this.workers.autoQueue.pollIntervalMs < 1000) {
       throw new Error('workers.autoQueue.pollIntervalMs must be at least 1000ms');
     }
-    if (!this.workers.autoQueue.tag || this.workers.autoQueue.tag.trim().length === 0) {
-      throw new Error('workers.autoQueue.tag must be a non-empty string');
+
+    for (const { tag } of this.paperless.autoProcessTags) {
+      if (!tag || tag.trim().length === 0) {
+        throw new Error('paperless.autoProcessTags[].tag must be a non-empty string');
+      }
+    }
+    const tagNames = this.paperless.autoProcessTags.map(t => t.tag);
+    const duplicates = tagNames.filter((tag, index) => tagNames.indexOf(tag) !== index);
+    if (duplicates.length > 0) {
+      throw new Error(`paperless.autoProcessTags contains duplicate tag(s): ${[...new Set(duplicates)].join(', ')}`);
+    }
+
+    if (this.workers.autoQueue.enabled && this.paperless.autoProcessTags.length === 0) {
+      throw new Error('workers.autoQueue.enabled is true but paperless.autoProcessTags is empty');
     }
   }
 }

@@ -15,7 +15,7 @@ import { DocumentApplicationService } from './DocumentApplicationService.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { RetryConfig } from '../domain/steps/IStep.js';
-import { AutoQueueConfig } from '../config/AppConfig.js';
+import { AutoProcessTagConfig } from '../config/AppConfig.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
 
@@ -124,17 +124,17 @@ export class ApplicationServiceFactory {
   /**
    * Create a new DocumentAutoQueueApplicationService instance.
    * Used for automated document pickup and job creation.
-   * @param autoQueueConfig Configuration for the auto-queue feature
+   * @param autoProcessTags Tags that trigger auto-processing, with their per-tag fields/workflowType
    */
   createDocumentAutoQueueApplicationService(
-    autoQueueConfig: AutoQueueConfig,
+    autoProcessTags: AutoProcessTagConfig[],
   ): DocumentAutoQueueApplicationService {
     const jobAppService = this.createJobApplicationService();
     return new DocumentAutoQueueApplicationService(
       this.uowFactory,
       this.usersRepo,
       jobAppService,
-      autoQueueConfig,
+      autoProcessTags,
     );
   }
 

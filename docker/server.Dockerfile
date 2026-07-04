@@ -32,6 +32,10 @@ RUN addgroup -g 1001 -S nodejs && \
 
 USER nodejs
 
+# Matches where every compose file / the Helm chart mounts config.yaml —
+# see server/src/config/AppConfig.ts.
+ENV CONFIG_PATH=/config.yaml
+
 EXPOSE 3000
 
 ENTRYPOINT ["node", "dist/main.js"]

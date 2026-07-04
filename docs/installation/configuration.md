@@ -83,9 +83,6 @@ If a worker process dies or hangs mid-step, the step stays claimed. The stuck-st
 |---|---|---|---|---|
 | `enabled` | `boolean` | No | false | Enables the automatic document pickup queue, which periodically tag-checks Paperless and creates jobs without manual submission. |
 | `pollIntervalMs` | `number` | No | 60000 (60 seconds) | How often the auto-queue poller checks Paperless for newly tagged documents. Must be at least 1000ms. |
-| `workflowType` | `WorkflowType` | No | automated | Workflow type to use for auto-created jobs: `automated` (no human approval) or `approval` (steps pause for review). |
-| `tag` | `string` | No | llm-auto-process | Paperless tag used to identify documents that should be auto-picked-up. Must be non-empty. |
-| `fields` | `DocumentField[]` | No | ["title"] | Document fields the auto-queue should generate (e.g. `title`, `tags`) when it creates a job for a picked-up document. |
 
 ### `paperless`
 
@@ -94,7 +91,7 @@ If a worker process dies or hangs mid-step, the step stays claimed. The stuck-st
 | `url` | `string` | Yes | - | Base URL of the Paperless-NGX instance to read/write documents from. |
 | `token` | `string` | Yes | - | Paperless-NGX API token. Generate one from the Paperless-NGX admin UI under your user profile. |
 | `tags` | `string` | No | - | Comma-separated Paperless tag(s) used as the default filter when listing documents to process. |
-| `autoProcessTags` | `string[]` | No | [] | Tag(s) considered to mark a document as auto-processed, in addition to `workers.autoQueue.tag`. Used to detect and clean up auto-processing tags on documents. Accepts a single string or a list of strings. |
+| `autoProcessTags` | `AutoProcessTagConfig[]` | No | [] | Tags that trigger auto-processing when `workers.autoQueue.enabled` is true (and are also used to detect/clean up auto-processing tags on documents afterward). Each entry is `{ tag, fields?, workflowType? }`: `fields` defaults to all document fields and `workflowType` defaults to `automated` when omitted. If a document carries more than one of these tags at once, it's processed once with the union of every matching tag's fields, and `approval` wins over `automated` if any matching tag requests it. `workers.autoQueue.enabled: true` requires at least one entry here. |
 
 ### `logging`
 

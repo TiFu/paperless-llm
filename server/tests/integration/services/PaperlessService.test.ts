@@ -1,4 +1,5 @@
 import { PaperlessService } from '../../../src/services/PaperlessService.js';
+import { WorkflowType } from '../../../src/domain/workflows/WorkflowType.js';
 import {
   PAPERLESS_URL,
   PAPERLESS_ADMIN_USER,
@@ -32,7 +33,12 @@ describe('PaperlessService (integration)', () => {
 
   beforeAll(async () => {
     token = await paperlessLogin(PAPERLESS_ADMIN_USER, PAPERLESS_ADMIN_PASSWORD);
-    service = new PaperlessService({ url: PAPERLESS_URL, token, tags: 'integration-test-processing', autoProcessTags: ['integration-auto-test-processing'] });
+    service = new PaperlessService({
+      url: PAPERLESS_URL,
+      token,
+      tags: 'integration-test-processing',
+      autoProcessTags: [{ tag: 'integration-auto-test-processing', fields: [], workflowType: WorkflowType.AUTOMATED }],
+    });
   });
 
   beforeEach(() => {

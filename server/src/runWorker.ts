@@ -89,7 +89,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
 
   let documentAutoQueueWorker: WorkerExecutor | null = null;
   if (config.workers.autoQueue.enabled) {
-    const autoQueueService = applicationServiceFactory.createDocumentAutoQueueApplicationService(config.workers.autoQueue);
+    const autoQueueService = applicationServiceFactory.createDocumentAutoQueueApplicationService(config.paperless.autoProcessTags);
 
     documentAutoQueueWorker = new WorkerExecutor(
       'document_auto_queue',
@@ -149,8 +149,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
       {
         enabled: config.workers.autoQueue.enabled,
         pollIntervalMs: config.workers.autoQueue.pollIntervalMs,
-        workflowType: config.workers.autoQueue.workflowType,
-        tag: config.workers.autoQueue.tag,
+        autoProcessTags: config.paperless.autoProcessTags.map(t => t.tag),
       },
       'Starting document auto-queue worker',
     );
