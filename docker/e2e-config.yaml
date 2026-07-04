@@ -24,6 +24,11 @@ paperless:
   # Only needs to be a non-empty string to pass config validation.
   token: e2e-placeholder
   tags: e2e-process
+  autoProcessTags:        # Tags that trigger auto-processing when workers.autoQueue.enabled is true
+    - tag: e2e-process
+      fields:
+        - tags
+      workflowType: automated
 
 llm:
   url: http://stub-llm:80
@@ -44,10 +49,6 @@ workers:
   autoQueue:
     enabled: true
     pollIntervalMs: 3000
-    workflowType: automated
-    tag: e2e-process
-    fields:
-      - tags
 
 logging:
   level: debug

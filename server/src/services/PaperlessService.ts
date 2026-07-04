@@ -547,7 +547,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
   async removeProcessingTag(documentId: number): Promise<void> {
     const tags = [
       ...(this.paperlessConfig.tags ? [this.paperlessConfig.tags] : []),
-      ...this.paperlessConfig.autoProcessTags,
+      ...this.paperlessConfig.autoProcessTags.map(t => t.tag),
     ];
     if (tags.length === 0) return;
     await this.removeTagsFromDocument(documentId, tags);

@@ -23,6 +23,10 @@ if [ ! -f "config.yaml" ]; then
     echo ""
 fi
 
+# Captured before `cd server` — AppConfig otherwise falls back to resolving
+# config.yaml relative to cwd, which would be server/ (wrong) once we cd in.
+export CONFIG_PATH="$(pwd)/config.yaml"
+
 # Navigate to server directory
 cd server
 
