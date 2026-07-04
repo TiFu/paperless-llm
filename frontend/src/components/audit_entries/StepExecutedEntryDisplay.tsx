@@ -11,7 +11,7 @@ export class StepExecutedEntryDisplay implements AuditLogEntryDisplay {
     if (this.entry.success) {
         this.alwaysDisplayFields = [ 'Step ID', 'Message']
     } else {
-        this.alwaysDisplayFields = ['Step ID', 'Message', 'Next Retry', 'Prompt']
+        this.alwaysDisplayFields = ['Step ID', 'Message', 'Next Retry', 'Prompt', 'Raw Response']
     }
   }
   getLabel() {
@@ -31,6 +31,10 @@ export class StepExecutedEntryDisplay implements AuditLogEntryDisplay {
     
     if (this.entry.success && this.entry.prompt) {
         result.push(      { label: 'Prompt', value: this.entry.prompt})
+    }
+
+    if (this.entry.success && this.entry.rawResponse) {
+        result.push(      { label: 'Raw Response', value: this.entry.rawResponse})
     }
 
     if (!this.entry.success) {

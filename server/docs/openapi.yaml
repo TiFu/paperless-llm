@@ -1507,6 +1507,9 @@ components:
             prompt:
               type: string
               nullable: true
+            rawResponse:
+              type: string
+              nullable: true
             message:
               type: string
           required:

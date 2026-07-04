@@ -44,6 +44,8 @@ export interface StepResult {
   message: string;
   /** The rendered prompt used for this step, if applicable */
   prompt?: string;
+  /** The raw, unprocessed LLM response for this step, if applicable */
+  rawResponse?: string;
 }
 
 

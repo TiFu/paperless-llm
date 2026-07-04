@@ -26,7 +26,8 @@ export class StepExecutorDomainService {
                 success: result.success,
                 retryCount: step.getRetryCount(),
                 nextRetryTime: step.getRetryAfter(),
-                prompt: result.prompt || null
+                prompt: result.prompt || null,
+                rawResponse: result.rawResponse || null
             };
             this.logger.info({ meta }, "Adding Audit Log Step Executed Event")
             const auditLogEntry = AuditLogEntry.createStepExecuted(step, meta, new Date(), start, end);
@@ -41,7 +42,8 @@ export class StepExecutorDomainService {
                 success: false,
                 retryCount: step.getRetryCount(),
                 nextRetryTime: step.getRetryAfter(),
-                prompt: "n/a"
+                prompt: "n/a",
+                rawResponse: null
             };
             const auditLogEntry = AuditLogEntry.createStepExecuted(step, meta, new Date(), start, end);
             this.auditCollector.record(auditLogEntry)
