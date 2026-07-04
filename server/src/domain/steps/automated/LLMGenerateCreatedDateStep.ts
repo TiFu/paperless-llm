@@ -68,7 +68,8 @@ export class LLMGenerateCreatedDateStep extends ExecutableStep {
       success: true,
       transition: Transition.SUCCESS,
       message: "Date generated: " + action.newValue,
-      prompt: renderedPrompt
+      prompt: renderedPrompt,
+      rawResponse: generatedResponse
     };
   }
 

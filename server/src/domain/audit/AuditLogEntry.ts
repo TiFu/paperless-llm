@@ -68,6 +68,8 @@ export interface StepExecutionMetadata {
   nextRetryTime: Date | null;
   /** The rendered prompt used for this step, if applicable */
   prompt: string | null;
+  /** The raw, unprocessed LLM response for this step, if applicable */
+  rawResponse: string | null;
 }
 
 export interface ManualStepDecisionMetadata {

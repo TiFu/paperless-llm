@@ -72,7 +72,8 @@ export class LLMGenerateCorrespondentStep extends ExecutableStep {
       success: true,
       transition: Transition.SUCCESS,
       message: "Correspondent: " + action.newValue,
-      prompt: renderedPrompt
+      prompt: renderedPrompt,
+      rawResponse: generatedResponse
     };
   }
 
