@@ -7,7 +7,8 @@
   "scripts": {
     "docs:generate-config": "tsx docs/tooling/generate-config-docs.ts generate",
     "docs:check-config": "tsx docs/tooling/generate-config-docs.ts --check",
-    "docs:typedoc": "typedoc"
+    "docs:typedoc": "typedoc",
+    "test:all": "./test-all.sh"
   },
   "devDependencies": {
     "@commitlint/config-conventional": "^19.0.0",
