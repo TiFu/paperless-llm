@@ -217,7 +217,7 @@ export const DocumentsPage: React.FC = () => {
                       }}
                     />
                   }
-                  label={field}
+                  label={field.replace(/_/g, ' ').toUpperCase()}
                 />
               ))}
             </Box>

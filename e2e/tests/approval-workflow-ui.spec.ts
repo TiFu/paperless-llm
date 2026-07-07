@@ -42,7 +42,10 @@ test('approval workflow: an operator submits a job and approves the LLM-proposed
   await page.getByRole('row', { name: new RegExp(title) }).click();
   await page.getByRole('radio', { name: /approval workflow/i }).click();
   for (const field of FIELDS_TO_DESELECT) {
-    await page.getByRole('checkbox', { name: field, exact: true }).uncheck();
+    // DocumentsPage.tsx renders the checkbox label as an uppercased, space-separated
+    // version of the field name (e.g. "document_type" -> "DOCUMENT TYPE").
+    const label = new RegExp(`^${field.replace(/_/g, ' ')}$`, 'i');
+    await page.getByRole('checkbox', { name: label }).uncheck();
   }
   await page.getByRole('button', { name: /submit 1 document/i }).click();
 

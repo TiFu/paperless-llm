@@ -1,5 +1,5 @@
 import { PoolClient } from 'pg';
-import { EntityType } from '../../domain/entityDescriptions/EntityType.js';
+import { ENTITY_TYPES, EntityType } from '../../domain/entityDescriptions/EntityType.js';
 import { IPermissionsRepository, ResourceType } from '../../domain/authorization/IPermissionsRepository.js';
 
 export class PostgreSQLPermissionsRepository implements IPermissionsRepository {
@@ -56,18 +56,13 @@ export class PostgreSQLPermissionsRepository implements IPermissionsRepository {
     username: string,
     entities: Array<{ type: EntityType; paperlessId: number }>,
   ): Promise<void> {
-    if (entities.length === 0) {
-      await this.client.query(`DELETE FROM entity_visibility WHERE username = $1`, [username]);
-      return;
-    }
-
-    // Group by entity type for efficient cleanup
-    const types = [...new Set(entities.map(e => e.type))];
-
-    for (const entityType of types) {
+    // Iterate over every known entity type, not just types present in `entities` —
+    // a type with zero current items (e.g. all correspondents were deleted in Paperless)
+    // still needs its stale visibility rows pruned.
+    for (const { type: entityType } of ENTITY_TYPES) {
       const ids = entities.filter(e => e.type === entityType).map(e => e.paperlessId);
       await this.client.query(
-        `DELETE FROM entity_visibility WHERE username = $1 AND entity_type = $2 AND paperless_id != ALL($3)`,
+        `DELETE FROM entity_visibility WHERE username = $1 AND entity_type = $2 AND paperless_id != ALL($3::int[])`,
         [username, entityType, ids],
       );
       if (ids.length > 0) {

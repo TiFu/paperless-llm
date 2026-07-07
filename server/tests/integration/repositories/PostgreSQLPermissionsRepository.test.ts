@@ -114,5 +114,21 @@ describe('PostgreSQLPermissionsRepository (integration)', () => {
         expect(await repos.getPermissions().getVisibleEntityIds('alice', 'tag')).toEqual([]);
       });
     });
+
+    it('prunes a type that becomes empty on resync, even though other types still have items', async () => {
+      await withRepositoryTransaction(async (repos) => {
+        await repos.getUsers().upsert('alice', 'token');
+        await repos.getPermissions().setEntityVisibility('alice', [
+          { type: 'tag', paperlessId: 1 },
+          { type: 'correspondent', paperlessId: 5 },
+        ]);
+
+        // Correspondent 5 was deleted in Paperless — the next sync fetches zero correspondents.
+        await repos.getPermissions().setEntityVisibility('alice', [{ type: 'tag', paperlessId: 1 }]);
+
+        expect(await repos.getPermissions().getVisibleEntityIds('alice', 'tag')).toEqual([1]);
+        expect(await repos.getPermissions().getVisibleEntityIds('alice', 'correspondent')).toEqual([]);
+      });
+    });
   });
 });
