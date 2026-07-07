@@ -148,7 +148,7 @@ git commit -m "docs(readme): update installation instructions"
 
 Common types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`.
 
-CI lints every pull request's commit messages against this convention (the `commitlint` job in `.github/workflows/ci.yml`, using [commitlint](https://commitlint.js.org/) with the root `commitlint.config.cjs`). To catch violations locally before pushing, install a `commit-msg` hook that runs the same check on each commit:
+CI lints every pull request's commit messages against this convention (the `commitlint` job in `.github/workflows/pr.yml`, using [commitlint](https://commitlint.js.org/) with the root `commitlint.config.cjs`). To catch violations locally before pushing, install a `commit-msg` hook that runs the same check on each commit:
 
 ```bash
 npm install --no-save @commitlint/cli
@@ -163,7 +163,7 @@ chmod +x .git/hooks/commit-msg
 
 This rejects non-conventional commit messages immediately instead of waiting for CI to catch them.
 
-Notable changes are tracked in [docs/changelog.md](changelog.md). Each tagged release (`vX.Y.Z`) automatically gets a dated section there, generated from the conventional commits merged since the previous tag — see the `Generate changelog entry` step in the `docs` job of `.github/workflows/ci.yml` and the grouping rules in `cliff.toml`.
+Notable changes are tracked in [docs/changelog.md](changelog.md). Each tagged release (`vX.Y.Z`) automatically gets a dated section there, generated from the conventional commits merged since the previous tag — see the `Generate changelog entry` step in the `docs` job of `.github/workflows/release.yml` and the grouping rules in `cliff.toml`.
 
 ### Pull Request Process
 
@@ -171,10 +171,9 @@ Before opening a PR:
 
 ```bash
 git fetch origin
-git rebase origin/main
+git rebase origin/master
 
-cd server && npm run lint && npm test
-cd ../frontend && npm run lint && npm test
+./test-all.sh
 ```
 
 Checklist:
@@ -184,26 +183,76 @@ Checklist:
 - [ ] Linting passes
 - [ ] Documentation updated if behavior or configuration changed
 - [ ] Commit messages follow Conventional Commits
-- [ ] Branch is rebased on current `main`
+- [ ] Branch is rebased on current `master`
 
 PR description should cover: what changed and why, the type of change (bug fix / feature / breaking change / docs), the related issue (if any), and what testing was done (unit, integration, manual).
 
-Once opened, automated checks (lint, tests, build) run, then a maintainer reviews for correctness, code quality, test coverage, and documentation. Address review feedback by pushing additional commits to the same branch. PRs are typically squash-merged. After merge, delete your branch and update your local `main`.
+Once opened, automated checks (lint, tests, build) run, then a maintainer reviews for correctness, code quality, test coverage, and documentation. Address review feedback by pushing additional commits to the same branch. PRs are typically squash-merged. After merge, delete your branch and update your local `master`.
 
 
 ## Testing
 
-### Running Tests
+There are three layers of tests, from fastest/most-isolated to slowest/most end-to-end: backend **unit** tests, backend **integration** tests (real Postgres + real Paperless-ngx), and **e2e** tests (the full stack, driven through the browser with Playwright). Run `./test-all.sh` from the repo root to run all three plus a docs refresh in one shot — see [Running Everything at Once](#running-everything-at-once) below — or run each layer individually as described here.
+
+### Unit Tests
 
 ```bash
 # Backend (from server/)
-npm test               # run the full suite
+npm test               # run the full suite (unit + integration projects)
 npm run test:unit      # unit tests only (server/tests/unit)
-npm run test:integration  # integration tests only (server/tests/integration)
 npm run test:coverage  # generate a coverage report
 ```
 
 Backend tests are configured in `server/jest.config.cjs` with two Jest "projects": `unit` (matching `tests/unit/**/*.test.ts`) and `integration` (matching `tests/integration/**/*.test.ts`, with a longer 60s timeout since these touch the database). `npm test` runs both projects; `test:unit`/`test:integration` run one at a time via `--selectProject`.
+
+### Integration Tests
+
+Integration tests run real code against real dependencies — no mocking of `pg` or the Paperless HTTP API. They need a Postgres instance (for the repository tests) and a real Paperless-ngx instance (for the `PaperlessService` tests) up before running.
+
+Bring up both with the dedicated compose file, then run the suite from `server/`:
+
+```bash
+docker compose -f docker/docker-compose.integration-test.yml up -d --wait
+
+cd server
+npm run test:integration
+
+# When done:
+docker compose -f ../docker/docker-compose.integration-test.yml down -v
+```
+
+Credentials and ports in that compose file match the defaults baked into `tests/integration/helpers/dbConfig.ts` and `paperlessClient.ts`, so no environment variables are required. See `server/tests/integration/README.md` for details on how the repository tests roll back per-test transactions versus how the Paperless tests clean up after themselves, and how to point the suite at your own Postgres/Paperless instead.
+
+### E2E Tests
+
+The `e2e/` package drives the full stack — real Paperless-ngx, production server/frontend Docker images, and a stub LLM server standing in for Ollama — through a real Chromium browser via [Playwright](https://playwright.dev/).
+
+```bash
+docker compose -f docker/docker-compose.e2e.yml up -d --build
+
+cd e2e
+npm ci
+npx playwright install --with-deps chromium
+npm test              # npm run test:headed to watch it run in a visible browser
+
+# When done:
+docker compose -f ../docker/docker-compose.e2e.yml down -v
+```
+
+The frontend is served at `http://localhost:8080` and the API at `http://localhost:3000` (wait for `curl -sf http://localhost:3000/health` to succeed before running tests — the CI `e2e` job polls this same endpoint). Test specs live in `e2e/tests/`; on failure, `npm run report` opens the HTML report (traces and screenshots included) from `e2e/playwright-report/`.
+
+### Running Everything at Once
+
+`./test-all.sh` (repo root) chains all of the above — backend lint + unit tests, frontend lint + build, integration tests, e2e tests, and a docs refresh (`npm run docs:generate-config`, plus `mkdocs build --strict` if `mkdocs` is installed) — starting and tearing down both Docker Compose stacks automatically. It mirrors what CI runs across `tests.yml`, `e2e.yml`, and the `docs` job of `pr.yml`/`master.yml`/`release.yml`, so a clean run locally is a strong signal a PR will pass CI.
+
+```bash
+./test-all.sh                                    # everything
+./test-all.sh --skip-e2e                         # skip the slowest layer
+./test-all.sh --skip-integration --skip-e2e      # unit tests + lint + docs only
+./test-all.sh --skip-docs
+```
+
+Each Docker Compose stack is torn down on exit even if a step fails partway through.
 
 ## Database Migrations
 
