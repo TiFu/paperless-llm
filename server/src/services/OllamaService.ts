@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { ILLMService } from '../domain/llm/ILLMService.js';
-import { LLMConfig } from '../config/AppConfig.js';
+import { ILLMConfig } from '../config/AppConfig.js';
 import pino from 'pino';
 import { createChildLogger } from '../utils/logger.js';
 
@@ -24,17 +24,12 @@ export interface OllamaChatResponse {
 export class OllamaService implements ILLMService {
   private readonly logger: pino.Logger;
   private readonly client: AxiosInstance;
-  private readonly model: string;
-  private readonly temperature: number;
 
-  constructor(config: LLMConfig) {
+  constructor(private readonly config: ILLMConfig) {
     this.logger = createChildLogger({ name: "OllamaService"})
-    this.model = config.model;
-    this.temperature = config.temperature;
 
     this.client = axios.create({
-      baseURL: config.url,
-      timeout: config.timeoutMs,
+      baseURL: config.llm.url,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -59,17 +54,19 @@ export class OllamaService implements ILLMService {
    */
   async sendChatRequest(prompt: string, temperature?: number): Promise<string> {
     const request: OllamaChatRequest = {
-      model: this.model,
+      model: this.config.getModel(),
       prompt,
       stream: false,
       options: {
-        temperature: temperature ?? this.temperature,
+        temperature: temperature ?? this.config.getTemperature(),
       },
     };
 
     this.logger.info({ request: request, client: this.client}, "Request")
     try {
-      const response = await this.client.post<OllamaChatResponse>('/api/generate', request);
+      const response = await this.client.post<OllamaChatResponse>('/api/generate', request, {
+        timeout: this.config.getTimeoutMs(),
+      });
       this.logger.info({ response: response}, "Ollama response")
 
       if (!response.data.response) {

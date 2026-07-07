@@ -14,6 +14,13 @@ export class PostgreSQLPermissionsRepository implements IPermissionsRepository {
     );
   }
 
+  async revoke(type: ResourceType, objectId: string, username: string): Promise<void> {
+    await this.client.query(
+      `DELETE FROM permissions WHERE type = $1 AND username = $2 AND referenced_object_id = $3`,
+      [type, username, objectId],
+    );
+  }
+
   async hasPermission(type: ResourceType, objectId: string, username: string): Promise<boolean> {
     const result = await this.client.query<{ exists: boolean }>(
       `SELECT EXISTS(

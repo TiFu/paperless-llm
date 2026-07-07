@@ -19,26 +19,14 @@ import {
   DialogActions,
   TextField,
   Chip,
-  List,
-  ListItem,
-  ListItemText,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import { PromptResponse } from '../services/api/generated/models/PromptResponse';
 import { StepType } from '../services/api/generated/models/StepType';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchPrompts, updatePrompt, clearSuccessMessage, clearError } from '../store/slices/promptsSlice';
-
-const AVAILABLE_VARIABLES: { name: string; description: string }[] = [
-  { name: 'documentContent', description: "The document's extracted text" },
-  { name: 'documentTitle', description: "The document's current title" },
-  { name: 'documentTags', description: "The document's currently assigned tags" },
-  { name: 'documentType', description: "The document's currently assigned document type" },
-  { name: 'documentCorrespondent', description: "The document's currently assigned correspondent" },
-  { name: 'availableTags', description: 'All tags the model can choose from, each optionally with a description' },
-  { name: 'availableCorrespondents', description: 'All correspondents the model can choose from, each optionally with a description' },
-  { name: 'availableDocumentTypes', description: 'All document types the model can choose from, each optionally with a description' },
-];
+import { fetchSettings, selectSettings } from '../store/slices/settingsSlice';
+import { PromptVariablesReference } from '../components/PromptVariablesReference';
 
 export const PromptsPage: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -48,6 +36,7 @@ export const PromptsPage: React.FC = () => {
   const error = useAppSelector((state) => state.prompts.error);
   const successMessage = useAppSelector((state) => state.prompts.successMessage);
   const saving = useAppSelector((state) => state.prompts.saving);
+  const settings = useAppSelector(selectSettings);
 
   // Edit dialog state stays local
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -56,6 +45,8 @@ export const PromptsPage: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchPrompts());
+    if (!settings) dispatch(fetchSettings());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
   useEffect(() => {
@@ -182,24 +173,7 @@ export const PromptsPage: React.FC = () => {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              Available variables:
-            </Typography>
-            <List dense disablePadding sx={{ mb: 1 }}>
-              {AVAILABLE_VARIABLES.map((variable) => (
-                <ListItem key={variable.name} disableGutters sx={{ py: 0.25 }}>
-                  <ListItemText
-                    primary={`{{${variable.name}}}`}
-                    secondary={variable.description}
-                    primaryTypographyProps={{ variant: 'body2', sx: { fontFamily: 'monospace' } }}
-                    secondaryTypographyProps={{ variant: 'caption' }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-            <Typography variant="caption" color="text.secondary" paragraph sx={{ display: 'block' }}>
-              The available* variables render as a list of XML elements (e.g. {'<availableTag description="...">Name</availableTag>'}); the description attribute is only present for entries with a description set on the Entity Descriptions page.
-            </Typography>
+            <PromptVariablesReference variables={settings?.promptVariables ?? []} />
             <TextField
               fullWidth
               multiline

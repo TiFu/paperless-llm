@@ -1,7 +1,32 @@
 import { withRepositoryTransaction } from '../helpers/db.js';
 import { WorkflowType } from '../../../src/domain/workflows/WorkflowType.js';
+import { SETTINGS_RESOURCE_ID } from '../../../src/domain/authorization/IPermissionsRepository.js';
 
 describe('PostgreSQLPermissionsRepository (integration)', () => {
+  it('grants and revokes the settings permission (no job/object it belongs to — uses SETTINGS_RESOURCE_ID)', async () => {
+    await withRepositoryTransaction(async (repos) => {
+      await repos.getUsers().upsert('alice', 'token');
+
+      expect(await repos.getPermissions().hasPermission('settings', SETTINGS_RESOURCE_ID, 'alice')).toBe(false);
+
+      await repos.getPermissions().grant('settings', SETTINGS_RESOURCE_ID, 'alice');
+      expect(await repos.getPermissions().hasPermission('settings', SETTINGS_RESOURCE_ID, 'alice')).toBe(true);
+
+      await repos.getPermissions().revoke('settings', SETTINGS_RESOURCE_ID, 'alice');
+      expect(await repos.getPermissions().hasPermission('settings', SETTINGS_RESOURCE_ID, 'alice')).toBe(false);
+    });
+  });
+
+  it('revoke is a no-op when the grant does not exist', async () => {
+    await withRepositoryTransaction(async (repos) => {
+      await repos.getUsers().upsert('alice', 'token');
+
+      await expect(
+        repos.getPermissions().revoke('settings', SETTINGS_RESOURCE_ID, 'alice'),
+      ).resolves.not.toThrow();
+    });
+  });
+
   it('grant + hasPermission round-trip, and is false for an ungranted user', async () => {
     await withRepositoryTransaction(async (repos) => {
       await repos.getUsers().upsert('alice', 'token');

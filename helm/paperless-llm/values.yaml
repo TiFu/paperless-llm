@@ -25,38 +25,23 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
-# Mirrors config.yaml. database/redis connection fields are filled in by the
-# chart from postgresql/redis (or externalDatabase/externalRedis) above —
-# don't set them here. Shared by the backend and worker Deployments.
+# Mirrors config.yaml, which now holds TECHNICAL settings only. database/
+# redis connection fields are filled in by the chart from postgresql/redis
+# (or externalDatabase/externalRedis) above — don't set them here. Shared by
+# the backend and worker Deployments.
+#
+# Non-technical settings (auto-process tags, worker timing, retry policy,
+# LLM model/temperature/timeout) live in the database and are configured
+# after deploy via the Settings page in the UI (or PUT /api/settings), by a
+# user who is a superuser in Paperless — not via this chart.
 config:
   paperless:
     url: http://paperless.example.com
     token: ""
-    tags: llm-process
-    # Tags that trigger auto-processing when workers.autoQueue.enabled is
-    # true. Each entry's fields defaults to all fields, workflowType
-    # defaults to automated.
-    autoProcessTags:
-      - tag: llm-auto-process
-        workflowType: approval
   llm:
     url: http://ollama.example.com:11434
-    model: llama3
-    temperature: 0.7
-    timeoutMs: 30000
   workers:
     instanceId: null
-    stepExecution:
-      batchSize: 5
-      pollIntervalMs: 3000
-    stuckStepReset:
-      timeoutMs: 300000
-      checkIntervalMs: 30000
-    entitySync:
-      pollIntervalMs: 900000
-    autoQueue:
-      enabled: false
-      pollIntervalMs: 60000
   logging:
     level: info
     pretty: false
@@ -67,10 +52,6 @@ config:
   auth:
     jwtSecret: ""
     jwtExpiresIn: 8h
-  retry:
-    maxRetries: 3
-    retryDelayInMs: 30000
-    retryExponent: 2
   redisCache:
     ttlInSeconds: 300
 

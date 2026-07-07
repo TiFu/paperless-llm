@@ -18,6 +18,8 @@ import { IEntityDescriptionsRepository } from "../../domain/entityDescriptions/I
 import { PostgreSQLEntityDescriptionsRepository } from "./PostgreSQLEntityDescriptionsRepository.js";
 import { IWorkerExecutionRepository } from "../../domain/workerExecution/IWorkerExecutionRepository.js";
 import { PostgreSQLWorkerExecutionRepository } from "./PostgreSQLWorkerExecutionRepository.js";
+import { IAppSettingsRepository } from "../../domain/settings/IAppSettingsRepository.js";
+import { PostgreSQLAppSettingsRepository } from "./PostgreSQLAppSettingsRepository.js";
 
 export class PostgresqlDatabaseTransactionContext implements DatabaseTransactionContext {
   static contextNo: number = 0;
@@ -134,6 +136,7 @@ export class PostgresqlRepositoryRegistry implements RepositoryRegistry {
     private usersRepo: IUsersRepository
     private entityDescriptionsRepo: IEntityDescriptionsRepository
     private workerExecutionsRepo: IWorkerExecutionRepository
+    private settingsRepo: IAppSettingsRepository
 
     constructor(context: PostgresqlDatabaseTransactionContext, uow: UoW) {
         const client = context.getClient();
@@ -145,6 +148,7 @@ export class PostgresqlRepositoryRegistry implements RepositoryRegistry {
         this.usersRepo = new PostgreSQLUsersRepository(client)
         this.entityDescriptionsRepo = new PostgreSQLEntityDescriptionsRepository(client)
         this.workerExecutionsRepo = new PostgreSQLWorkerExecutionRepository(client)
+        this.settingsRepo = new PostgreSQLAppSettingsRepository(client)
     }
     getPrompts(): IPromptsRepository {
         return this.promptRepo
@@ -169,6 +173,9 @@ export class PostgresqlRepositoryRegistry implements RepositoryRegistry {
     }
     getWorkerExecutions(): IWorkerExecutionRepository {
         return this.workerExecutionsRepo
+    }
+    getSettings(): IAppSettingsRepository {
+        return this.settingsRepo
     }
 
 }

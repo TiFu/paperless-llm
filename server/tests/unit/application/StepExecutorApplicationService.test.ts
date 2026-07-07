@@ -1,6 +1,7 @@
 import { StepExecutorApplicationService } from '../../../src/application/StepExecutorApplicationService.js';
 import { StepFactory } from '../../../src/domain/steps/StepFactory.js';
-import { StepStatus, RetryConfig } from '../../../src/domain/steps/IStep.js';
+import { StepStatus } from '../../../src/domain/steps/IStep.js';
+import { IRetryConfig } from '../../../src/config/AppConfig.js';
 import { Job } from '../../../src/domain/job/Job.js';
 import { JobState } from '../../../src/domain/job/JobState.js';
 import { WorkflowType } from '../../../src/domain/workflows/WorkflowType.js';
@@ -8,7 +9,7 @@ import { ILLMService } from '../../../src/domain/llm/ILLMService.js';
 import { IDocument } from '../../../src/domain/document/IDocument.js';
 import { createFakeUoW, makeFakeUoWFactory } from '../helpers/fakeUoW.js';
 
-const retryConfig: RetryConfig = { maxRetries: 3, retryDelayInMs: 1000, retryExponent: 2 };
+const retryConfig: IRetryConfig = { getRetry: () => ({ maxRetries: 3, retryDelayInMs: 1000, retryExponent: 2 }) };
 
 function makeFakeLLM(): jest.Mocked<ILLMService> {
   return { sendChatRequest: jest.fn(), checkHealth: jest.fn() };
@@ -101,7 +102,7 @@ describe('StepExecutorApplicationService', () => {
     it('moves due retries back to WAITING', async () => {
       const fakeUoW = createFakeUoW();
       const step = new StepFactory().newUpdateDocumentStep('job-1');
-      step.markExecutionFailed(retryConfig); // -> RETRYING
+      step.markExecutionFailed(retryConfig.getRetry()); // -> RETRYING
       fakeUoW.repos.steps.getPendingRetries.mockResolvedValue([step]);
       const service = new StepExecutorApplicationService(makeFakeUoWFactory(fakeUoW), makeFakeLLM(), retryConfig);
 

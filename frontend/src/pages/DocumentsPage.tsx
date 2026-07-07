@@ -38,8 +38,8 @@ import {
   setHideInProgress,
   setRestoredDocuments,
 } from '../store/slices/documentsSlice';
+import { fetchSettings, selectSettings } from '../store/slices/settingsSlice';
 
-const DEFAULT_TAG = 'llm-process';
 const PAGE_LIMIT = 10;
 
 export const DocumentsPage: React.FC = () => {
@@ -59,6 +59,8 @@ export const DocumentsPage: React.FC = () => {
   const selectedFields = useAppSelector((state) => state.documents.selectedFields);
   const snackbar = useAppSelector((state) => state.documents.snackbar);
   const hideInProgress = useAppSelector((state) => state.documents.hideInProgress);
+  const settings = useAppSelector(selectSettings);
+  const tag = settings?.paperless.tags ?? undefined;
 
   const visibleDocuments = hideInProgress ? documents.filter((d) => !d.inProgress) : documents;
 
@@ -72,25 +74,32 @@ export const DocumentsPage: React.FC = () => {
   }, [nextCursor, documents.length, setSearchParams]);
 
   useEffect(() => {
-    const urlCursor = searchParams.get('cursor');
-    if (urlCursor) {
-      restorePaginationState(urlCursor);
-    } else {
-      dispatch(fetchDocuments());
-    }
+    if (!settings) dispatch(fetchSettings());
     dispatch(fetchJobTypes());
     dispatch(fetchDocumentFields());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const restorePaginationState = async (targetCursor: string) => {
+  // Wait for the default tag filter from settings before loading documents
+  useEffect(() => {
+    if (!tag) return;
+    const urlCursor = searchParams.get('cursor');
+    if (urlCursor) {
+      restorePaginationState(urlCursor, tag);
+    } else {
+      dispatch(fetchDocuments({ tag }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tag]);
+
+  const restorePaginationState = async (targetCursor: string, tag: string) => {
     // Temporarily mark loading in store by dispatching a pending signal
     const allDocs: DocumentListItem[] = [];
     let currentCursor: string | undefined = undefined;
 
     try {
       while (true) {
-        const response = await apiClient.fetchDocumentsByTag(DEFAULT_TAG, PAGE_LIMIT, currentCursor);
+        const response = await apiClient.fetchDocumentsByTag(tag, PAGE_LIMIT, currentCursor);
         allDocs.push(...response.documents);
 
         if (response.pagination.nextCursor === targetCursor || !response.pagination.nextCursor) {
@@ -106,13 +115,13 @@ export const DocumentsPage: React.FC = () => {
       }
     } catch {
       // Fall back to initial load
-      dispatch(fetchDocuments());
+      dispatch(fetchDocuments({ tag }));
     }
   };
 
   const handleLoadMore = () => {
-    if (nextCursor && !loadingMore) {
-      dispatch(fetchDocuments({ append: true }));
+    if (nextCursor && !loadingMore && tag) {
+      dispatch(fetchDocuments({ tag, append: true }));
     }
   };
 
@@ -257,7 +266,7 @@ export const DocumentsPage: React.FC = () => {
               Available Documents
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Showing documents tagged with "{DEFAULT_TAG}"
+              {tag ? `Showing documents tagged with "${tag}"` : 'No default tag filter configured'}
             </Typography>
           </Box>
           <FormControlLabel
@@ -271,7 +280,15 @@ export const DocumentsPage: React.FC = () => {
           />
         </Box>
 
-        {loading ? (
+        {!tag ? (
+          <Alert severity="info">
+            Set a default tag filter on the{' '}
+            <Link component={RouterLink} to="/settings">
+              Settings
+            </Link>{' '}
+            page to browse documents here.
+          </Alert>
+        ) : loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
             <CircularProgress />
           </Box>

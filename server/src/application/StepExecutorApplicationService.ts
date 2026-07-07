@@ -1,6 +1,7 @@
 import pino from 'pino';
-import { RetryConfig, StepExecutionContext } from '../domain/steps/IStep.js';
+import { StepExecutionContext } from '../domain/steps/IStep.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
+import { IRetryConfig } from '../config/AppConfig.js';
 import { createChildLogger } from '../utils/logger.js';
 import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
 import { AuditCollector, UoWFactory } from '../infrastructure/UoW.js';
@@ -31,7 +32,7 @@ export class StepExecutorApplicationService {
   constructor(
     private readonly uowFactory: UoWFactory,
     private readonly llmService: ILLMService,
-    private readonly retryConfig: RetryConfig,
+    private readonly retryConfig: IRetryConfig,
   ) {
     this.logger = createChildLogger({ service: 'StepExecutorApplicationService' });
   }
@@ -66,7 +67,7 @@ export class StepExecutorApplicationService {
       await uow.dispose();
 
       // (2) Execute outside transaction boundary
-      const result = await stepExecutor.executeStep(step, stepContext, this.retryConfig);
+      const result = await stepExecutor.executeStep(step, stepContext, this.retryConfig.getRetry());
 
       // (3) Persist results in user UoW
       await using uow2 = await this.uowFactory.createUoW(user);
@@ -86,7 +87,7 @@ export class StepExecutorApplicationService {
         await using uow3 = await this.uowFactory.createUoW(user);
         await uow3.start();
         uow3.getAuditCollector().recordAll(stepExecutionCollector.getEvents());
-        step.markExecutionFailed(this.retryConfig);
+        step.markExecutionFailed(this.retryConfig.getRetry());
         uow3.getSteps().update(step);
         await uow3.save();
         await uow3.commit();

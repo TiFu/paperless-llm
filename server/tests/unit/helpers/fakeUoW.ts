@@ -5,6 +5,7 @@ import { IPromptsRepository } from '../../../src/domain/prompt/IPromptsRepositor
 import { IAuditLogRepository, IAuditCollector } from '../../../src/domain/audit/IAuditLogRepository.js';
 import { IWorkerExecutionRepository } from '../../../src/domain/workerExecution/IWorkerExecutionRepository.js';
 import { IPermissionsRepository } from '../../../src/domain/authorization/IPermissionsRepository.js';
+import { IAppSettingsRepository } from '../../../src/domain/settings/IAppSettingsRepository.js';
 import { IDocumentManagementSystem } from '../../../src/domain/document/IDocumentManagementSystem.js';
 import { IPromptDomainService } from '../../../src/domain/prompt/IPromptDomainService.js';
 import { StepExecutorDomainService } from '../../../src/domain/services/StepExecutorDomainService.js';
@@ -76,6 +77,7 @@ export function makeFakeAuditLogRepo(): jest.Mocked<IAuditLogRepository> {
 export function makeFakePermissionsRepo(): jest.Mocked<IPermissionsRepository> {
   return fakeOf<IPermissionsRepository>([
     'grant',
+    'revoke',
     'hasPermission',
     'getOwner',
     'listObjectIdsForUser',
@@ -83,6 +85,10 @@ export function makeFakePermissionsRepo(): jest.Mocked<IPermissionsRepository> {
     'canSeeEntity',
     'getVisibleEntityIds',
   ]);
+}
+
+export function makeFakeSettingsRepo(): jest.Mocked<IAppSettingsRepository> {
+  return fakeOf<IAppSettingsRepository>(['get', 'update']);
 }
 
 export function makeFakeWorkerExecutionRepo(): jest.Mocked<IWorkerExecutionRepository> {
@@ -136,6 +142,7 @@ export interface FakeUoWRepos {
   dms: jest.Mocked<IDocumentManagementSystem>;
   promptDomainService: jest.Mocked<IPromptDomainService>;
   auditCollector: jest.Mocked<IAuditCollector>;
+  settings: jest.Mocked<IAppSettingsRepository>;
 }
 
 export interface FakeUoW extends UoW {
@@ -159,6 +166,7 @@ export function createFakeUoW(user?: UserContext): FakeUoW {
     dms: makeFakeDMS(),
     promptDomainService: makeFakePromptDomainService(),
     auditCollector: makeFakeAuditCollector(),
+    settings: makeFakeSettingsRepo(),
   };
 
   const fakeUoW: FakeUoW = {
@@ -180,6 +188,7 @@ export function createFakeUoW(user?: UserContext): FakeUoW {
     getSteps: jest.fn(() => repos.steps),
     getAuditLog: jest.fn(() => repos.auditLog),
     getWorkerExecutions: jest.fn(() => repos.workerExecutions),
+    getSettings: jest.fn(() => repos.settings),
     getPromptDomainService: jest.fn(() => repos.promptDomainService),
     getStepExecutorDomainService: jest.fn(() => new StepExecutorDomainService(repos.auditCollector)),
     // Mirrors UoWImplementation: a real domain service built from the fake

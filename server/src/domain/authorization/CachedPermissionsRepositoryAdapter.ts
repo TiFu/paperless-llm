@@ -36,6 +36,10 @@ export class CachedPermissionsRepositoryAdapter implements IPermissionsRepositor
     return this.inner.grant(type, objectId, username);
   }
 
+  revoke(type: ResourceType, objectId: string, username: string): Promise<void> {
+    return this.inner.revoke(type, objectId, username);
+  }
+
   hasPermission(type: ResourceType, objectId: string, username: string): Promise<boolean> {
     return this.inner.hasPermission(type, objectId, username);
   }

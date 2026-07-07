@@ -5,6 +5,9 @@ import { defineConfig } from '@playwright/test';
 // Playwright could own the lifecycle of.
 export default defineConfig({
   testDir: './tests',
+  // Configures non-technical settings (fast poll intervals, auto-queue tag,
+  // stub LLM model) via PUT /api/settings — see tests/global-setup.ts.
+  globalSetup: './tests/global-setup.ts',
   timeout: 90_000,
   expect: {
     timeout: 15_000,

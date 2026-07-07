@@ -177,7 +177,10 @@ For Kubernetes deployment, see the Helm chart at [helm/paperless-llm](helm/paper
 
 ## Configuration
 
-Configuration is managed via `config.yaml` (see [config.example.yaml](config.example.yaml)):
+Configuration is managed via `config.yaml` (see [config.example.yaml](config.example.yaml)). This file holds
+technical settings only (infrastructure, credentials, ports) — restart required to change. Non-technical settings
+(auto-process tags, worker timing, retry policy, LLM model/temperature/timeout) live in the database and are
+live-editable via the Settings page in the UI (or `PUT /api/settings`), without a restart:
 
 ```yaml
 database:
@@ -187,32 +190,32 @@ database:
   password: devpassword
   database: paperless_llm_dev
 
+redis:
+  host: localhost
+  port: 6379
+  username: ""
+  password: null
+  db: 0
+  ttlInSeconds: 300
+
 paperless:
   url: http://localhost:8000
   token: your_paperless_token_here
-  tags: llm-process
 
 llm:
   url: http://localhost:11434
-  model: llama3
-  temperature: 0.7
-  timeoutMs: 30000
 
-worker:
+auth:
+  jwtSecret: change_me_to_a_long_random_secret
+
+workers:
   instanceId: null  # Auto-generated if not specified
-  batchSize: 5
-  pollIntervalMs: 3000
-  maxRetries: 3
-  claimTimeoutMs: 300000
 
 api:
   port: 3000
   corsOrigins:
     - "*"
 ```
-| `PAPERLESS_TOKEN` | Paperless-NG API token | Required |
-| `PAPERLESS_TAGS` | Comma-separated tags to filter documents | llm-pending |
-| `LOG_PRETTY` | Enable pretty-printed logs | false |
 
 ## API Documentation
 

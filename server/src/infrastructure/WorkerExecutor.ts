@@ -23,7 +23,7 @@ export class WorkerExecutor {
   constructor(
     private readonly workerType: string,
     private readonly workFn: () => Promise<WorkerRunResult>,
-    private readonly intervalMs: number,
+    private readonly getIntervalMs: () => number,
     private readonly uowFactory: UoWFactory,
     private readonly logger: pino.Logger,
   ) {}
@@ -38,7 +38,7 @@ export class WorkerExecutor {
     }
 
     this.running = true;
-    this.logger.info({ intervalMs: this.intervalMs }, 'WorkerExecutor starting');
+    this.logger.info({ intervalMs: this.getIntervalMs() }, 'WorkerExecutor starting');
     this.scheduleNext(0); // Start immediately
   }
 
@@ -152,9 +152,10 @@ export class WorkerExecutor {
       }
     }
 
-    // Calculate adjusted delay for next execution
+    // Calculate adjusted delay for next execution, reading the interval
+    // fresh so a live config change takes effect on the very next tick.
     const executionDuration = Date.now() - startTime;
-    const nextDelay = Math.max(0, this.intervalMs - executionDuration);
+    const nextDelay = Math.max(0, this.getIntervalMs() - executionDuration);
 
     if (this.running) {
       this.scheduleNext(nextDelay);

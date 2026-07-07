@@ -4,6 +4,7 @@ import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
 import { AuthConfig } from '../config/AppConfig.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { getLogger } from '../utils/logger.js';
+import { SETTINGS_RESOURCE_ID } from '../domain/authorization/IPermissionsRepository.js';
 
 export class AuthApplicationService {
   constructor(
@@ -26,6 +27,7 @@ export class AuthApplicationService {
     logger.info({ username }, 'User logged in, token stored');
 
     await this.ensureUserHasPrompts(username);
+    await this.ensureSettingsPermissionSynced(username, paperlessToken.isSuperuser);
 
     const token = jwt.sign(
       { sub: username, username },
@@ -47,6 +49,32 @@ export class AuthApplicationService {
       if (defaults.length > 0) {
         await prompts.copyForUser(defaults, username);
       }
+    }
+
+    await uow.save();
+    await uow.commit();
+  }
+
+  /**
+   * Keeps the local 'settings' permission grant in sync with Paperless's own
+   * is_superuser flag on every login: grants it if the user is a superuser
+   * and doesn't already hold it, revokes it if they're not (and held it from
+   * a previous login before being demoted in Paperless). isSuperuser being
+   * undefined means the lookup itself failed — leave existing access as-is
+   * rather than guessing.
+   */
+  private async ensureSettingsPermissionSynced(username: string, isSuperuser: boolean | undefined): Promise<void> {
+    if (isSuperuser === undefined) return;
+
+    await using uow = await this.uowFactory.createUoW({ username });
+    await uow.start();
+    const permissions = uow.getPermissions();
+    const hasSettingsPermission = await permissions.hasPermission('settings', SETTINGS_RESOURCE_ID, username);
+
+    if (isSuperuser && !hasSettingsPermission) {
+      await permissions.grant('settings', SETTINGS_RESOURCE_ID, username);
+    } else if (!isSuperuser && hasSettingsPermission) {
+      await permissions.revoke('settings', SETTINGS_RESOURCE_ID, username);
     }
 
     await uow.save();

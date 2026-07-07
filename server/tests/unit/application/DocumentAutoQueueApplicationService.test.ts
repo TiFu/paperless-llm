@@ -4,11 +4,20 @@ import { Job } from '../../../src/domain/job/Job.js';
 import { JobState } from '../../../src/domain/job/JobState.js';
 import { WorkflowType } from '../../../src/domain/workflows/WorkflowType.js';
 import { IDocument, PaginatedDocuments } from '../../../src/domain/document/IDocument.js';
-import type { AutoProcessTagConfig } from '../../../src/config/AppConfig.js';
+import type { IPaperlessConfig } from '../../../src/config/AppConfig.js';
+import type { AutoProcessTagConfig } from '../../../src/domain/settings/AppSettingsTypes.js';
 import type { IUsersRepository, UserRecord } from '../../../src/domain/auth/IUsersRepository.js';
 import { createFakeUoW, makeFakeUoWFactory } from '../helpers/fakeUoW.js';
 
 const user: UserRecord = { username: 'alice', paperlessToken: 'tok', lastLogin: new Date() };
+
+function fakePaperlessConfig(tags: AutoProcessTagConfig[]): IPaperlessConfig {
+  return {
+    paperless: { url: 'http://paperless.example.com', token: 't' },
+    getTags: () => undefined,
+    getAutoProcessTags: () => tags,
+  };
+}
 
 function makeUsersRepo(users: UserRecord[] = [user]): jest.Mocked<IUsersRepository> {
   return {
@@ -33,7 +42,7 @@ function makeJob(id: string, documentId: number): Job {
 describe('DocumentAutoQueueApplicationService', () => {
   it('does nothing and never touches the DMS when no auto-process tags are configured', async () => {
     const fakeUoW = createFakeUoW(user);
-    const service = new DocumentAutoQueueApplicationService(makeFakeUoWFactory(fakeUoW), makeUsersRepo(), new JobApplicationService(makeFakeUoWFactory(fakeUoW)), []);
+    const service = new DocumentAutoQueueApplicationService(makeFakeUoWFactory(fakeUoW), makeUsersRepo(), new JobApplicationService(makeFakeUoWFactory(fakeUoW)), fakePaperlessConfig([]));
 
     const result = await service.processNewDocuments();
 
@@ -60,7 +69,7 @@ describe('DocumentAutoQueueApplicationService', () => {
       makeFakeUoWFactory(fakeUoW),
       makeUsersRepo(),
       new JobApplicationService(makeFakeUoWFactory(fakeUoW)),
-      tags,
+      fakePaperlessConfig(tags),
     );
 
     const result = await service.processNewDocuments();
@@ -93,7 +102,7 @@ describe('DocumentAutoQueueApplicationService', () => {
       makeFakeUoWFactory(fakeUoW),
       makeUsersRepo(),
       new JobApplicationService(makeFakeUoWFactory(fakeUoW)),
-      tags,
+      fakePaperlessConfig(tags),
     );
 
     await service.processNewDocuments();
@@ -121,7 +130,7 @@ describe('DocumentAutoQueueApplicationService', () => {
       makeFakeUoWFactory(fakeUoW),
       makeUsersRepo(),
       new JobApplicationService(makeFakeUoWFactory(fakeUoW)),
-      tags,
+      fakePaperlessConfig(tags),
     );
 
     await service.processNewDocuments();

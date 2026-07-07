@@ -1,5 +1,12 @@
 # Paperless LLM Configuration Example
 # Copy this file to config.yaml and update with your settings
+#
+# This file holds TECHNICAL configuration only (infrastructure, credentials,
+# ports) — restart required to change. Non-technical settings (auto-process
+# tags, worker timing, retry policy, LLM model/temperature/timeout) live in
+# the database and are live-editable via the Settings page in the UI /
+# PUT /api/settings, without a restart. Editing them requires the 'settings'
+# permission, granted automatically on login to Paperless superusers.
 
 database:
   host: localhost
@@ -23,23 +30,9 @@ redis:
 paperless:
   url: http://localhost:8000
   token: your_paperless_token_here
-  tags: llm-process
-  # Tags that trigger auto-processing when workers.autoQueue.enabled is true.
-  # Each entry's `fields` defaults to all fields (title, tags, correspondent,
-  # document_type, created_date) and `workflowType` defaults to `automated`
-  # when omitted. A document carrying more than one of these tags at once is
-  # processed once, with the union of every matching tag's fields — and
-  # `approval` wins over `automated` if any matching tag requests it.
-  # autoProcessTags:
-  #   - tag: llm-auto-process
-  #     # fields: [title, tags]
-  #     # workflowType: approval
 
 llm:
   url: http://localhost:11434
-  model: llama3
-  temperature: 0.7
-  timeoutMs: 30000
 
 auth:
   jwtSecret: change_me_to_a_long_random_secret   # required - used to sign/verify login JWTs
@@ -47,22 +40,6 @@ auth:
 
 workers:
   instanceId: null  # Auto-generated if not specified
-  stepExecution:
-    batchSize: 5
-    pollIntervalMs: 3000
-  # Stuck step recovery settings (all optional, defaults shown). Retry limits
-  # for stuck steps come from retry.* below, not from here.
-  stuckStepReset:
-    timeoutMs: 300000        # 5 minutes - time before a step is considered stuck
-    checkIntervalMs: 30000   # 30 seconds - how often to check for stuck steps
-  # How often cached tag/correspondent/document-type descriptions are refreshed from Paperless
-  entitySync:
-    pollIntervalMs: 900000   # 15 minutes
-  # Automated document pickup queue
-  # Periodically checks Paperless for documents with a specific tag and creates jobs automatically
-  autoQueue:
-    enabled: false                # Enable/disable auto-processing queue
-    pollIntervalMs: 60000         # How often to check for new documents (60 seconds)
 
 logging:
   level: debug
@@ -72,8 +49,3 @@ api:
   port: 3000
   corsOrigins:
     - "*"
-
-retry:
-  maxRetries: 3                 # Maximum retry attempts for automated steps and stuck-step reset
-  retryDelayInMs: 30000         # Base delay in milliseconds (30 seconds)
-  retryExponent: 2              # Exponential backoff multiplier (2^retryCount)

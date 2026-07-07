@@ -34,6 +34,7 @@ async function main(): Promise<void> {
   const shutdown = async (): Promise<void> => {
     ctx.logger.info('Shutting down...');
     await Promise.all(stopFns.map(stop => stop()));
+    ctx.config.stop();
     await ctx.database.close();
     ctx.logger.info('Shutdown complete');
     process.exit(0);

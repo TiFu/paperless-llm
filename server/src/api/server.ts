@@ -19,6 +19,7 @@ import { createDocsRouter } from './routes/docs.js';
 import { createEntityDescriptionsRouter } from './routes/entityDescriptions.js';
 import { createWorkerExecutionsRouter } from './routes/workerExecutions.js';
 import { createAuthRouter } from './routes/auth.js';
+import { createSettingsRouter } from './routes/settings.js';
 import * as OpenAPIValidator from 'express-openapi-validator';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { IEntityDescriptionsRepository } from '../domain/entityDescriptions/IEntityDescriptionsRepository.js';
@@ -108,6 +109,7 @@ export function createApiServer(
   // API routes
   app.use('/api/documents', createDocumentsRouter(appFactory));
   app.use('/api/prompts', createPromptsRouter(appFactory));
+  app.use('/api/settings', createSettingsRouter(appFactory));
   app.use('/api/jobs', createJobsRouter(appFactory));
   app.use('/api/approvals', createApprovalsRouter(appFactory));
   app.use('/api/steps', createStepsRouter(appFactory));

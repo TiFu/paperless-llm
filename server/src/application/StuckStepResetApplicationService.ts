@@ -1,6 +1,7 @@
 import pino from 'pino';
 import { createChildLogger } from '../utils/logger.js';
-import { RetryConfig, StepStatus } from '../domain/steps/IStep.js';
+import { StepStatus } from '../domain/steps/IStep.js';
+import { IRetryConfig, IWorkersConfig } from '../config/AppConfig.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 
 /**
@@ -18,8 +19,8 @@ export class StuckStepResetApplicationService {
 
   constructor(
     private readonly uowFactoyr: UoWFactory,
-    private readonly timeoutMs: number,
-    private readonly retryConfig: RetryConfig,
+    private readonly workersConfig: IWorkersConfig,
+    private readonly retryConfig: IRetryConfig,
   ) {
     this.logger = createChildLogger({ service: 'StuckStepResetApplicationService' });
   }
@@ -31,12 +32,13 @@ export class StuckStepResetApplicationService {
    */
   async resetStuckSteps(): Promise<StuckStepResetResult> {
 
+    const timeoutMs = this.workersConfig.getStuckStepReset().timeoutMs;
     try {
       await using context = await this.uowFactoyr.createSystemUoW();
       await context.start();
 
       // Find stuck steps
-      const stuckSteps = await context.getSteps().getStuckInProgressExecutableSteps(this.timeoutMs);
+      const stuckSteps = await context.getSteps().getStuckInProgressExecutableSteps(timeoutMs);
 
       if (stuckSteps.length === 0) {
         this.logger.debug('No stuck steps found');
@@ -47,7 +49,7 @@ export class StuckStepResetApplicationService {
         {
           count: stuckSteps.length,
           stepIds: stuckSteps.map(s => s.getStepId()),
-          timeoutMs: this.timeoutMs
+          timeoutMs,
         },
         'Found stuck steps'
       );
@@ -56,7 +58,7 @@ export class StuckStepResetApplicationService {
       let falloutCount = 0;
       const items: StuckStepResetResult['items'] = [];
       const workflowOrchestrator = context.getWorkflowOrchestratorDomainService();
-      const steps = workflowOrchestrator.resetStuckSteps(stuckSteps, this.retryConfig)
+      const steps = workflowOrchestrator.resetStuckSteps(stuckSteps, this.retryConfig.getRetry())
       steps.forEach((s) => {
         if (s.getStepStatus() == StepStatus.RETRYING) {
           retryCount++;

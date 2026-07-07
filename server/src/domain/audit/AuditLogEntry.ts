@@ -26,6 +26,9 @@ export enum AuditEventType {
   
   // System operations
   STUCK_STEP_RESET = 'STUCK_STEP_RESET',
+
+  // Settings
+  SETTINGS_UPDATED = 'SETTINGS_UPDATED',
 }
 
 export interface ErrorMetadata {
@@ -93,6 +96,10 @@ export interface StuckStepResetMetadata {
   stepType: StepType
 }
 
+export interface SettingsUpdatedMetadata {
+  updatedBy: string;
+}
+
 /**
  * Union type for all possible metadata
  */
@@ -104,6 +111,7 @@ export type AuditLogMetadata =
   | StepManuallyRetriedMetadata
   | StepCancelledMetadata
   | StuckStepResetMetadata
+  | SettingsUpdatedMetadata
   | ErrorMetadata
   | Record<string, unknown>; // Fallback for extensibility
 
@@ -114,7 +122,7 @@ export type AuditLogMetadata =
 export class AuditLogEntry {
   constructor(
     public readonly id: string | null,
-    public readonly jobId: string,
+    public readonly jobId: string | null,
     public readonly stepId: string | null,
     public readonly eventType: AuditEventType,
     public readonly eventTimestamp: Date,
@@ -289,6 +297,15 @@ export class AuditLogEntry {
   }
 
   /**
+   * Static creator for SETTINGS_UPDATED event. Not tied to a job/step —
+   * jobId/stepId are both null (audit_log.job_id is nullable specifically
+   * for this event type, see migration 022_app_settings.sql).
+   */
+  public static createSettingsUpdated(updatedBy: string): AuditLogEntry {
+    return AuditLogEntry.create(null, null, AuditEventType.SETTINGS_UPDATED, new Date(), { updatedBy });
+  }
+
+  /**
    * Calculate processing duration in milliseconds
    * Returns null if start or end time is missing
    */
@@ -319,7 +336,7 @@ export class AuditLogEntry {
    * Create a new audit log entry (factory method)
    */
   private static create(
-    jobId: string,
+    jobId: string | null,
     stepId: string | null,
     eventType: AuditEventType,
     eventTimestamp: Date,

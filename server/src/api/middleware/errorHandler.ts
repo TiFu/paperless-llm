@@ -66,6 +66,26 @@ export function errorHandler(logger: pino.Logger) {
       return;
     }
 
+    // Handle errors from express-openapi-validator (request schema
+    // violations against docs/openapi.yaml — e.g. a field outside its
+    // documented min/max/enum). These are HttpError instances (BadRequest,
+    // Forbidden, etc.) with a numeric `status` and a descriptive `message`,
+    // but aren't ApiError instances, so without this branch they'd fall
+    // through to the generic 500 below despite being a client-side 4xx.
+    const status = (err as { status?: unknown }).status;
+    if (typeof status === 'number' && status >= 400 && status < 500) {
+      const problem: ProblemDetails = {
+        type: 'about:blank',
+        title: 'Bad Request',
+        status,
+        detail: err.message,
+        instance: req.path,
+      };
+
+      res.status(status).json(problem);
+      return;
+    }
+
     // Handle unknown errors
     const problem: ProblemDetails = {
       type: 'about:blank',

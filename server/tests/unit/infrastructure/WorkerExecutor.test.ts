@@ -18,7 +18,7 @@ describe('WorkerExecutor', () => {
       const fakeUoW = createFakeUoW();
       fakeUoW.repos.workerExecutions.start.mockResolvedValue('exec-1');
       const workFn = jest.fn<Promise<WorkerRunResult>, []>().mockResolvedValue({});
-      const executor = new WorkerExecutor('test_worker', workFn, 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
+      const executor = new WorkerExecutor('test_worker', workFn, () => 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
 
       executor.start();
       await jest.advanceTimersByTimeAsync(0);
@@ -34,7 +34,7 @@ describe('WorkerExecutor', () => {
       const fakeUoW = createFakeUoW();
       fakeUoW.repos.workerExecutions.start.mockResolvedValue('exec-1');
       const workFn = jest.fn<Promise<WorkerRunResult>, []>().mockResolvedValue({});
-      const executor = new WorkerExecutor('test_worker', workFn, 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
+      const executor = new WorkerExecutor('test_worker', workFn, () => 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
 
       executor.start();
       await jest.advanceTimersByTimeAsync(0);
@@ -48,7 +48,7 @@ describe('WorkerExecutor', () => {
 
     it('warns and no-ops when start() is called while already running', () => {
       const fakeUoW = createFakeUoW();
-      const executor = new WorkerExecutor('test_worker', jest.fn().mockResolvedValue({}), 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
+      const executor = new WorkerExecutor('test_worker', jest.fn().mockResolvedValue({}), () => 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
 
       executor.start();
       expect(executor.isRunning()).toBe(true);
@@ -65,7 +65,7 @@ describe('WorkerExecutor', () => {
       fakeUoW.repos.workerExecutions.start.mockResolvedValue('exec-1');
       const result: WorkerRunResult = { summary: { processed: 3 }, items: [{ id: 'item-1' } as never] };
       const workFn = jest.fn<Promise<WorkerRunResult>, []>().mockResolvedValue(result);
-      const executor = new WorkerExecutor('test_worker', workFn, 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
+      const executor = new WorkerExecutor('test_worker', workFn, () => 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
 
       executor.start();
       await jest.advanceTimersByTimeAsync(0);
@@ -80,7 +80,7 @@ describe('WorkerExecutor', () => {
       const fakeUoW = createFakeUoW();
       fakeUoW.repos.workerExecutions.start.mockResolvedValue('exec-1');
       const workFn = jest.fn<Promise<WorkerRunResult>, []>().mockRejectedValue(new Error('boom'));
-      const executor = new WorkerExecutor('test_worker', workFn, 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
+      const executor = new WorkerExecutor('test_worker', workFn, () => 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
 
       executor.start();
       await jest.advanceTimersByTimeAsync(0);
@@ -98,7 +98,7 @@ describe('WorkerExecutor', () => {
       const fakeUoW = createFakeUoW();
       fakeUoW.repos.workerExecutions.start.mockRejectedValue(new Error('db down'));
       const workFn = jest.fn<Promise<WorkerRunResult>, []>().mockResolvedValue({});
-      const executor = new WorkerExecutor('test_worker', workFn, 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
+      const executor = new WorkerExecutor('test_worker', workFn, () => 1000, makeFakeUoWFactory(fakeUoW), silentLogger);
 
       executor.start();
       await jest.advanceTimersByTimeAsync(0);

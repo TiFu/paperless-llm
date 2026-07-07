@@ -1,6 +1,11 @@
 # config.yaml for docker-compose.e2e.yml — used by the e2e/ Playwright suite
 # and the `e2e` CI job. Hosts point at compose service names (bridge network).
 # Only ever runs in throwaway containers, so secrets here are fixed placeholders.
+#
+# Non-technical settings (auto-process tags, worker timing, retry policy,
+# LLM model/temperature/timeout) used to be set here but now live in the
+# database — see e2e/tests/global-setup.ts, which configures them via
+# PUT /api/settings before any spec runs.
 
 redis:
   host: pllm-redis
@@ -23,32 +28,12 @@ paperless:
   # per-user token captured at login time (see server/src/infrastructure/UoW.ts).
   # Only needs to be a non-empty string to pass config validation.
   token: e2e-placeholder
-  tags: e2e-process
-  autoProcessTags:        # Tags that trigger auto-processing when workers.autoQueue.enabled is true
-    - tag: e2e-process
-      fields:
-        - tags
-      workflowType: automated
 
 llm:
   url: http://stub-llm:80
-  model: stub-model
-  temperature: 0
-  timeoutMs: 10000
 
 workers:
   instanceId: null
-  stepExecution:
-    batchSize: 5
-    pollIntervalMs: 1000
-  stuckStepReset:
-    timeoutMs: 300000
-    checkIntervalMs: 30000
-  entitySync:
-    pollIntervalMs: 900000
-  autoQueue:
-    enabled: true
-    pollIntervalMs: 3000
 
 logging:
   level: debug
@@ -62,8 +47,3 @@ api:
 auth:
   jwtSecret: e2e-jwt-secret-not-for-production
   jwtExpiresIn: 8h
-
-retry:
-  maxRetries: 3
-  retryDelayInMs: 1000
-  retryExponent: 2

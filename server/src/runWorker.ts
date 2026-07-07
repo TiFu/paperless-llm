@@ -5,18 +5,25 @@ import { WorkerExecutionItem } from './domain/workerExecution/WorkerExecutionIte
 export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
   const { config, logger, applicationServiceFactory, uowFactory } = ctx;
 
+  // Constructed once: each service reads its current settings live (via the
+  // narrow I*Config interfaces implemented by config) at the point of use,
+  // so no per-cycle reconstruction is needed for these to stay up to date.
   const stepExecutorService = applicationServiceFactory.createStepExecutorApplicationService();
-  const stuckStepResetService = applicationServiceFactory.createStuckStepResetApplicationService(
-    config.workers.stuckStepReset.timeoutMs
-  );
+  const stuckStepResetService = applicationServiceFactory.createStuckStepResetApplicationService();
+  const autoQueueService = applicationServiceFactory.createDocumentAutoQueueApplicationService();
 
   const stepProcessorWorker = new WorkerExecutor(
     'step_processor',
     async (): Promise<WorkerRunResult> => {
-      const pending = await stepExecutorService.processPendingSteps(config.workers.stepExecution.batchSize);
+      if (!config.getStepExecution().enabled) {
+        return { summary: { skipped: 'disabled' } };
+      }
+
+      const batchSize = config.getStepExecution().batchSize;
+      const pending = await stepExecutorService.processPendingSteps(batchSize);
       logger.debug({ processed: pending.processed }, 'Processed steps');
 
-      const retried = await stepExecutorService.processRetryQueue(config.workers.stepExecution.batchSize);
+      const retried = await stepExecutorService.processRetryQueue(batchSize);
       logger.debug({ retried: retried.retried }, 'Processed retry queue');
 
       const items: WorkerExecutionItem[] = [
@@ -39,7 +46,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
 
       return { summary: { processed: pending.processed, retried: retried.retried }, items };
     },
-    config.workers.stepExecution.pollIntervalMs,
+    () => config.getStepExecution().pollIntervalMs,
     uowFactory,
     logger.child({ component: 'StepProcessorWorker' }),
   );
@@ -47,6 +54,10 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
   const stuckStepResetWorker = new WorkerExecutor(
     'stuck_step_reset',
     async (): Promise<WorkerRunResult> => {
+      if (!config.getStuckStepReset().enabled) {
+        return { summary: { skipped: 'disabled' } };
+      }
+
       const result = await stuckStepResetService.resetStuckSteps();
       if (result.reset > 0 || result.fallout > 0) {
         logger.info({ reset: result.reset, fallout: result.fallout }, 'Reset stuck steps');
@@ -63,7 +74,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
 
       return { summary: { reset: result.reset, fallout: result.fallout }, items };
     },
-    config.workers.stuckStepReset.checkIntervalMs,
+    () => config.getStuckStepReset().checkIntervalMs,
     uowFactory,
     logger.child({ component: 'StuckStepResetWorker' }),
   );
@@ -71,6 +82,10 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
   const entitySyncWorker = new WorkerExecutor(
     'entity_sync',
     async (): Promise<WorkerRunResult> => {
+      if (!config.getEntitySync().enabled) {
+        return { summary: { skipped: 'disabled' } };
+      }
+
       const result = await ctx.entitySyncService.syncAll();
       const items: WorkerExecutionItem[] = result.items.map(i => ({
         itemType: 'entity_sync_user',
@@ -82,87 +97,90 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
       }));
       return { summary: { users: result.items.length }, items };
     },
-    config.workers.entitySync.pollIntervalMs,
+    () => config.getEntitySync().pollIntervalMs,
     uowFactory,
     logger.child({ component: 'EntitySyncWorker' }),
   );
 
-  let documentAutoQueueWorker: WorkerExecutor | null = null;
-  if (config.workers.autoQueue.enabled) {
-    const autoQueueService = applicationServiceFactory.createDocumentAutoQueueApplicationService(config.paperless.autoProcessTags);
+  // Always constructed and started, regardless of whether auto-queue is
+  // currently enabled — enabled/pollIntervalMs are both read live each cycle
+  // below, so toggling the setting takes effect without a restart.
+  const documentAutoQueueWorker = new WorkerExecutor(
+    'document_auto_queue',
+    async (): Promise<WorkerRunResult> => {
+      if (!config.getAutoQueue().enabled) {
+        return { summary: { skipped: 'disabled' } };
+      }
 
-    documentAutoQueueWorker = new WorkerExecutor(
-      'document_auto_queue',
-      async (): Promise<WorkerRunResult> => {
-        const result = await autoQueueService.processNewDocuments();
-        if (result.created > 0 || result.skipped > 0) {
-          logger.info(
-            { processed: result.processed, created: result.created, skipped: result.skipped },
-            'Auto-queue processed documents',
-          );
-        }
+      const result = await autoQueueService.processNewDocuments();
+      if (result.created > 0 || result.skipped > 0) {
+        logger.info(
+          { processed: result.processed, created: result.created, skipped: result.skipped },
+          'Auto-queue processed documents',
+        );
+      }
 
-        const items: WorkerExecutionItem[] = result.items.map(i => ({
-          itemType: 'document',
-          itemId: String(i.documentId),
-          outcome: i.outcome,
-          errorMessage: i.errorMessage,
-          startedAt: i.startedAt,
-          finishedAt: i.finishedAt,
-        }));
+      const items: WorkerExecutionItem[] = result.items.map(i => ({
+        itemType: 'document',
+        itemId: String(i.documentId),
+        outcome: i.outcome,
+        errorMessage: i.errorMessage,
+        startedAt: i.startedAt,
+        finishedAt: i.finishedAt,
+      }));
 
-        return {
-          summary: { processed: result.processed, created: result.created, skipped: result.skipped },
-          items,
-        };
-      },
-      config.workers.autoQueue.pollIntervalMs,
-      uowFactory,
-      logger.child({ component: 'DocumentAutoQueueWorker' }),
-    );
-  }
+      return {
+        summary: { processed: result.processed, created: result.created, skipped: result.skipped },
+        items,
+      };
+    },
+    () => config.getAutoQueue().pollIntervalMs,
+    uowFactory,
+    logger.child({ component: 'DocumentAutoQueueWorker' }),
+  );
 
   logger.info(
     {
       workerId: config.workers.instanceId,
-      batchSize: config.workers.stepExecution.batchSize,
-      pollIntervalMs: config.workers.stepExecution.pollIntervalMs,
+      enabled: config.getStepExecution().enabled,
+      batchSize: config.getStepExecution().batchSize,
+      pollIntervalMs: config.getStepExecution().pollIntervalMs,
     },
     'Starting workflow step processor',
   );
   stepProcessorWorker.start();
 
-  logger.info({ pollIntervalMs: config.workers.entitySync.pollIntervalMs }, 'Starting entity sync worker');
+  logger.info(
+    { enabled: config.getEntitySync().enabled, pollIntervalMs: config.getEntitySync().pollIntervalMs },
+    'Starting entity sync worker',
+  );
   entitySyncWorker.start();
 
   logger.info(
     {
-      timeoutMs: config.workers.stuckStepReset.timeoutMs,
-      checkIntervalMs: config.workers.stuckStepReset.checkIntervalMs,
+      enabled: config.getStuckStepReset().enabled,
+      timeoutMs: config.getStuckStepReset().timeoutMs,
+      checkIntervalMs: config.getStuckStepReset().checkIntervalMs,
     },
     'Starting stuck step reset checker',
   );
   stuckStepResetWorker.start();
 
-  if (documentAutoQueueWorker) {
-    logger.info(
-      {
-        enabled: config.workers.autoQueue.enabled,
-        pollIntervalMs: config.workers.autoQueue.pollIntervalMs,
-        autoProcessTags: config.paperless.autoProcessTags.map(t => t.tag),
-      },
-      'Starting document auto-queue worker',
-    );
-    documentAutoQueueWorker.start();
-  } else {
-    logger.info('Document auto-queue worker disabled');
-  }
+  logger.info(
+    {
+      enabled: config.getAutoQueue().enabled,
+      pollIntervalMs: config.getAutoQueue().pollIntervalMs,
+      autoProcessTags: config.getAutoProcessTags().map(t => t.tag),
+    },
+    'Starting document auto-queue worker',
+  );
+  documentAutoQueueWorker.start();
 
   return async () => {
     logger.info('Shutting down worker process...');
     stepProcessorWorker.stop();
     stuckStepResetWorker.stop();
     entitySyncWorker.stop();
-    documentAutoQueueWorker?.stop();
+    documentAutoQueueWorker.stop();
   };
 }

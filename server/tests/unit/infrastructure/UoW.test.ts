@@ -1,10 +1,14 @@
 import { UoWImplementation, Saveable } from '../../../src/infrastructure/UoW.js';
 import { DBContextWithRepositoryFactory, RepositoryRegistry } from '../../../src/infrastructure/TransactionManager.js';
-import { PaperlessConfig, RedisConfig } from '../../../src/config/AppConfig.js';
+import { IPaperlessConfig, RedisConfig } from '../../../src/config/AppConfig.js';
 import { DMSCacheService, DMSSerializers } from '../../../src/services/CacheService.js';
 import { CachedPaperlessServiceAdapter } from '../../../src/services/CachedPaperlessServiceAdapter.js';
 
-const paperlessConfig: PaperlessConfig = { url: 'https://paperless.example.com', token: 'system-token', autoProcessTags: [] };
+const paperlessConfig: IPaperlessConfig = {
+  paperless: { url: 'https://paperless.example.com', token: 'system-token' },
+  getTags: () => undefined,
+  getAutoProcessTags: () => [],
+};
 const redisConfig: RedisConfig = { host: 'localhost', port: 6379, username: '', password: '', db: 0, ttlInSeconds: 60 };
 
 function makeFakeContext(): DBContextWithRepositoryFactory {
