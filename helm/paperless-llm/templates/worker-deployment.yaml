@@ -4,6 +4,8 @@ metadata:
   name: {{ include "paperless-llm.worker.fullname" . }}
   labels:
     app.kubernetes.io/component: worker
+  annotations:
+    secret.reloader.stakater.com/reload: {{ include "paperless-llm.config.fullname" . | quote }}
 spec:
   replicas: {{ .Values.worker.replicaCount }}
   selector:
