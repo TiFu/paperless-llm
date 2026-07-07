@@ -68,7 +68,25 @@ export async function createAppContext(processName: string): Promise<AppContext>
 
   const usersRepo = new PostgreSQLUsersRepository(pool);
 
-  const paperlessService = new PaperlessService(config.paperless);
+  // config implements IPaperlessConfig — uowFactory needs it to assemble a
+  // fresh PaperlessService per-user with the current live tags/autoProcessTags.
+  const uowFactory = new UoWFactory(txManager, config, dmsCacheService);
+
+  // Loads non-technical settings from Postgres and starts AppConfig's
+  // periodic re-read. Must happen after migrations (the app_settings table
+  // must exist) and before anything below that reads live settings.
+  await config.start(uowFactory);
+
+  // Bootstrap-level PaperlessService instances are only used for login auth
+  // and the health check below — never for tag-based operations — so dummy
+  // tags/autoProcessTags are fine here (real per-user instances are built
+  // fresh in UoWImplementation._createDMSForUser with live values).
+  const paperlessService = new PaperlessService({
+    url: config.paperless.url,
+    token: config.paperless.token,
+    tags: undefined,
+    autoProcessTags: [],
+  });
   const cachedPaperlessService = new CachedPaperlessServiceAdapter(paperlessService, dmsCacheService);
 
   const paperlessHealthy = await cachedPaperlessService.healthCheck();
@@ -78,7 +96,8 @@ export async function createAppContext(processName: string): Promise<AppContext>
     logger.info('Paperless-NG connection established');
   }
 
-  const ollamaService = new OllamaService(config.llm);
+  // config implements ILLMConfig
+  const ollamaService = new OllamaService(config);
   const ollamaHealthy = await ollamaService.checkHealth();
   if (!ollamaHealthy) {
     logger.warn('Ollama health check failed, but continuing...');
@@ -87,16 +106,19 @@ export async function createAppContext(processName: string): Promise<AppContext>
   }
 
   const entityDescriptionsRepo = new PostgreSQLEntityDescriptionsRepository(pool);
-  const uowFactory = new UoWFactory(txManager, config.paperless, dmsCacheService);
   const entitySyncService = new EntitySyncApplicationService(usersRepo, entityDescriptionsRepo, uowFactory);
 
+  // config also implements IRetryConfig, IWorkersConfig and IPaperlessConfig
   const applicationServiceFactory = new ApplicationServiceFactory(
     uowFactory,
     usersRepo,
     cachedPaperlessService,
     ollamaService,
     config.paperless.url,
-    config.retry,
+    config,
+    config,
+    config,
+    config,
   );
 
   return {

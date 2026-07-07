@@ -13,6 +13,7 @@ import {
   EntityDescriptionsApi,
   WorkerExecutionsApi,
   AuthApi,
+  SettingsApi,
   WorkflowType,
   BatchJobRequestDocumentsInnerFieldsEnum,
   EntityValueType,
@@ -22,6 +23,7 @@ import {
   WorkItemStatus,
   ApiException,
   ProblemDetails,
+  UpdateSettingsRequest,
 } from './generated';
 import { BearerAuthAuthentication } from './generated/auth/auth';
 import { PromiseMiddleware } from './generated/middleware';
@@ -77,6 +79,7 @@ const healthApi = new HealthApi(config);
 const entityDescriptionsApi = new EntityDescriptionsApi(config);
 const workerExecutionsApi = new WorkerExecutionsApi(config);
 const authApi = new AuthApi(config);
+const settingsApi = new SettingsApi(config);
 
 function normalizeError(error: unknown): Error {
       if (error instanceof ApiException) {
@@ -204,6 +207,22 @@ export const apiClient = {
   async updatePrompt(stepType: string, template: string) {
     try {
       return await promptsApi.updatePrompt(stepType as StepType, { template });
+    } catch (e) {
+      throw normalizeError(e);
+    }
+  },
+
+  // Settings
+  async fetchSettings() {
+    try {
+      return await settingsApi.getSettings();
+    } catch (e) {
+      throw normalizeError(e);
+    }
+  },
+  async updateSettings(settings: UpdateSettingsRequest) {
+    try {
+      return await settingsApi.updateSettings(settings);
     } catch (e) {
       throw normalizeError(e);
     }

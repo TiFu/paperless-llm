@@ -5,29 +5,35 @@ import type { RootState } from '../store';
 
 export type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated';
 
+interface CurrentUser {
+  username: string;
+  canEditSettings: boolean;
+}
+
 interface AuthState {
   status: AuthStatus;
   username: string | null;
+  canEditSettings: boolean;
   error: string | null;
 }
 
 const initialState: AuthState = {
   status: 'idle',
   username: null,
+  canEditSettings: false,
   error: null,
 };
 
-export const bootstrap = createAsyncThunk<string | null, void, { state: RootState }>(
+export const bootstrap = createAsyncThunk<CurrentUser | null, void, { state: RootState }>(
   'auth/bootstrap',
   async () => {
     if (!getToken()) return null;
-    const me = await apiClient.fetchMe();
-    return me.username;
+    return await apiClient.fetchMe();
   },
 );
 
 export const login = createAsyncThunk<
-  string,
+  CurrentUser,
   { username: string; password: string },
   { state: RootState }
 >(
@@ -35,8 +41,7 @@ export const login = createAsyncThunk<
   async ({ username, password }) => {
     const { token } = await apiClient.login(username, password);
     setToken(token);
-    const me = await apiClient.fetchMe();
-    return me.username;
+    return await apiClient.fetchMe();
   },
 );
 
@@ -60,16 +65,19 @@ const authSlice = createSlice({
       .addCase(bootstrap.fulfilled, (state, action) => {
         if (action.payload) {
           state.status = 'authenticated';
-          state.username = action.payload;
+          state.username = action.payload.username;
+          state.canEditSettings = action.payload.canEditSettings;
         } else {
           state.status = 'unauthenticated';
           state.username = null;
+          state.canEditSettings = false;
         }
       })
       .addCase(bootstrap.rejected, (state) => {
         clearToken();
         state.status = 'unauthenticated';
         state.username = null;
+        state.canEditSettings = false;
       })
       .addCase(login.pending, (state) => {
         state.status = 'loading';
@@ -77,7 +85,8 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.status = 'authenticated';
-        state.username = action.payload;
+        state.username = action.payload.username;
+        state.canEditSettings = action.payload.canEditSettings;
       })
       .addCase(login.rejected, (state, action) => {
         state.status = 'unauthenticated';
@@ -86,6 +95,7 @@ const authSlice = createSlice({
       .addCase(logout.fulfilled, (state) => {
         state.status = 'unauthenticated';
         state.username = null;
+        state.canEditSettings = false;
         state.error = null;
       });
   },
@@ -96,3 +106,4 @@ export default authSlice.reducer;
 export const selectAuthStatus = (state: RootState) => state.auth.status;
 export const selectUsername = (state: RootState) => state.auth.username;
 export const selectAuthError = (state: RootState) => state.auth.error;
+export const selectCanEditSettings = (state: RootState) => state.auth.canEditSettings;

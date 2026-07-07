@@ -1,5 +1,10 @@
 # config.yaml for docker-compose.local.yml — hosts point at compose service
 # names (bridge network), not localhost. Copy/edit, don't commit secrets here.
+#
+# Non-technical settings (auto-process tags, worker timing, retry policy,
+# LLM model/temperature/timeout) live in the database — configure them via
+# the Settings page in the UI (or PUT /api/settings) after logging in as a
+# Paperless superuser, not in this file.
 
 redis:
   host: pllm-redis
@@ -22,26 +27,12 @@ paperless:
   # visit http://localhost:8000, log in, create a token under My Profile,
   # then restart the server service with it set here.
   token: REPLACE_ME_AFTER_FIRST_PAPERLESS_LOGIN
-  tags: llm-process
-  # Tags that trigger auto-processing when workers.autoQueue.enabled is true.
-  # fields defaults to all fields, workflowType defaults to automated.
-  # autoProcessTags:
-  #   - tag: llm-auto-process
 
 llm:
   url: http://host.docker.internal:11434
-  model: llama3
-  temperature: 0.7
-  timeoutMs: 30000
 
 workers:
   instanceId: null
-  stepExecution:
-    batchSize: 5
-    pollIntervalMs: 3000
-  autoQueue:
-    enabled: false
-    pollIntervalMs: 60000
 
 logging:
   level: info
@@ -55,8 +46,3 @@ api:
 auth:
   jwtSecret: REPLACE_ME_WITH_A_RANDOM_SECRET
   jwtExpiresIn: 8h
-
-retry:
-  maxRetries: 3
-  retryDelayInMs: 30000
-  retryExponent: 2

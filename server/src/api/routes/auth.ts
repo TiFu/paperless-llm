@@ -17,7 +17,7 @@ export function createAuthRouter(
 ): Router {
   const router = Router();
   const service = new AuthApplicationService(paperlessAuth, usersRepo, uowFactory, authConfig);
-  const controller = new AuthController(service);
+  const controller = new AuthController(service, uowFactory);
   const authMiddleware = createAuthMiddleware(authConfig.jwtSecret);
 
   router.post(
@@ -41,10 +41,10 @@ export function createAuthRouter(
       }
     });
 
-  router.get('/me', authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+  router.get('/me', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.user) return next(new ApiError(401, 'Unauthorized'));
-      res.json(controller.me(req.user));
+      res.json(await controller.me(req.user));
     } catch (error) {
       next(error);
     }

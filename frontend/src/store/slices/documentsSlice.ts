@@ -6,7 +6,6 @@ import { JobSubmissionResponse } from '../../services/api/generated/models/JobSu
 import { BatchJobRequestDocumentsInnerFieldsEnum } from '../../services/api/generated';
 import { jobsSubmitted } from './statsSlice';
 
-const DEFAULT_TAG = 'llm-process';
 const PAGE_LIMIT = 10;
 
 interface Snackbar {
@@ -51,14 +50,13 @@ const initialState: DocumentsState = {
 
 export const fetchDocuments = createAsyncThunk<
   { response: Awaited<ReturnType<typeof apiClient.fetchDocumentsByTag>>; append: boolean },
-  { append?: boolean } | undefined,
+  { tag: string; append?: boolean },
   { state: { documents: DocumentsState } }
 >(
   'documents/fetch',
-  async (arg = {}, { getState }) => {
-    const append = arg.append ?? false;
+  async ({ tag, append = false }, { getState }) => {
     const cursor = append ? (getState().documents.nextCursor ?? undefined) : undefined;
-    const response = await apiClient.fetchDocumentsByTag(DEFAULT_TAG, PAGE_LIMIT, cursor);
+    const response = await apiClient.fetchDocumentsByTag(tag, PAGE_LIMIT, cursor);
     return { response, append };
   },
 );

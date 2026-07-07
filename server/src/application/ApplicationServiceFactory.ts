@@ -14,10 +14,10 @@ import { DashboardStatsApplicationService } from './DashboardStatsApplicationSer
 import { DocumentApplicationService } from './DocumentApplicationService.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
-import { RetryConfig } from '../domain/steps/IStep.js';
-import { AutoProcessTagConfig } from '../config/AppConfig.js';
+import { AppConfig, IRetryConfig, IWorkersConfig, IPaperlessConfig } from '../config/AppConfig.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
+import { SettingsApplicationService } from './SettingsApplicationService.js';
 
 /**
  * ApplicationServiceFactory - creates application service instances per request.
@@ -31,7 +31,10 @@ export class ApplicationServiceFactory {
     private readonly dmsService: IDocumentManagementSystem,
     private readonly llmService: ILLMService,
     private readonly paperlessBaseUrl: string,
-    private readonly retryConfig: RetryConfig
+    private readonly retryConfig: IRetryConfig,
+    private readonly workersConfig: IWorkersConfig,
+    private readonly paperlessConfig: IPaperlessConfig,
+    private readonly config: AppConfig,
   ) {}
 
   getPaperlessBaseUrl(): string {
@@ -99,11 +102,8 @@ export class ApplicationServiceFactory {
    * Create a new StuckStepResetApplicationService instance.
    * @param timeoutMs Time in milliseconds before a step is considered stuck
    */
-  createStuckStepResetApplicationService(
-    timeoutMs: number
-  ): StuckStepResetApplicationService {
-    return new StuckStepResetApplicationService(this.uowFactory, timeoutMs, this.retryConfig);
-
+  createStuckStepResetApplicationService(): StuckStepResetApplicationService {
+    return new StuckStepResetApplicationService(this.uowFactory, this.workersConfig, this.retryConfig);
   }
   /**
    * Create a new StepRetryApplicationService instance.
@@ -123,18 +123,16 @@ export class ApplicationServiceFactory {
 
   /**
    * Create a new DocumentAutoQueueApplicationService instance.
-   * Used for automated document pickup and job creation.
-   * @param autoProcessTags Tags that trigger auto-processing, with their per-tag fields/workflowType
+   * Used for automated document pickup and job creation. Reads which tags
+   * trigger auto-processing live from paperlessConfig on every run.
    */
-  createDocumentAutoQueueApplicationService(
-    autoProcessTags: AutoProcessTagConfig[],
-  ): DocumentAutoQueueApplicationService {
+  createDocumentAutoQueueApplicationService(): DocumentAutoQueueApplicationService {
     const jobAppService = this.createJobApplicationService();
     return new DocumentAutoQueueApplicationService(
       this.uowFactory,
       this.usersRepo,
       jobAppService,
-      autoProcessTags,
+      this.paperlessConfig,
     );
   }
 
@@ -152,6 +150,14 @@ export class ApplicationServiceFactory {
    */
   createDocumentApplicationService(): DocumentApplicationService {
     return new DocumentApplicationService(this.uowFactory);
+  }
+
+  /**
+   * Create a new SettingsApplicationService instance.
+   * Reads/writes the non-technical, live-editable settings.
+   */
+  createSettingsApplicationService(): SettingsApplicationService {
+    return new SettingsApplicationService(this.uowFactory, this.config);
   }
 
 }

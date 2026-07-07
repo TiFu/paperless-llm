@@ -6,6 +6,7 @@ import { IPermissionsRepository } from '../domain/authorization/IPermissionsRepo
 import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
 import { IEntityDescriptionsRepository } from '../domain/entityDescriptions/IEntityDescriptionsRepository.js';
 import { IWorkerExecutionRepository } from '../domain/workerExecution/IWorkerExecutionRepository.js';
+import { IAppSettingsRepository } from '../domain/settings/IAppSettingsRepository.js';
 import { UoW } from './UoW.js';
 import { Pool, PoolClient } from 'pg';
 
@@ -36,6 +37,7 @@ export interface RepositoryRegistry {
   getUsers(): IUsersRepository;
   getEntityDescriptions(): IEntityDescriptionsRepository;
   getWorkerExecutions(): IWorkerExecutionRepository;
+  getSettings(): IAppSettingsRepository;
 }
 
 export type DBContextWithRepositoryFactory = { ctx: DatabaseTransactionContext, repositoryFactory: RepositoryRegistryFactory}

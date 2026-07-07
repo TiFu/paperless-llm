@@ -4,10 +4,11 @@
 # cross-references this against server/src/config/AppConfig.ts and fails if a
 # field here is missing or stale relative to the source.
 #
-# "required" reflects what config.yaml must supply: whole sections (retry,
-# workers.stuckStepReset, workers.entitySync, workers.autoQueue) can be
-# omitted entirely, in which case every field in them falls back to its
-# default below.
+# config.yaml holds TECHNICAL settings only (infrastructure, credentials,
+# ports — restart required to change). Non-technical settings (auto-process
+# tags, worker timing, retry policy, LLM model/temperature/timeout) live in
+# the database and are live-editable via the Settings page in the UI /
+# PUT /api/settings — see docs/user_guide/settings.md, not this file.
 
 redis.host:
   required: true
@@ -56,32 +57,6 @@ workers.instanceId:
   required: false
   default: "`unified-worker-<timestamp>`"
   description: Identifier for this worker process. Currently only used to label log lines — auto-generated if omitted or null.
-workers.stepExecution.batchSize:
-  required: true
-  description: Number of steps a single poll cycle claims and processes at once.
-workers.stepExecution.pollIntervalMs:
-  required: true
-  description: How often the step-processing poller checks for newly claimable steps. Must be at least 100ms.
-workers.stuckStepReset.timeoutMs:
-  required: false
-  default: "300000 (5 minutes)"
-  description: Time a step can sit claimed without completing before the stuck-step reset poller considers it stuck and recovers it. Must be at least 1000ms.
-workers.stuckStepReset.checkIntervalMs:
-  required: false
-  default: "30000 (30 seconds)"
-  description: How often the stuck-step reset poller scans for stuck steps. Must be at least 1000ms.
-workers.entitySync.pollIntervalMs:
-  required: false
-  default: "900000 (15 minutes)"
-  description: How often the entity-sync poller refreshes cached tag/correspondent/document-type descriptions from Paperless.
-workers.autoQueue.enabled:
-  required: false
-  default: "false"
-  description: Enables the automatic document pickup queue, which periodically tag-checks Paperless and creates jobs without manual submission.
-workers.autoQueue.pollIntervalMs:
-  required: false
-  default: "60000 (60 seconds)"
-  description: How often the auto-queue poller checks Paperless for newly tagged documents. Must be at least 1000ms.
 
 paperless.url:
   required: true
@@ -89,13 +64,6 @@ paperless.url:
 paperless.token:
   required: true
   description: Paperless-NGX API token. Generate one from the Paperless-NGX admin UI under your user profile.
-paperless.tags:
-  required: false
-  description: Comma-separated Paperless tag(s) used as the default filter when listing documents to process.
-paperless.autoProcessTags:
-  required: false
-  default: "[]"
-  description: "Tags that trigger auto-processing when `workers.autoQueue.enabled` is true (and are also used to detect/clean up auto-processing tags on documents afterward). Each entry is `{ tag, fields?, workflowType? }`: `fields` defaults to all document fields and `workflowType` defaults to `automated` when omitted. If a document carries more than one of these tags at once, it's processed once with the union of every matching tag's fields, and `approval` wins over `automated` if any matching tag requests it. `workers.autoQueue.enabled: true` requires at least one entry here."
 
 logging.level:
   required: true
@@ -107,15 +75,6 @@ logging.pretty:
 llm.url:
   required: true
   description: Base URL of the Ollama (or Ollama-compatible) LLM server.
-llm.model:
-  required: true
-  description: Model name to request from the LLM server (e.g. `qwen3:4b`, `llama3`).
-llm.temperature:
-  required: true
-  description: Sampling temperature passed to the LLM. Must be between 0 and 2.
-llm.timeoutMs:
-  required: true
-  description: Request timeout for a single LLM call before it's treated as failed.
 
 api.port:
   required: true
@@ -123,19 +82,6 @@ api.port:
 api.corsOrigins:
   required: true
   description: List of allowed CORS origins for the API (use `["*"]` to allow any origin, e.g. in local development).
-
-retry.maxRetries:
-  required: false
-  default: "3"
-  description: Maximum retry attempts for an automated step, or for a step reset by the stuck-step poller, before it's surfaced as a fallout.
-retry.retryDelayInMs:
-  required: false
-  default: "30000 (30 seconds)"
-  description: Base delay before the first retry; subsequent retries back off exponentially from this value.
-retry.retryExponent:
-  required: false
-  default: "2"
-  description: "Exponential backoff multiplier applied per retry attempt (delay = retryDelayInMs * retryExponent^attempt)."
 
 auth.jwtSecret:
   required: true

@@ -1,12 +1,26 @@
 import axios, { AxiosInstance } from 'axios';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { IPaperlessAuthService, PaperlessAuthResult } from '../domain/auth/IPaperlessAuthService.js';
-import { PaperlessConfig } from '../config/AppConfig.js';
+import { AutoProcessTagConfig } from '../domain/settings/AppSettingsTypes.js';
 import { IDocument, PaginatedDocuments } from '../domain/document/IDocument.js';
 import { ITag, ICorrespondent, IDocumentType, AvailableFields } from '../domain/document/IDocumentEntities.js';
 import { decodeCursor, encodeCursor } from '../utils/cursorUtils.js';
 import { createChildLogger } from '../utils/logger.js';
 import pino from 'pino';
+
+/**
+ * PaperlessService's own view of what it needs to talk to Paperless: url/
+ * token are technical (from AppConfig), tags/autoProcessTags are live
+ * settings — assembled fresh by the caller (see UoWImplementation.
+ * _createDMSForUser) rather than imported from AppConfig's own (narrower)
+ * PaperlessConfig type.
+ */
+export interface PaperlessServiceConfig {
+  readonly url: string;
+  readonly token: string;
+  readonly tags?: string;
+  readonly autoProcessTags: AutoProcessTagConfig[];
+}
 
 interface PaperlessDocument {
   id: number;
@@ -47,10 +61,10 @@ interface PaperlessPaginatedResponse<T> {
 export class PaperlessService implements IDocumentManagementSystem, IPaperlessAuthService {
   private readonly client: AxiosInstance;
   private readonly authClient: AxiosInstance;
-  private readonly paperlessConfig: PaperlessConfig;
+  private readonly paperlessConfig: PaperlessServiceConfig;
   private readonly logger: pino.Logger;
 
-  constructor(config: PaperlessConfig) {
+  constructor(config: PaperlessServiceConfig) {
     this.paperlessConfig = config;
     this.client = axios.create({
       baseURL: config.url,
@@ -71,13 +85,40 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
   async authenticate(username: string, password: string): Promise<PaperlessAuthResult> {
     try {
       const response = await this.authClient.post<{ token: string }>('/api/token/', { username, password });
-      return { token: response.data.token, success: true };
+      const token = response.data.token;
+      const isSuperuser = await this.fetchIsSuperuser(username, token);
+      return { token, success: true, isSuperuser };
     } catch (error) {
       if (axios.isAxiosError(error) && [400, 401, 403].includes(error.response?.status ?? 0)) {
         return { token: null, success: false, status: 401, message: 'Invalid credentials' };
       }
       this.logger.error({ error, api: 'authenticate' }, 'Paperless authentication request failed');
       return { token: null, success: false, status: 500, message: 'Paperless authentication service is unavailable' };
+    }
+  }
+
+  /**
+   * Looks up the just-authenticated user's own record via
+   * GET /api/users/?username=... (UserFilterSet supports exact username
+   * filtering) to read is_superuser — Paperless's /api/token/ response and
+   * its /api/profile/ "who am I" endpoint don't carry this field, only the
+   * /api/users/ collection's UserSerializer does. Best-effort: a failure
+   * here doesn't fail the login, it just skips settings-permission sync for
+   * this login (existing local access, if any, is left as-is).
+   */
+  private async fetchIsSuperuser(username: string, token: string): Promise<boolean | undefined> {
+    try {
+      const response = await this.authClient.get<{ results: Array<{ username: string; is_superuser: boolean }> }>(
+        '/api/users/',
+        {
+          params: { username },
+          headers: { Authorization: `Token ${token}` },
+        },
+      );
+      return response.data.results.find(u => u.username === username)?.is_superuser;
+    } catch (error) {
+      this.logger.warn({ error, api: 'fetchIsSuperuser' }, 'Failed to look up Paperless user is_superuser status');
+      return undefined;
     }
   }
 

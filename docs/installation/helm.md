@@ -133,9 +133,13 @@ With `redis.enabled: true`, the chart resolves the host to
 `image` and `config` sit at the top level of `values.yaml` and are shared by
 both the `backend` and `worker` Deployments — they run the same image, just
 with different `--mode` args and config consumption. `config.*` mirrors
-`config.yaml` almost exactly (database and redis connection fields are
-deliberately excluded — the chart fills those in from the values above, so
-don't set them under `config`):
+`config.yaml`, which now holds TECHNICAL settings only (database and redis
+connection fields are deliberately excluded — the chart fills those in from
+the values above, so don't set them under `config`). Non-technical settings
+(auto-process tags, worker timing, retry policy, LLM model/temperature/timeout)
+live in the database and are configured after deploy via the Settings page in
+the UI (or `PUT /api/settings`), by a user who is a superuser in Paperless —
+not via this chart:
 
 ```yaml
 image:
@@ -147,27 +151,10 @@ config:
   paperless:
     url: http://paperless.example.com
     token: ""  # not used for real document access, see note below
-    tags: llm-process
   llm:
     url: http://ollama.example.com:11434
-    model: llama3
-    temperature: 0.7
-    timeoutMs: 30000
   workers:
     instanceId: null
-    stepExecution:
-      batchSize: 5
-      pollIntervalMs: 3000
-    stuckStepReset:
-      timeoutMs: 300000
-      checkIntervalMs: 30000
-    entitySync:
-      pollIntervalMs: 900000
-    autoQueue:
-      enabled: false
-      pollIntervalMs: 60000
-      workflowType: automated
-      tag: llm-auto-process
   logging:
     level: info
     pretty: false
@@ -178,10 +165,6 @@ config:
   auth:
     jwtSecret: ""
     jwtExpiresIn: 8h
-  retry:
-    maxRetries: 3
-    retryDelayInMs: 30000
-    retryExponent: 2
   redisCache:
     ttlInSeconds: 300
 

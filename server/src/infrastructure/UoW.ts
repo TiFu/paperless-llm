@@ -13,11 +13,12 @@ import { UserContext } from "../domain/auth/UserContext.js";
 import { PaperlessService } from "../services/PaperlessService.js";
 import { CachedPaperlessServiceAdapter } from "../services/CachedPaperlessServiceAdapter.js";
 import { DMSCacheService } from "../services/CacheService.js";
-import { PaperlessConfig } from "../config/AppConfig.js";
+import { IPaperlessConfig } from "../config/AppConfig.js";
 import { IPermissionsRepository } from "../domain/authorization/IPermissionsRepository.js";
 import { CachedPermissionsRepositoryAdapter } from "../domain/authorization/CachedPermissionsRepositoryAdapter.js";
 import { IWorkerExecutionRepository } from "../domain/workerExecution/IWorkerExecutionRepository.js";
 import { DescribedAvailableFields } from "../domain/entityDescriptions/IDescribedEntities.js";
+import { IAppSettingsRepository } from "../domain/settings/IAppSettingsRepository.js";
 
 export class AuditCollector implements IAuditCollector{
     private events: AuditLogEntry[];
@@ -64,6 +65,7 @@ export interface UoW {
   getSteps(): IStepRepository;
   getAuditLog(): IAuditLogRepository;
   getWorkerExecutions(): IWorkerExecutionRepository;
+  getSettings(): IAppSettingsRepository;
 
   getPromptDomainService(): IPromptDomainService
   getStepExecutorDomainService(): StepExecutorDomainService
@@ -84,7 +86,7 @@ interface UoWRegistryEntry<T> {
 export class UoWFactory {
     constructor(
         private readonly txManager: DatabaseTransactionContextFactory,
-        private readonly paperlessConfig: PaperlessConfig,
+        private readonly paperlessConfig: IPaperlessConfig,
         private readonly dmsCacheService: DMSCacheService,
     ) {}
 
@@ -133,7 +135,7 @@ export class UoWImplementation implements UoW {
 
     constructor(
         context: DBContextWithRepositoryFactory,
-        private dmsConfig: PaperlessConfig,
+        private dmsConfig: IPaperlessConfig,
         private dmsCacheService: DMSCacheService,
         user?: UserContext,
     ) {
@@ -151,7 +153,12 @@ export class UoWImplementation implements UoW {
         if (!token) {
             throw new Error(`No Paperless token found for user: ${user.username}`);
         }
-        const paperlessService = new PaperlessService({ ...this.dmsConfig, token });
+        const paperlessService = new PaperlessService({
+            url: this.dmsConfig.paperless.url,
+            token,
+            tags: this.dmsConfig.getTags(),
+            autoProcessTags: this.dmsConfig.getAutoProcessTags(),
+        });
         return new CachedPaperlessServiceAdapter(paperlessService, this.dmsCacheService);
     }
 
@@ -186,6 +193,9 @@ export class UoWImplementation implements UoW {
     }
     getWorkerExecutions(): IWorkerExecutionRepository {
         return this.repositoryRegistry.getWorkerExecutions()
+    }
+    getSettings(): IAppSettingsRepository {
+        return this.repositoryRegistry.getSettings()
     }
 
     register<T>(object: T, repo: Saveable<T>): void {

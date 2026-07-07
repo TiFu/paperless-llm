@@ -16,7 +16,7 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
   private mapRowToEntity(row: Record<string, unknown>): AuditLogEntry {
     return new AuditLogEntry(
       row.id as string | null,
-      row.job_id as string,
+      row.job_id as string | null,
       row.step_id as string | null,
       row.event_type as AuditEventType,
       new Date(row.event_timestamp as string),

@@ -3,14 +3,10 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { paperlessLogin, uploadDocument, waitForDocumentByTitle, getOrCreateTag } from './helpers/paperless.js';
 import { login, waitForJobState } from './helpers/server.js';
-import { STUB_LLM_TAG } from './helpers/constants.js';
+import { STUB_LLM_TAG, DEFAULT_TAG_FILTER } from './helpers/constants.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SAMPLE_PDF = join(__dirname, '../../dev/consume/invoice_Greg Tran_10403.pdf');
-
-// Hardcoded in frontend/src/pages/DocumentsPage.tsx (DEFAULT_TAG) — the Documents
-// page only ever lists documents carrying this tag, independent of server config.
-const DOCUMENTS_PAGE_TAG = 'llm-process';
 
 // Fields the Documents page selects by default (DocumentsPage.tsx's DEFAULT_FIELDS).
 // We only want the tags field run: the stub LLM always returns the same canned
@@ -29,7 +25,7 @@ test('approval workflow: an operator submits a job and approves the LLM-proposed
   // The LLM-proposed tag must already exist in Paperless — updateDocument resolves
   // tag names to existing ids, it never creates new tags on the app's behalf.
   await getOrCreateTag(paperlessToken, STUB_LLM_TAG);
-  const documentsPageTagId = await getOrCreateTag(paperlessToken, DOCUMENTS_PAGE_TAG);
+  const documentsPageTagId = await getOrCreateTag(paperlessToken, DEFAULT_TAG_FILTER);
 
   const title = `e2e-approval-${Date.now()}`;
   await uploadDocument(paperlessToken, SAMPLE_PDF, title, [documentsPageTagId]);

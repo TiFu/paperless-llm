@@ -1,6 +1,6 @@
 import { IDocument } from '../domain/document/IDocument.js';
 import { JobApplicationService } from './JobApplicationService.js';
-import { AutoProcessTagConfig } from '../config/AppConfig.js';
+import { IPaperlessConfig } from '../config/AppConfig.js';
 import { createChildLogger } from '../utils/logger.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { UserContext } from '../domain/auth/UserContext.js';
@@ -37,13 +37,14 @@ export class DocumentAutoQueueApplicationService {
     private readonly uowFactory: UoWFactory,
     private readonly usersRepo: IUsersRepository,
     private readonly jobApplicationService: JobApplicationService,
-    private readonly autoProcessTags: AutoProcessTagConfig[],
+    private readonly paperlessConfig: IPaperlessConfig,
   ) {}
 
   async processNewDocuments(): Promise<AutoQueueProcessResult> {
     const logger = createChildLogger({ service: "DocumentAutoQueueApplicationService"});
+    const autoProcessTags = this.paperlessConfig.getAutoProcessTags();
 
-    if (this.autoProcessTags.length === 0) {
+    if (autoProcessTags.length === 0) {
       logger.info('No auto-process tags configured, skipping auto-queue');
       return { processed: 0, created: 0, skipped: 0, items: [] };
     }
@@ -64,7 +65,7 @@ export class DocumentAutoQueueApplicationService {
       const startedAt = new Date();
       try {
         logger.info(
-          { username: user.username, tags: this.autoProcessTags.map(t => t.tag) },
+          { username: user.username, tags: autoProcessTags.map(t => t.tag) },
           'Fetching documents for auto-queue',
         );
         await using uow = await this.uowFactory.createUoW(userCtx)
@@ -72,7 +73,7 @@ export class DocumentAutoQueueApplicationService {
 
         const merged = new Map<number, MergedDocument>();
 
-        for (const tagConfig of this.autoProcessTags) {
+        for (const tagConfig of autoProcessTags) {
           let cursor: string | undefined = undefined;
           let pageCount = 0;
 

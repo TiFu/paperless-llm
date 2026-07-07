@@ -8,6 +8,12 @@ export type EntityValueType = 'tag' | 'correspondent' | 'document_type';
 
 export type DocumentWithStatus = IDocument & { inProgress: boolean };
 
+// Safety cap on how many consecutive Paperless pages we'll skip through
+// when every document on a page is already in progress, so a tag with a
+// very long run of in-progress documents can't turn one request into an
+// unbounded chain of upstream calls.
+const MAX_IN_PROGRESS_PAGES_TO_SKIP = 10;
+
 export class DocumentApplicationService {
   constructor(private readonly uowFactory: UoWFactory) {}
 
@@ -23,20 +29,43 @@ export class DocumentApplicationService {
       await context.start();
 
       const dms = await context.getDMS();
-      const paginatedResult = await dms.getDocumentsByTag(tag, limit, cursor);
+      const jobs = context.getJobs();
 
-      const documentIds = paginatedResult.documents.map(doc => doc.id);
-      const inProgressIds = documentIds.length > 0
-        ? await context.getJobs().filterInProgressDocuments(documentIds)
-        : [];
+      // A "page" from Paperless can be entirely made up of documents that are
+      // already queued/in-progress. If we returned that page as-is, the caller
+      // would see an apparently empty result even though nextCursor still
+      // points at further documents. Keep advancing through pages until we
+      // find one with at least one document worth showing, or we genuinely
+      // run out of pages.
+      const documents: DocumentWithStatus[] = [];
+      let nextCursor: string | undefined = cursor;
+      let pagesFetched = 0;
 
-      const documents = paginatedResult.documents.map(doc => ({
-        ...doc,
-        inProgress: inProgressIds.includes(doc.id),
-      }));
+      for (;;) {
+        const paginatedResult = await dms.getDocumentsByTag(tag, limit, nextCursor);
+        pagesFetched++;
+
+        const documentIds = paginatedResult.documents.map(doc => doc.id);
+        const inProgressIds = documentIds.length > 0
+          ? await jobs.filterInProgressDocuments(documentIds)
+          : [];
+
+        const pageDocuments = paginatedResult.documents.map(doc => ({
+          ...doc,
+          inProgress: inProgressIds.includes(doc.id),
+        }));
+
+        documents.push(...pageDocuments);
+        nextCursor = paginatedResult.nextCursor ?? undefined;
+
+        const pageHasVisibleDocument = pageDocuments.some(doc => !doc.inProgress);
+        if (pageHasVisibleDocument || !nextCursor || pagesFetched >= MAX_IN_PROGRESS_PAGES_TO_SKIP) {
+          break;
+        }
+      }
 
       await context.commit();
-      return { documents, nextCursor: paginatedResult.nextCursor };
+      return { documents, nextCursor: nextCursor ?? null };
     } catch (error) {
       logger.error({ error, tag }, 'Failed to fetch documents');
       throw error;

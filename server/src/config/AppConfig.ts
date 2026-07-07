@@ -1,8 +1,28 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import pino from 'pino';
+import { createChildLogger } from '../utils/logger.js';
+import type { UoWFactory } from '../infrastructure/UoW.js';
+import { RetryConfig } from '../domain/steps/IStep.js';
+import {
+  AppSettingsData,
+  AutoProcessTagConfig,
+  StepExecutionSettings,
+  StuckStepResetSettings,
+  EntitySyncSettings,
+  AutoQueueSettings,
+} from '../domain/settings/AppSettingsTypes.js';
+import { validateAppSettings } from '../domain/settings/SettingsDomainService.js';
 import { WorkflowType } from '../domain/workflows/WorkflowType.js';
-import { DOCUMENT_FIELDS, DocumentField } from '../domain/steps/StepFactory.js';
+
+export {
+  AutoProcessTagConfig,
+  StepExecutionSettings,
+  StuckStepResetSettings,
+  EntitySyncSettings,
+  AutoQueueSettings,
+} from '../domain/settings/AppSettingsTypes.js';
 
 /**
  * Redis configuration
@@ -30,53 +50,28 @@ export interface DatabaseConfig {
 }
 
 /**
- * A single auto-processing tag configuration: documents carrying `tag` in
- * Paperless are picked up by the auto-queue and processed to generate
- * `fields`, using `workflowType`.
- */
-export interface AutoProcessTagConfig {
-  readonly tag: string;
-  readonly fields: DocumentField[];
-  readonly workflowType: WorkflowType;
-}
-
-/**
- * Paperless-NG configuration
+ * Paperless-NG technical connection info. Non-technical fields (tags,
+ * autoProcessTags) are live-editable and exposed via IPaperlessConfig below.
  */
 export interface PaperlessConfig {
   readonly url: string;
   readonly token: string;
-  readonly tags?: string;
-  readonly autoProcessTags: AutoProcessTagConfig[];
 }
 
 /**
- * Step-processor loop configuration
+ * LLM technical connection info. Non-technical fields (model, temperature,
+ * timeoutMs) are live-editable and exposed via ILLMConfig below.
  */
-export interface StepExecutionConfig {
-  readonly batchSize: number;
-  readonly pollIntervalMs: number;
+export interface LLMConfig {
+  readonly url: string;
 }
 
 /**
- * Stuck-step-reset loop configuration. Retry limits for the steps it resets
- * come from RetryConfig, not from here.
- */
-export interface StuckStepResetConfig {
-  readonly timeoutMs: number;
-  readonly checkIntervalMs: number;
-}
-
-/**
- * Unified worker process configuration: shared identity plus one section per
- * independent polling loop started in runWorker.ts.
+ * Worker process identity. All per-loop timing lives in AppSettingsData /
+ * IWorkersConfig below — this is just the boot-time process label.
  */
 export interface WorkersConfig {
   readonly instanceId: string;
-  readonly stepExecution: StepExecutionConfig;
-  readonly stuckStepReset: StuckStepResetConfig;
-  readonly entitySync: EntitySyncConfig;
-  readonly autoQueue: AutoQueueConfig;
 }
 
 /**
@@ -88,37 +83,11 @@ export interface LoggingConfig {
 }
 
 /**
- * LLM configuration
- */
-export interface LLMConfig {
-  readonly url: string;
-  readonly model: string;
-  readonly temperature: number;
-  readonly timeoutMs: number;
-}
-
-/**
  * API configuration
  */
 export interface ApiConfig {
   readonly port: number;
   readonly corsOrigins: string[];
-}
-
-/**
- * Retry configuration for step execution
- */
-export interface RetryConfig {
-  readonly maxRetries: number;
-  readonly retryDelayInMs: number;
-  readonly retryExponent: number;
-}
-
-/**
- * Entity sync configuration
- */
-export interface EntitySyncConfig {
-  readonly pollIntervalMs: number;
 }
 
 /**
@@ -130,63 +99,94 @@ export interface AuthConfig {
 }
 
 /**
- * Automated document queue configuration. Which tags trigger auto-processing
- * (and which fields/workflowType they use) is configured via
- * paperless.autoProcessTags, not here.
+ * Narrow interfaces implemented by AppConfig, one per consumer concern, so
+ * each dependency only knows the slice it needs rather than the whole class.
+ * The non-technical fields are exposed as getter *methods* rather than
+ * `readonly` properties precisely because they must reflect AppConfig's
+ * latest poll of the app_settings table rather than being frozen at
+ * construction/read time.
  */
-export interface AutoQueueConfig {
-  readonly enabled: boolean;
-  readonly pollIntervalMs: number;
+export interface ILLMConfig {
+  readonly llm: LLMConfig;
+  getModel(): string;
+  getTemperature(): number;
+  getTimeoutMs(): number;
+}
+
+export interface IWorkersConfig {
+  readonly workers: WorkersConfig;
+  getStepExecution(): StepExecutionSettings;
+  getStuckStepReset(): StuckStepResetSettings;
+  getEntitySync(): EntitySyncSettings;
+  getAutoQueue(): AutoQueueSettings;
+}
+
+export interface IPaperlessConfig {
+  readonly paperless: PaperlessConfig;
+  getTags(): string | undefined;
+  getAutoProcessTags(): AutoProcessTagConfig[];
+}
+
+export interface IRetryConfig {
+  getRetry(): RetryConfig;
 }
 
 /**
- * Raw config structure from YAML file
+ * Raw config structure from YAML file — technical settings only. Everything
+ * non-technical lives in Postgres (see AppSettingsData) and is loaded/kept
+ * fresh by start()/refreshNow(), not by this file.
  */
 interface RawConfig {
   database: DatabaseConfig;
-  paperless: Omit<PaperlessConfig, 'autoProcessTags'> & {
-    autoProcessTags?: Array<{ tag: string; fields?: DocumentField[]; workflowType?: string }>;
+  paperless: {
+    url: string;
+    token: string;
   };
-  llm: LLMConfig;
+  llm: {
+    url: string;
+  };
   auth: {
     jwtSecret: string;
     jwtExpiresIn?: string;
   };
-  workers: {
+  workers?: {
     instanceId?: string | null;
-    stepExecution: {
-      batchSize: number;
-      pollIntervalMs: number;
-    };
-    stuckStepReset?: {
-      timeoutMs?: number;
-      checkIntervalMs?: number;
-    };
-    entitySync?: {
-      pollIntervalMs?: number;
-    };
-    autoQueue?: {
-      enabled?: boolean;
-      pollIntervalMs?: number;
-    };
   };
   logging: LoggingConfig;
   api: {
     port: number;
     corsOrigins: string[];
   };
-  retry?: {
-    maxRetries?: number;
-    retryDelayInMs?: number;
-    retryExponent?: number;
-  };
   redis: RedisConfig;
 }
 
+// Literal defaults mirroring migration 022_app_settings.sql's seed row —
+// used until the first successful DB read (start()) completes, so a process
+// never has to special-case "settings haven't loaded yet".
+const DEFAULT_LIVE_SETTINGS: AppSettingsData = {
+  paperlessTags: 'paperless-llm',
+  paperlessAutoProcessTags: [{ tag: 'paperless-llm-auto', fields: ['title'], workflowType: WorkflowType.APPROVAL }],
+  stepExecution: { enabled: true, batchSize: 5, pollIntervalMs: 30000 },
+  stuckStepReset: { enabled: true, timeoutMs: 300000, checkIntervalMs: 30000 },
+  entitySync: { enabled: true, pollIntervalMs: 900000 },
+  autoQueue: { enabled: false, pollIntervalMs: 60000 },
+  retry: { maxRetries: 3, retryDelayInMs: 30000, retryExponent: 2 },
+  llmModel: 'qwen3:4b',
+  llmTemperature: 0.7,
+  llmTimeoutMs: 30000,
+};
+
+const LIVE_SETTINGS_POLL_INTERVAL_MS = 5000;
+
 /**
- * Application configuration
+ * Application configuration. Loads technical settings synchronously from
+ * config.yaml at construction (unchanged usage for callers like
+ * migrate-config.ts, which run before migrations exist and only ever touch
+ * .database). Once start(uowFactory) is called — after migrations have run —
+ * it also loads non-technical settings from Postgres and keeps them fresh via
+ * a periodic poll, exposed through the narrow I*Config interfaces above.
  */
-export class AppConfig {
+export class AppConfig implements ILLMConfig, IWorkersConfig, IPaperlessConfig, IRetryConfig {
   public readonly redis: RedisConfig;
   public readonly database: DatabaseConfig;
   public readonly workers: WorkersConfig;
@@ -195,69 +195,37 @@ export class AppConfig {
   public readonly llm: LLMConfig;
   public readonly api: ApiConfig;
   public readonly auth: AuthConfig;
-  public readonly retry: RetryConfig;
+
+  // Created lazily in start(), not in the constructor: initializeLogger()
+  // (which createChildLogger() depends on) is only called by bootstrap.ts
+  // *after* createAppConfig() returns, so building this eagerly here would
+  // throw "Logger not initialized" before that happens.
+  private logger!: pino.Logger;
+  private live: AppSettingsData = DEFAULT_LIVE_SETTINGS;
+  private uowFactory: UoWFactory | null = null;
+  private running = false;
+  private timeoutHandle: NodeJS.Timeout | null = null;
 
   constructor(configPath?: string) {
     const rawConfig = this.loadConfig(configPath);
 
-    // Database Configuration
     this.database = rawConfig.database;
-
-    const autoProcessTags: AutoProcessTagConfig[] = (rawConfig.paperless.autoProcessTags ?? []).map(t => ({
-      tag: t.tag,
-      fields: t.fields ?? [...DOCUMENT_FIELDS],
-      workflowType: this.parseWorkflowType(t.workflowType) ?? WorkflowType.AUTOMATED,
-    }));
-    this.paperless = {
-      ...rawConfig.paperless,
-      autoProcessTags,
-    };
+    this.paperless = { url: rawConfig.paperless.url, token: rawConfig.paperless.token };
+    this.llm = { url: rawConfig.llm.url };
     this.logging = rawConfig.logging;
-    this.llm = rawConfig.llm;
     this.api = rawConfig.api;
     this.auth = {
       jwtSecret: rawConfig.auth.jwtSecret,
       jwtExpiresIn: rawConfig.auth.jwtExpiresIn ?? '8h',
     };
-
-    // Retry Configuration - shared retry/backoff policy for both automated
-    // step execution and stuck-step reset
-    this.retry = {
-      maxRetries: rawConfig.retry?.maxRetries ?? 3, // Default: 3 retries
-      retryDelayInMs: rawConfig.retry?.retryDelayInMs ?? 30000, // Default: 30 seconds
-      retryExponent: rawConfig.retry?.retryExponent ?? 2, // Default: exponential backoff base 2
-    };
-
-    // Workers Configuration - auto-generate instanceId if not provided
     this.workers = {
-      instanceId: rawConfig.workers.instanceId || `unified-worker-${Date.now()}`,
-      stepExecution: {
-        batchSize: rawConfig.workers.stepExecution.batchSize,
-        pollIntervalMs: rawConfig.workers.stepExecution.pollIntervalMs,
-      },
-      stuckStepReset: {
-        timeoutMs: rawConfig.workers.stuckStepReset?.timeoutMs ?? 300000, // Default: 5 minutes
-        checkIntervalMs: rawConfig.workers.stuckStepReset?.checkIntervalMs ?? 30000, // Default: 30 seconds
-      },
-      entitySync: {
-        pollIntervalMs: rawConfig.workers.entitySync?.pollIntervalMs ?? 900000, // Default: 15 minutes
-      },
-      autoQueue: {
-        enabled: rawConfig.workers.autoQueue?.enabled ?? false, // Default: disabled
-        pollIntervalMs: rawConfig.workers.autoQueue?.pollIntervalMs ?? 60000, // Default: 60 seconds
-      },
+      instanceId: rawConfig.workers?.instanceId || `unified-worker-${Date.now()}`,
     };
-
-    // Redis Configuration (optional)
     this.redis = {
       ...rawConfig.redis,
       reconnectBaseDelayMs: rawConfig.redis.reconnectBaseDelayMs ?? 500, // Default: 500ms initial backoff
       reconnectMaxDelayMs: rawConfig.redis.reconnectMaxDelayMs ?? 30000, // Default: cap backoff at 30s
     };
-
-    this.validate();
-    this.validateLLMConfig();
-    this.validateAutoQueueConfig();
   }
 
   private loadConfig(configPath?: string): RawConfig {
@@ -277,12 +245,11 @@ export class AppConfig {
     try {
       const fileContents = fs.readFileSync(finalPath, 'utf8');
       const config = yaml.load(fileContents) as RawConfig;
-      
+
       if (!config) {
         throw new Error('Empty configuration file');
       }
 
-      // Validate required fields exist
       this.validateRequiredFields(config);
 
       return config;
@@ -299,7 +266,6 @@ export class AppConfig {
       'database',
       'paperless',
       'llm',
-      'workers',
       'logging',
       'api',
       'auth',
@@ -323,56 +289,107 @@ export class AppConfig {
     }
   }
 
-  private validate(): void {
-    if (this.workers.stepExecution.batchSize < 1) {
-      throw new Error('workers.stepExecution.batchSize must be greater than 0');
+  /**
+   * Loads non-technical settings from Postgres and starts a periodic
+   * re-read (~5s) that keeps this instance's getters current for the rest
+   * of the process's lifetime. Call once, after migrations have run, from
+   * bootstrap.ts. Never throws — a failed or invalid read just keeps the
+   * last-known-good snapshot (starts out as DEFAULT_LIVE_SETTINGS), same
+   * "soft dependency" philosophy as the Redis cache.
+   */
+  public async start(uowFactory: UoWFactory): Promise<void> {
+    // Deferred from the constructor — see the `logger` field comment.
+    this.logger ??= createChildLogger({ name: 'AppConfig' });
+
+    if (this.running) {
+      this.logger.warn('AppConfig live-settings loop already running');
+      return;
     }
-    if (this.workers.stepExecution.pollIntervalMs < 100) {
-      throw new Error('workers.stepExecution.pollIntervalMs must be at least 100ms');
-    }
-    if (this.workers.stuckStepReset.timeoutMs < 1000) {
-      throw new Error('workers.stuckStepReset.timeoutMs must be at least 1000ms');
-    }
-    if (this.workers.stuckStepReset.checkIntervalMs < 1000) {
-      throw new Error('workers.stuckStepReset.checkIntervalMs must be at least 1000ms');
+    this.uowFactory = uowFactory;
+    this.running = true;
+    await this.refreshOnce();
+    this.scheduleNext();
+  }
+
+  public stop(): void {
+    this.running = false;
+    if (this.timeoutHandle) {
+      clearTimeout(this.timeoutHandle);
+      this.timeoutHandle = null;
     }
   }
 
-  private validateLLMConfig(): void {
-    if (this.llm.temperature < 0 || this.llm.temperature > 2) {
-      throw new Error('llm.temperature must be between 0 and 2');
-    }
+  /**
+   * Forces an immediate re-read, bypassing the poll interval. Called by
+   * SettingsApplicationService right after a successful write so this
+   * process reflects its own change without waiting for the next tick.
+   */
+  public async refreshNow(): Promise<void> {
+    await this.refreshOnce();
   }
 
-  private parseWorkflowType(value: string | undefined): WorkflowType | undefined {
-    if (!value) return undefined;
-    
-    const normalized = value.toLowerCase();
-    if (normalized === 'automated') return WorkflowType.AUTOMATED;
-    if (normalized === 'approval') return WorkflowType.APPROVAL;
-    
-    throw new Error(`Invalid workflow type: ${value}. Must be 'automated' or 'approval'`);
+  private scheduleNext(): void {
+    if (!this.running) return;
+    this.timeoutHandle = setTimeout(() => {
+      void this.refreshOnce().finally(() => this.scheduleNext());
+    }, LIVE_SETTINGS_POLL_INTERVAL_MS);
   }
 
-  private validateAutoQueueConfig(): void {
-    if (this.workers.autoQueue.pollIntervalMs < 1000) {
-      throw new Error('workers.autoQueue.pollIntervalMs must be at least 1000ms');
-    }
+  private async refreshOnce(): Promise<void> {
+    if (!this.uowFactory) return;
+    try {
+      await using uow = await this.uowFactory.createSystemUoW();
+      await uow.start();
+      const row = await uow.getSettings().get();
+      await uow.commit();
 
-    for (const { tag } of this.paperless.autoProcessTags) {
-      if (!tag || tag.trim().length === 0) {
-        throw new Error('paperless.autoProcessTags[].tag must be a non-empty string');
+      const errors = validateAppSettings(row);
+      if (errors.length > 0) {
+        this.logger.error({ errors }, 'app_settings row failed validation, keeping last-known-good settings');
+        return;
       }
+      this.live = row;
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to refresh live settings, keeping last-known-good');
     }
-    const tagNames = this.paperless.autoProcessTags.map(t => t.tag);
-    const duplicates = tagNames.filter((tag, index) => tagNames.indexOf(tag) !== index);
-    if (duplicates.length > 0) {
-      throw new Error(`paperless.autoProcessTags contains duplicate tag(s): ${[...new Set(duplicates)].join(', ')}`);
-    }
+  }
 
-    if (this.workers.autoQueue.enabled && this.paperless.autoProcessTags.length === 0) {
-      throw new Error('workers.autoQueue.enabled is true but paperless.autoProcessTags is empty');
-    }
+  // ---- ILLMConfig ----
+  getModel(): string {
+    return this.live.llmModel;
+  }
+  getTemperature(): number {
+    return this.live.llmTemperature;
+  }
+  getTimeoutMs(): number {
+    return this.live.llmTimeoutMs;
+  }
+
+  // ---- IWorkersConfig ----
+  getStepExecution(): StepExecutionSettings {
+    return this.live.stepExecution;
+  }
+  getStuckStepReset(): StuckStepResetSettings {
+    return this.live.stuckStepReset;
+  }
+  getEntitySync(): EntitySyncSettings {
+    return this.live.entitySync;
+  }
+  getAutoQueue(): AutoQueueSettings {
+    return this.live.autoQueue;
+  }
+
+  // ---- IPaperlessConfig ----
+  getTags(): string | undefined {
+    return this.live.paperlessTags;
+  }
+  getAutoProcessTags(): AutoProcessTagConfig[] {
+    return this.live.paperlessAutoProcessTags;
+  }
+
+  // ---- IRetryConfig ----
+  getRetry(): RetryConfig {
+    return this.live.retry;
   }
 }
 

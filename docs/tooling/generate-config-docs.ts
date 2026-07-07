@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { load as parseYaml } from 'js-yaml';
-import { InterfaceDeclaration, Project, SourceFile } from 'ts-morph';
+import { InterfaceDeclaration, Project, Scope, SourceFile } from 'ts-morph';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -64,7 +64,12 @@ function extractFields(): FieldInfo[] {
 
   const fields: FieldInfo[] = [];
 
+  // AppConfig also carries private implementation fields for its live-
+  // settings poll loop (e.g. `live`, `uowFactory`, `running`) — only its
+  // public properties represent documented config.yaml sections.
   for (const prop of appConfigClass.getProperties()) {
+    if (prop.getScope() !== Scope.Public) continue;
+
     const section = prop.getName();
     const typeName = prop.getType().getSymbol()?.getName();
     if (!typeName) {

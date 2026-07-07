@@ -27,6 +27,7 @@ import { StepDetailsPage } from './pages/StepDetailsPage';
 import { EntityDescriptionsPage } from './pages/EntityDescriptionsPage';
 import { WorkerExecutionsPage } from './pages/WorkerExecutionsPage';
 import { WorkerExecutionDetailsPage } from './pages/WorkerExecutionDetailsPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 const theme = createTheme({
   palette: {
@@ -144,6 +145,7 @@ function App() {
                 <Route path="/entities" element={<EntityDescriptionsPage />} />
                 <Route path="/workers" element={<WorkerExecutionsPage />} />
                 <Route path="/workers/:id" element={<WorkerExecutionDetailsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/documents" replace />} />
               </Route>
             </Routes>

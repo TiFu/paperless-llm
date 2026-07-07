@@ -23,6 +23,12 @@ import { JobState as DtoJobState } from '../web/dtos/models/JobState.js';
 import { JobResponse } from '../web/dtos/models/JobResponse.js';
 import { JobStep } from '../web/dtos/models/JobStep.js';
 import { DocumentEnriched } from '../application/util/documentEnrichment.js';
+import type { SettingsResponse as SettingsResponseDTO } from '../web/dtos/models/SettingsResponse.js';
+import type { UpdateSettingsRequest as UpdateSettingsRequestDTO } from '../web/dtos/models/UpdateSettingsRequest.js';
+import type { AutoProcessTagEntry as AutoProcessTagEntryDTO } from '../web/dtos/models/AutoProcessTagEntry.js';
+import { SettingsView } from '../application/SettingsApplicationService.js';
+import { AppSettingsData, AutoProcessTagConfig } from '../domain/settings/AppSettingsTypes.js';
+import { normalizeAutoProcessTags } from '../domain/settings/SettingsDomainService.js';
 
 export class AppMapper {
   // --- Job Mapping ---
@@ -205,6 +211,68 @@ export class AppMapper {
         limit: paged.pagination.limit,
         nextCursor: paged.pagination.nextCursor ?? null,
       },
+    };
+  }
+
+  // --- Settings Mapping ---
+  static toSettingsResponse(view: SettingsView): SettingsResponseDTO {
+    const { settings } = view;
+    return {
+      paperless: {
+        tags: settings.paperlessTags ?? null,
+        autoProcessTags: settings.paperlessAutoProcessTags.map(AppMapper.toAutoProcessTagEntry),
+      },
+      workers: {
+        stepExecution: settings.stepExecution,
+        stuckStepReset: settings.stuckStepReset,
+        entitySync: settings.entitySync,
+        autoQueue: settings.autoQueue,
+      },
+      retry: settings.retry,
+      llm: {
+        model: settings.llmModel,
+        temperature: settings.llmTemperature,
+        timeoutMs: settings.llmTimeoutMs,
+      },
+      connectedSystems: view.connectedSystems,
+      // Domain and DTO shapes are structurally identical ({name, description}[])
+      promptVariables: view.promptVariables as unknown as SettingsResponseDTO['promptVariables'],
+      updatedAt: settings.updatedAt,
+      updatedBy: settings.updatedBy ?? undefined,
+    };
+  }
+
+  static toAutoProcessTagEntry(tag: AutoProcessTagConfig): AutoProcessTagEntryDTO {
+    return {
+      tag: tag.tag,
+      // Domain and DTO enums/shapes share the same runtime values but are declared
+      // separately (domain vs OpenAPI-generated), so they need a values-only cast.
+      fields: tag.fields as unknown as AutoProcessTagEntryDTO['fields'],
+      workflowType: tag.workflowType as unknown as AutoProcessTagEntryDTO['workflowType'],
+    };
+  }
+
+  static toAppSettingsData(dto: UpdateSettingsRequestDTO): AppSettingsData {
+    return {
+      paperlessTags: dto.paperless.tags ?? undefined,
+      // Re-applies the same field/workflowType defaulting rules used when
+      // loading a row back out of the database, so a partial payload
+      // (fields omitted) behaves identically either way.
+      paperlessAutoProcessTags: normalizeAutoProcessTags(
+        dto.paperless.autoProcessTags.map(t => ({
+          tag: t.tag,
+          fields: t.fields as unknown as AutoProcessTagConfig['fields'] | undefined,
+          workflowType: t.workflowType as unknown as string | undefined,
+        })),
+      ),
+      stepExecution: dto.workers.stepExecution,
+      stuckStepReset: dto.workers.stuckStepReset,
+      entitySync: dto.workers.entitySync,
+      autoQueue: dto.workers.autoQueue,
+      retry: dto.retry,
+      llmModel: dto.llm.model,
+      llmTemperature: dto.llm.temperature,
+      llmTimeoutMs: dto.llm.timeoutMs,
     };
   }
 }

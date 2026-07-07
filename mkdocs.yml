@@ -69,7 +69,8 @@ nav:
       - Helm: installation/helm.md
       - Configuration: installation/configuration.md
   - User Guide:
-      - Prompts: user_guide/prompts.md 
+      - Prompts: user_guide/prompts.md
+      - Settings: user_guide/settings.md
   - Development: development.md
   - Architecture:
       - API Reference: architecture/api.md

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TimelineItem, TimelineOppositeContent, TimelineSeparator, TimelineDot, TimelineConnector, TimelineContent } from '@mui/lab';
-import { Box, Typography, Chip, IconButton, Collapse } from '@mui/material';
+import { Box, Typography, Chip, IconButton, Collapse, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { AuditLogEntry } from '../services/api/generated/models/AuditLogEntry';
 import { getAuditLogEntryDisplay } from './audit_entries';
@@ -12,8 +12,12 @@ interface AuditLogEntryDisplayComponentProps {
 
 export const AuditLogEntryDisplayComponent: React.FC<AuditLogEntryDisplayComponentProps> = ({ entry, isLast }) => {
   const [expanded, setExpanded] = useState(false);
+  const [promptDialogOpen, setPromptDialogOpen] = useState(false);
   const display = getAuditLogEntryDisplay(entry);
-  const fields = display.getFields();
+  const allFields = display.getFields();
+  const popupFieldLabels = display.popupFields || [];
+  const popupFields = allFields.filter(f => popupFieldLabels.includes(f.label) && f.value !== undefined && f.value !== null && f.value !== '');
+  const fields = allFields.filter(f => !popupFieldLabels.includes(f.label));
   const alwaysDisplayFields = display.alwaysDisplayFields || [];
   const hasExpandableFields = fields.length > alwaysDisplayFields.length;
 
@@ -86,7 +90,45 @@ export const AuditLogEntryDisplayComponent: React.FC<AuditLogEntryDisplayCompone
             ))}
           </Box>
         </Collapse>
+        {popupFields.length > 0 && (
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => setPromptDialogOpen(true)}
+            sx={{ mt: 1 }}
+          >
+            Show Prompt
+          </Button>
+        )}
       </TimelineContent>
+      <Dialog open={promptDialogOpen} onClose={() => setPromptDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>{display.getLabel()}</DialogTitle>
+        <DialogContent dividers>
+          {popupFields.map(f => (
+            <Box key={f.label} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
+              <Typography variant="subtitle2" gutterBottom>{f.label}</Typography>
+              <Typography
+                variant="body2"
+                component="pre"
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  fontFamily: 'monospace',
+                  bgcolor: 'action.hover',
+                  p: 1.5,
+                  borderRadius: 1,
+                  m: 0,
+                }}
+              >
+                {String(f.value)}
+              </Typography>
+            </Box>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPromptDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </TimelineItem>
   );
 };

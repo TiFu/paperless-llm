@@ -10,6 +10,7 @@ import promptsReducer from './slices/promptsSlice';
 import documentEntitiesReducer from './slices/documentEntitiesSlice';
 import entityDescriptionsReducer from './slices/entityDescriptionsSlice';
 import workerExecutionsReducer from './slices/workerExecutionsSlice';
+import settingsReducer from './slices/settingsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -24,6 +25,7 @@ export const store = configureStore({
     documentEntities: documentEntitiesReducer,
     entityDescriptions: entityDescriptionsReducer,
     workerExecutions: workerExecutionsReducer,
+    settings: settingsReducer,
   },
   // The generated API client returns class instances; suppress the serializable
   // check warnings rather than forcing conversion everywhere.

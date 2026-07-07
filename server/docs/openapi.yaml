@@ -55,6 +55,8 @@ tags:
     description: Entity description management (tags, correspondents, document types)
   - name: WorkerExecutions
     description: Observability into background worker loop runs and their items
+  - name: Settings
+    description: Non-technical, live-editable application settings
 
 paths:
   /auth/login:
@@ -627,6 +629,57 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /settings:
+    get:
+      tags:
+        - Settings
+      summary: Get current settings
+      description: |
+        Returns the non-technical, live-editable settings, sanitized
+        read-only info about connected systems (no credentials), and the
+        list of variables available for prompt templates. Available to any
+        authenticated user.
+      operationId: getSettings
+      responses:
+        '200':
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      tags:
+        - Settings
+      summary: Update settings
+      description: |
+        Updates the non-technical, live-editable settings. Requires the
+        'settings' permission, which is granted automatically on login to
+        users who are superusers in Paperless. Applies to this process
+        immediately and to other server/worker processes within one poll
+        interval (a few seconds).
+      operationId: updateSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSettingsRequest'
+      responses:
+        '200':
+          description: Settings updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /queue/stats:
     get:
       tags:
@@ -1042,10 +1095,13 @@ components:
 
     CurrentUser:
       type: object
-      required: [username]
+      required: [username, canEditSettings]
       properties:
         username:
           type: string
+        canEditSettings:
+          type: boolean
+          description: Whether this user holds the 'settings' permission (inherited from Paperless is_superuser, synced on login).
 
     HealthStatus:
       type: object
@@ -1229,6 +1285,177 @@ components:
         type: string
         enum: ["title", "tags", "correspondent", "document_type", "created_date"]
 
+    # Settings schemas
+    AutoProcessTagEntry:
+      type: object
+      required: [tag]
+      properties:
+        tag:
+          type: string
+          description: Paperless tag name that triggers auto-processing
+        fields:
+          $ref: '#/components/schemas/LLMGenerateableFields'
+        workflowType:
+          $ref: '#/components/schemas/WorkflowType'
+
+    PaperlessSettings:
+      type: object
+      required: [autoProcessTags]
+      properties:
+        tags:
+          type: string
+          nullable: true
+          description: Comma-separated default tag filter for listing documents
+        autoProcessTags:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoProcessTagEntry'
+
+    StepExecutionSettings:
+      type: object
+      required: [enabled, batchSize, pollIntervalMs]
+      properties:
+        enabled:
+          type: boolean
+        batchSize:
+          type: integer
+          minimum: 1
+        pollIntervalMs:
+          type: integer
+          minimum: 100
+
+    StuckStepResetSettings:
+      type: object
+      required: [enabled, timeoutMs, checkIntervalMs]
+      properties:
+        enabled:
+          type: boolean
+        timeoutMs:
+          type: integer
+          minimum: 1000
+        checkIntervalMs:
+          type: integer
+          minimum: 1000
+
+    EntitySyncSettings:
+      type: object
+      required: [enabled, pollIntervalMs]
+      properties:
+        enabled:
+          type: boolean
+        pollIntervalMs:
+          type: integer
+          minimum: 1
+
+    AutoQueueSettings:
+      type: object
+      required: [enabled, pollIntervalMs]
+      properties:
+        enabled:
+          type: boolean
+        pollIntervalMs:
+          type: integer
+          minimum: 1000
+
+    WorkersSettings:
+      type: object
+      required: [stepExecution, stuckStepReset, entitySync, autoQueue]
+      properties:
+        stepExecution:
+          $ref: '#/components/schemas/StepExecutionSettings'
+        stuckStepReset:
+          $ref: '#/components/schemas/StuckStepResetSettings'
+        entitySync:
+          $ref: '#/components/schemas/EntitySyncSettings'
+        autoQueue:
+          $ref: '#/components/schemas/AutoQueueSettings'
+
+    RetrySettings:
+      type: object
+      required: [maxRetries, retryDelayInMs, retryExponent]
+      properties:
+        maxRetries:
+          type: integer
+          minimum: 0
+        retryDelayInMs:
+          type: integer
+          minimum: 0
+        retryExponent:
+          type: number
+          minimum: 1
+
+    LLMSettings:
+      type: object
+      required: [model, temperature, timeoutMs]
+      properties:
+        model:
+          type: string
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+        timeoutMs:
+          type: integer
+          minimum: 1
+
+    ConnectedSystems:
+      type: object
+      required: [paperlessUrl, llmUrl, databaseHost]
+      description: Sanitized, read-only info about connected systems — no credentials.
+      properties:
+        paperlessUrl:
+          type: string
+        llmUrl:
+          type: string
+        databaseHost:
+          type: string
+
+    PromptVariable:
+      type: object
+      required: [name, description]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    UpdateSettingsRequest:
+      type: object
+      required: [paperless, workers, retry, llm]
+      properties:
+        paperless:
+          $ref: '#/components/schemas/PaperlessSettings'
+        workers:
+          $ref: '#/components/schemas/WorkersSettings'
+        retry:
+          $ref: '#/components/schemas/RetrySettings'
+        llm:
+          $ref: '#/components/schemas/LLMSettings'
+
+    SettingsResponse:
+      type: object
+      required: [paperless, workers, retry, llm, connectedSystems, promptVariables, updatedAt]
+      properties:
+        paperless:
+          $ref: '#/components/schemas/PaperlessSettings'
+        workers:
+          $ref: '#/components/schemas/WorkersSettings'
+        retry:
+          $ref: '#/components/schemas/RetrySettings'
+        llm:
+          $ref: '#/components/schemas/LLMSettings'
+        connectedSystems:
+          $ref: '#/components/schemas/ConnectedSystems'
+        promptVariables:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromptVariable'
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+          nullable: true
 
     # Response Schemas
     JobSubmissionResponse:
@@ -2393,6 +2620,18 @@ components:
             title: "Bad Request"
             status: 400
             detail: "Validation failed: documentId is required"
+
+    Forbidden:
+      description: Forbidden - the authenticated user lacks the required permission
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "about:blank"
+            title: "Forbidden"
+            status: 403
+            detail: "Settings can only be edited by a Paperless superuser"
 
     NotFound:
       description: Resource not found

@@ -25,6 +25,7 @@ import {
   Label as LabelIcon,
   Logout as LogoutIcon,
   Memory as MemoryIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectQueueStats, selectApprovalStats, selectJobStats, fetchDashboardStats } from '../store/slices/statsSlice';
@@ -141,11 +142,17 @@ export const Sidebar: React.FC = () => {
       path: '/entities',
       label: 'Entities',
       icon: <LabelIcon />,
+      groupEnd: true,
     },
     {
       path: '/workers',
       label: 'Workers',
       icon: <MemoryIcon />,
+    },
+    {
+      path: '/settings',
+      label: 'Settings',
+      icon: <SettingsIcon />,
     },
   ];
 
