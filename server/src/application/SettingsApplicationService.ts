@@ -5,7 +5,6 @@ import { AppSettingsData } from '../domain/settings/AppSettingsTypes.js';
 import { AppSettingsRecord } from '../domain/settings/IAppSettingsRepository.js';
 import { validateAppSettings } from '../domain/settings/SettingsDomainService.js';
 import { PromptVariableDescriptor } from '../domain/prompt/IPromptDomainService.js';
-import { SETTINGS_RESOURCE_ID } from '../domain/authorization/IPermissionsRepository.js';
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 import { ApiError } from '../api/middleware/errorHandler.js';
 
@@ -56,11 +55,6 @@ export class SettingsApplicationService {
 
     await using uow = await this.uowFactory.createUoW(user);
     await uow.start();
-
-    const canEdit = await uow.getPermissions().hasPermission('settings', SETTINGS_RESOURCE_ID, user.username);
-    if (!canEdit) {
-      throw new ApiError(403, 'Forbidden', 'Settings can only be edited by a Paperless admin');
-    }
 
     const updated = await uow.getSettings().update(input, user.username);
     uow.getAuditCollector().record(AuditLogEntry.createSettingsUpdated(user.username));
