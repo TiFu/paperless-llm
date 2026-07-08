@@ -1,0 +1,2658 @@
+openapi: 3.0.0
+info:
+  title: Paperless-LLM API
+  version: 1.0.0
+  description: |
+    REST API for the Paperless-LLM document processing system. 
+    
+    This API enables automated document processing workflows using Large Language Models (LLMs)
+    to generate document metadata such as titles, tags, and summaries. It supports both automated
+    and approval-based workflows with comprehensive job tracking, queue management, and step-level
+    retry mechanisms.
+    
+    ## Key Features
+    - **Job Submission**: Submit batch processing jobs for multiple documents
+    - **Workflow Management**: Track job progress through multi-step workflows
+    - **Approval System**: Review and approve/reject LLM-generated suggestions
+    - **Queue Monitoring**: Real-time visibility into processing queues
+    - **Prompt Customization**: Customize LLM prompts for different processing steps
+    - **Health Monitoring**: Monitor system and service health status
+    - **Retry Mechanism**: Automatic retry with exponential backoff for failed steps
+    
+    ## Architecture
+    The system follows a clean architecture pattern with:
+    - Domain-Driven Design principles
+    - Step-based workflow orchestration
+    - Transaction management for data consistency
+    - RFC 7807 Problem Details for error responses
+  contact:
+    name: Paperless-LLM Support
+  license:
+    name: MIT
+    
+servers:
+  - url: http://localhost:3000/api
+    description: API base path
+
+tags:
+  - name: Auth
+    description: Authentication endpoints
+  - name: Health
+    description: System health and status endpoints
+  - name: Jobs
+    description: Job submission, listing, and tracking
+  - name: Approvals
+    description: Approval workflow management
+  - name: Prompts
+    description: LLM prompt template management
+  - name: Queue
+    description: Queue monitoring and statistics
+  - name: Documents
+    description: Document retrieval from Paperless-NGX
+  - name: Steps
+    description: Step-level operations (retry, cancel)
+  - name: EntityDescriptions
+    description: Entity description management (tags, correspondents, document types)
+  - name: WorkerExecutions
+    description: Observability into background worker loop runs and their items
+  - name: Settings
+    description: Non-technical, live-editable application settings
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Authenticate against Paperless-NGX and obtain a JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: "about:blank"
+                title: "Unauthorized"
+                status: 401
+                detail: "Invalid credentials"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Get the currently authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: "about:blank"
+                title: "Unauthorized"
+                status: 401
+                detail: "Missing or invalid Authorization header"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /stats/dashboard:
+    get:
+      tags:
+        - Stats
+      summary: Summarized statistics for in progress
+      responses:
+        '200':
+          description: All okay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'                
+  /docs:
+    get:
+      tags: 
+        - Docs
+      summary: OpenAPI Documentation
+      responses:
+        '200':
+          description: OpenAPI Documentation
+          content:
+            text/html: {}
+  /docs/openapi.yaml:
+    get:
+      tags:
+        - Docs
+      responses:
+        '200':
+          description: Yaml
+          content:
+            text/html: {}
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Simple health check
+      description: Returns a basic health status indicating the API is responsive
+      operationId: getHealth
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /system/status:
+    get:
+      tags:
+        - Health
+      summary: Detailed system health status
+      description: Returns comprehensive health information for all system components including database, Paperless-NGX, and LLM services
+      operationId: getSystemStatus
+      responses:
+        '200':
+          description: System health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemHealthResponse'
+        '503':
+          description: Service unavailable - one or more components are unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemHealthResponse'
+
+  /jobs:
+    get:
+      tags:
+        - Jobs
+      summary: List jobs with pagination
+      description: Retrieve a paginated list of jobs, optionally filtered by job state
+      operationId: listJobs
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of jobs to return (default 50, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: cursor
+          in: query
+          description: Pagination cursor from a previous response
+          schema:
+            type: string
+        - name: state
+          in: query
+          description: Filter jobs by state
+          schema:
+            $ref: '#/components/schemas/JobState'
+      responses:
+        '200':
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    
+    post:
+      tags:
+        - Jobs
+      summary: Submit batch job
+      description: |
+        Submit one or more documents for processing. Each document can have multiple job types.
+        Jobs are processed asynchronously through a multi-step workflow.
+      operationId: submitJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchJobRequest'
+            examples:
+              single-document-single-job:
+                summary: Single document, single job type
+                value:
+                  documents:
+                    - documentId: 123
+                      jobTypes: ["automated"]
+                      fields: ["title"]
+              multiple-documents:
+                summary: Multiple documents with different job types
+                value:
+                  documents:
+                    - documentId: 123
+                      jobTypes: ["title"]
+                      fields: ["title", "tags"]
+                    - documentId: 456
+                      jobTypes: ["title", "tag"]
+                      fields: ["title", "tags"]
+              with-approval:
+                summary: Job requiring approval
+                value:
+                  documents:
+                    - documentId: 789
+                      jobTypes: ["approval"]
+      responses:
+        '201':
+          description: Jobs submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobSubmissionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /jobs/fields: 
+    get: 
+      tags: 
+        - Jobs
+      summary: Returns available fields for LLM generation
+      operationId: getAvailableFields
+      responses:
+        '200':
+          description: Fields returned
+          content:
+            application/json:
+              schema:
+                type: array
+                items: 
+                  type: string
+  /jobs/stats:
+    get:
+      tags:
+        - Jobs
+      summary: Get job statistics
+      description: Returns count of jobs grouped by their current state
+      operationId: getJobStats
+      responses:
+        '200':
+          description: Job statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStats'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /jobs/types:
+    get:
+      tags:
+        - Jobs
+      summary: List available job types
+      description: Returns all supported workflow types that can be submitted
+      operationId: getJobTypes
+      responses:
+        '200':
+          description: List of available job types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobTypes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkflowType'
+                    example: ["title", "tag", "summary"]
+                required:
+                  - jobTypes
+
+  /jobs/{id}:
+    get:
+      tags:
+        - Jobs
+      summary: Get job details
+      description: Retrieve detailed information about a specific job including its current status and document actions
+      operationId: getJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /jobs/{id}/steps:
+    get:
+      tags:
+        - Jobs
+      summary: Get job workflow steps
+      description: Retrieve all workflow steps for a specific job including their execution status and retry information
+      operationId: getJobSteps
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job workflow steps
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStepsResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /jobs/{id}/audit-log:
+    get:
+      tags:
+        - Jobs
+      summary: Get job audit log
+      description: Retrieve the complete audit trail for a specific job, including all step executions, retries, approvals, and state changes
+      operationId: getJobAuditLog
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job audit log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogResponse'
+              example:
+                auditLog:
+                  - id: "550e8400-e29b-41d4-a716-446655440000"
+                    jobId: "123e4567-e89b-12d3-a456-426614174000"
+                    stepId: null
+                    eventType: "JOB_CREATED"
+                    eventTimestamp: "2024-01-15T10:00:00.000Z"
+                    processingStartTime: null
+                    processingEndTime: null
+                    processingDurationMs: null
+                    metadata:
+                      documentId: 42
+                      jobType: "GENERATE_TITLE"
+                  - id: "550e8400-e29b-41d4-a716-446655440001"
+                    jobId: "123e4567-e89b-12d3-a456-426614174000"
+                    stepId: "789e4567-e89b-12d3-a456-426614174000"
+                    eventType: "STEP_COMPLETED"
+                    eventTimestamp: "2024-01-15T10:00:15.000Z"
+                    processingStartTime: "2024-01-15T10:00:10.000Z"
+                    processingEndTime: "2024-01-15T10:00:15.000Z"
+                    processingDurationMs: 5000
+                    metadata:
+                      stepType: "LLM_GENERATE_TITLE"
+                      retryCount: 0
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /approvals:
+    get:
+      tags:
+        - Approvals
+      summary: List pending approvals
+      description: Retrieve a paginated list of steps awaiting approval decisions
+      operationId: listApprovals
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of approvals to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: cursor
+          in: query
+          description: Pagination cursor from a previous response
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of pending approvals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /approvals/stats:
+    get:
+      tags:
+        - Approvals
+      summary: Get approval statistics
+      description: Returns count of pending approval requests
+      operationId: getApprovalStats
+      responses:
+        '200':
+          description: Approval statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalStats'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /approvals/{stepId}:
+    post:
+      tags:
+        - Approvals
+      summary: Make approval decision
+      description: |
+        Submit an approval decision (approve/reject) for a pending step.
+        The decision must match one of the possibleDecisions from the approval item.
+      operationId: makeApprovalDecision
+      parameters:
+        - name: stepId
+          in: path
+          required: true
+          description: Step ID awaiting approval
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision:
+                  type: string
+                  description: Decision value (must match possibleDecisions)
+                  example: approve
+                actions:
+                  type: array
+                  nullable: true
+                  description: |
+                    Optional override of the proposed action list. If provided, only actions
+                    whose IDs appear here are applied, using the supplied newValue.
+                    Omitting an action ID removes it. If this field is omitted entirely,
+                    all original LLM-proposed actions are applied unchanged.
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                        description: ID of the proposed action to retain
+                      newValue:
+                        type: string
+                        nullable: true
+                        description: User-edited value (null keeps the original newValue)
+                    required:
+                      - id
+                      - newValue
+              required:
+                - decision
+            examples:
+              approve:
+                summary: Approve all proposed changes
+                value:
+                  decision: approve
+              approve-with-edits:
+                summary: Approve with edited and removed actions
+                value:
+                  decision: approve
+                  actions:
+                    - id: "d5e6f7a8-b9c0-1234-ef01-234567890123"
+                      newValue: "My Edited Title"
+              reject:
+                summary: Reject the proposed changes
+                value:
+                  decision: reject
+      responses:
+        '200':
+          description: Decision processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /prompts:
+    get:
+      tags:
+        - Prompts
+      summary: List all prompts
+      description: Retrieve all LLM prompt templates configured in the system
+      operationId: listPrompts
+      responses:
+        '200':
+          description: List of prompts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptsListResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /prompts/{stepType}:
+    put:
+      tags:
+        - Prompts
+      summary: Update or create prompt
+      description: |
+        Update an existing prompt template or create a new one for the specified step type.
+        The version number is automatically incremented.
+      operationId: updatePrompt
+      parameters:
+        - name: stepType
+          in: path
+          required: true
+          description: Step type for the prompt
+          schema:
+            $ref: '#/components/schemas/StepType'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                template:
+                  type: string
+                  description: Prompt template text with variable placeholders
+                  example: "Generate a concise title for this document:\n\n{{documentContent}}"
+              required:
+                - template
+      responses:
+        '200':
+          description: Prompt updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /settings:
+    get:
+      tags:
+        - Settings
+      summary: Get current settings
+      description: |
+        Returns the non-technical, live-editable settings, sanitized
+        read-only info about connected systems (no credentials), and the
+        list of variables available for prompt templates. Available to any
+        authenticated user.
+      operationId: getSettings
+      responses:
+        '200':
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      tags:
+        - Settings
+      summary: Update settings
+      description: |
+        Updates the non-technical, live-editable settings. Requires the
+        'settings' permission, which is granted automatically on login to
+        users who are superusers in Paperless. Applies to this process
+        immediately and to other server/worker processes within one poll
+        interval (a few seconds).
+      operationId: updateSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSettingsRequest'
+      responses:
+        '200':
+          description: Settings updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /queue/stats:
+    get:
+      tags:
+        - Queue
+      summary: Get unified queue statistics
+      description: Returns aggregated statistics for all queue items across the system
+      operationId: getQueueStats
+      responses:
+        '200':
+          description: Queue statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueStats'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /queue/items:
+    get:
+      tags:
+        - Queue
+      summary: List queue items
+      description: Retrieve a paginated list of queue items, optionally filtered by status
+      operationId: listQueueItems
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of items to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: cursor
+          in: query
+          description: Pagination cursor from a previous response
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by work item status
+          schema:
+            $ref: '#/components/schemas/WorkItemStatus'
+      responses:
+        '200':
+          description: List of queue items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueItemsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /documents:
+    get:
+      tags:
+        - Documents
+      summary: List documents by tag
+      description: Retrieve documents from Paperless-NGX filtered by tag ID
+      operationId: listDocuments
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of documents to return (upper limit)
+          schema:
+            type: number
+        - name: cursor
+          in: query
+          description: Cursor returned from prior queries
+          schema:
+            type: string
+        - name: tag
+          in: query
+          required: true
+          description: Tag ID to filter documents
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentsListWithPagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /documents/tags:
+    get:
+      tags:
+        - Documents
+      summary: Get all available tags
+      description: Retrieve all tags from Paperless-NGX
+      operationId: getTags
+      responses:
+        '200':
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
+                required:
+                  - tags
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /documents/correspondents:
+    get:
+      tags:
+        - Documents
+      summary: Get all available correspondents
+      description: Retrieve all correspondents from Paperless-NGX
+      operationId: getCorrespondents
+      responses:
+        '200':
+          description: List of correspondents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  correspondents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Correspondent'
+                required:
+                  - correspondents
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /documents/document-types:
+    get:
+      tags:
+        - Documents
+      summary: Get all available document types
+      description: Retrieve all document types from Paperless-NGX
+      operationId: getDocumentTypes
+      responses:
+        '200':
+          description: List of document types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documentTypes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DocumentType'
+                required:
+                  - documentTypes
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /documents/entity-values/{type}:
+    get:
+      tags:
+        - Documents
+      summary: Get available values for an entity type
+      description: |
+        Retrieve all available values for a given entity type (tags, correspondents,
+        document types). Returns a uniform list of id/name pairs regardless of entity
+        type, keeping the frontend decoupled from entity-type-specific endpoints.
+      operationId: getEntityValues
+      parameters:
+        - name: type
+          in: path
+          required: true
+          description: The entity type to retrieve values for
+          schema:
+            $ref: '#/components/schemas/EntityValueType'
+      responses:
+        '200':
+          description: List of available entity values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityValuesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /steps/{id}/retry:
+    post:
+      tags:
+        - Steps
+      summary: Manually retry a failed step
+      description: |
+        Trigger a manual retry for a failed step. The step will be reset to WAITING status
+        and re-queued for execution. This bypasses the automatic retry mechanism.
+      operationId: retryStep
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Step ID to retry
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Step retry initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /steps/{id}/cancel:
+    post:
+      tags:
+        - Steps
+      summary: Cancel a step
+      description: |
+        Cancel a step by marking it as FAILED with a cancellation message.
+        This also marks the parent job as FAILED.
+      operationId: cancelStep
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Step ID to cancel
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Step cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /entity-descriptions:
+    get:
+      tags:
+        - EntityDescriptions
+      summary: Get all entity types with descriptions
+      description: Returns all registered entity types (tags, correspondents, document types) with their entities and descriptions. All types are always present; entities may be empty if sync has not yet run.
+      responses:
+        '200':
+          description: Entity descriptions grouped by type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDescriptionsResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /entity-descriptions/sync:
+    post:
+      tags:
+        - EntityDescriptions
+      summary: Trigger manual entity sync
+      description: Fetches all entities from Paperless and syncs them into the local database.
+      responses:
+        '200':
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /entity-descriptions/{type}/{id}:
+    put:
+      tags:
+        - EntityDescriptions
+      summary: Update entity description
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [tag, correspondent, document_type]
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEntityDescriptionRequest'
+      responses:
+        '200':
+          description: Description updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /worker-executions:
+    get:
+      tags:
+        - WorkerExecutions
+      summary: List worker executions
+      description: Retrieve a paginated list of background worker loop runs, most recent first, optionally filtered by worker type and/or status.
+      operationId: listWorkerExecutions
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of executions to return (default 50, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: cursor
+          in: query
+          description: Pagination cursor from a previous response
+          schema:
+            type: string
+        - name: workerType
+          in: query
+          description: Filter by worker type
+          schema:
+            $ref: '#/components/schemas/WorkerType'
+        - name: status
+          in: query
+          description: Filter by execution status
+          schema:
+            $ref: '#/components/schemas/WorkerExecutionStatus'
+      responses:
+        '200':
+          description: List of worker executions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerExecutionListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /worker-executions/{id}:
+    get:
+      tags:
+        - WorkerExecutions
+      summary: Get a single worker execution
+      description: Returns a worker execution along with the individual items (steps/users/documents) touched during that run.
+      operationId: getWorkerExecution
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Worker execution detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerExecutionDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
+    CurrentUser:
+      type: object
+      required: [username, canEditSettings]
+      properties:
+        username:
+          type: string
+        canEditSettings:
+          type: boolean
+          description: Whether this user holds the 'settings' permission (inherited from Paperless is_superuser, synced on login).
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-05-11T10:30:00Z'
+      required:
+        - status
+        - timestamp
+    DashboardStats:
+      type: object
+      properties:
+        queue:
+          $ref: '#/components/schemas/QueueStats'
+        approvals:
+          $ref: '#/components/schemas/ApprovalStats'
+        jobs:
+          $ref: '#/components/schemas/JobStats'        
+    # Enumerations
+    WorkflowType:
+      type: string
+      enum:
+        - approval
+        - automated
+      description: Type of workflow processing mode
+
+    JobState:
+      type: string
+      enum:
+        - pending
+        - llm_processing
+        - pending_approval
+        - updating_document
+        - completed
+        - removing_tags
+        - failed
+        - rejected
+      description: Current state of a job in its workflow
+
+    StepType:
+      type: string
+      enum:
+        - LLM_GENERATE_TITLE
+        - LLM_GENERATE_FIELDS
+        - LLM_GENERATE_TAGS
+        - LLM_GENERATE_CORRESPONDENT
+        - LLM_GENERATE_DOCUMENT_TYPE
+        - LLM_GENERATE_CREATED_DATE
+        - REQUIRE_APPROVAL
+        - UPDATE_DOCUMENT
+        - REMOVE_TAGS
+      description: Type of workflow step
+
+    StepStatus:
+      type: string
+      enum:
+        - waiting
+        - in_progress
+        - completed
+        - failed
+        - retrying
+        - in_fallout
+      description: Current status of a workflow step
+
+    AuditEventType:
+      type: string
+      enum:
+        - JOB_CREATED
+        - JOB_COMPLETED
+        - JOB_FAILED
+        - STEP_CREATED
+        - STEP_EXECUTED
+        - STEP_COMPLETED
+        - DECISION_REQUESTED
+        - DECISION_SUBMITTED
+        - STEP_MANUALLY_RETRIED
+        - STEP_CANCELLED
+        - STUCK_STEP_RESET
+      description: Type of audit log event
+
+    WorkItemStatus:
+      type: string
+      enum:
+        - pending
+        - processing
+        - completed
+        - failed
+        - retrying
+        - in_fallout
+      description: Status of a queue work item
+
+    ServiceStatus:
+      type: string
+      enum:
+        - healthy
+        - unhealthy
+      description: Health status of a service component
+
+    SystemStatus:
+      type: string
+      enum:
+        - healthy
+        - degraded
+      description: Overall system health status
+
+    ProposedActionFieldType:
+      type: string
+      enum:
+        - string
+        - tag
+        - correspondent
+        - document_type
+        - date
+      description: Data type of the proposed action field — determines how it is rendered and edited in the UI
+
+    EntityValueType:
+      type: string
+      enum:
+        - tag
+        - correspondent
+        - document_type
+      description: Entity types for which a list of selectable values can be fetched
+
+    EntityValue:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 42
+        name:
+          type: string
+          example: "Invoice"
+      required:
+        - id
+        - name
+
+    EntityValuesResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntityValue'
+      required:
+        - items
+
+    # Request Schemas
+    BatchJobRequest:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              documentId:
+                type: number
+                description: ID of the document in Paperless-NGX
+                example: 123
+              jobType:
+                $ref: '#/components/schemas/WorkflowType'
+              fields:
+                  $ref: '#/components/schemas/LLMGenerateableFields'
+            required:
+              - documentId
+              - jobType
+              - fields
+          minItems: 1
+      required:
+        - documents
+
+    LLMGenerateableFields:
+      type: array
+      items:
+        type: string
+        enum: ["title", "tags", "correspondent", "document_type", "created_date"]
+
+    # Settings schemas
+    AutoProcessTagEntry:
+      type: object
+      required: [tag]
+      properties:
+        tag:
+          type: string
+          description: Paperless tag name that triggers auto-processing
+        fields:
+          $ref: '#/components/schemas/LLMGenerateableFields'
+        workflowType:
+          $ref: '#/components/schemas/WorkflowType'
+
+    PaperlessSettings:
+      type: object
+      required: [autoProcessTags]
+      properties:
+        tags:
+          type: string
+          nullable: true
+          description: Comma-separated default tag filter for listing documents
+        autoProcessTags:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoProcessTagEntry'
+
+    StepExecutionSettings:
+      type: object
+      required: [enabled, batchSize, pollIntervalMs]
+      properties:
+        enabled:
+          type: boolean
+        batchSize:
+          type: integer
+          minimum: 1
+        pollIntervalMs:
+          type: integer
+          minimum: 100
+
+    StuckStepResetSettings:
+      type: object
+      required: [enabled, timeoutMs, checkIntervalMs]
+      properties:
+        enabled:
+          type: boolean
+        timeoutMs:
+          type: integer
+          minimum: 1000
+        checkIntervalMs:
+          type: integer
+          minimum: 1000
+
+    EntitySyncSettings:
+      type: object
+      required: [enabled, pollIntervalMs]
+      properties:
+        enabled:
+          type: boolean
+        pollIntervalMs:
+          type: integer
+          minimum: 1
+
+    AutoQueueSettings:
+      type: object
+      required: [enabled, pollIntervalMs]
+      properties:
+        enabled:
+          type: boolean
+        pollIntervalMs:
+          type: integer
+          minimum: 1000
+
+    WorkersSettings:
+      type: object
+      required: [stepExecution, stuckStepReset, entitySync, autoQueue]
+      properties:
+        stepExecution:
+          $ref: '#/components/schemas/StepExecutionSettings'
+        stuckStepReset:
+          $ref: '#/components/schemas/StuckStepResetSettings'
+        entitySync:
+          $ref: '#/components/schemas/EntitySyncSettings'
+        autoQueue:
+          $ref: '#/components/schemas/AutoQueueSettings'
+
+    RetrySettings:
+      type: object
+      required: [maxRetries, retryDelayInMs, retryExponent]
+      properties:
+        maxRetries:
+          type: integer
+          minimum: 0
+        retryDelayInMs:
+          type: integer
+          minimum: 0
+        retryExponent:
+          type: number
+          minimum: 1
+
+    LLMSettings:
+      type: object
+      required: [model, temperature, timeoutMs]
+      properties:
+        model:
+          type: string
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+        timeoutMs:
+          type: integer
+          minimum: 1
+
+    ConnectedSystems:
+      type: object
+      required: [paperlessUrl, llmUrl, databaseHost]
+      description: Sanitized, read-only info about connected systems — no credentials.
+      properties:
+        paperlessUrl:
+          type: string
+        llmUrl:
+          type: string
+        databaseHost:
+          type: string
+
+    PromptVariable:
+      type: object
+      required: [name, description]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    UpdateSettingsRequest:
+      type: object
+      required: [paperless, workers, retry, llm]
+      properties:
+        paperless:
+          $ref: '#/components/schemas/PaperlessSettings'
+        workers:
+          $ref: '#/components/schemas/WorkersSettings'
+        retry:
+          $ref: '#/components/schemas/RetrySettings'
+        llm:
+          $ref: '#/components/schemas/LLMSettings'
+
+    SettingsResponse:
+      type: object
+      required: [paperless, workers, retry, llm, connectedSystems, promptVariables, updatedAt]
+      properties:
+        paperless:
+          $ref: '#/components/schemas/PaperlessSettings'
+        workers:
+          $ref: '#/components/schemas/WorkersSettings'
+        retry:
+          $ref: '#/components/schemas/RetrySettings'
+        llm:
+          $ref: '#/components/schemas/LLMSettings'
+        connectedSystems:
+          $ref: '#/components/schemas/ConnectedSystems'
+        promptVariables:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromptVariable'
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+          nullable: true
+
+    # Response Schemas
+    JobSubmissionResponse:
+      type: object
+      properties:
+        submitted:
+          type: integer
+          description: Number of jobs successfully submitted
+          example: 2
+        jobs:
+          type: array
+          items:
+            type: object
+            properties:
+              documentId:
+                type: number
+                example: 123
+              jobType:
+                type: string
+                example: title
+              id:
+                type: string
+                format: uuid
+                example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            required:
+              - documentId
+              - jobType
+              - id
+      required:
+        - submitted
+        - jobs
+
+    JobResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        fields:
+          $ref: '#/components/schemas/LLMGenerateableFields'
+        documentId:
+          type: number
+          example: 123
+        jobType:
+          $ref: '#/components/schemas/WorkflowType'
+        status:
+          $ref: '#/components/schemas/JobState'
+        errorMessage:
+          type: string
+          nullable: true
+          description: Error message if job failed
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-05-11T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-05-11T10:15:00Z"
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-05-11T10:30:00Z"
+        documentActions:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentAction'
+        document:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/Document'
+          nullable: true
+          description: Document metadata for the job's document
+        paperlessUrl:
+          type: string
+          description: URL to view the job's document in Paperless-NGX
+          example: "http://localhost:8000/documents/123"
+      required:
+        - id
+        - documentId
+        - jobType
+        - status
+        - createdAt
+        - updatedAt
+        - documentActions
+        - paperlessUrl
+
+    DocumentAction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        actionType:
+          type: string
+          description: Type of document action (e.g., 'update_title', 'add_tag')
+          example: update_title
+        oldValue:
+          type: string
+          nullable: true
+          description: Previous value before the action
+          example: "Untitled Document"
+        newValue:
+          type: string
+          nullable: true
+          description: New value after the action
+          example: "Invoice 2026-05-11"
+      required:
+        - id
+        - actionType
+        - oldValue
+        - newValue
+    JobListResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobResponse'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Cursor for fetching the next page of results
+      required:
+        - jobs
+        - nextCursor
+
+    JobStepsResponse:
+      type: object
+      properties:
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobStep'
+      required:
+        - steps
+
+    JobStep:
+      type: object
+      properties:
+        stepId:
+          type: string
+          format: uuid
+          example: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+        stepType:
+          $ref: '#/components/schemas/StepType'
+        stepStatus:
+          $ref: '#/components/schemas/StepStatus'
+        children:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JobStep'
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-05-11T10:01:00Z"
+        retryCount:
+          type: integer
+          description: Number of times this step has been retried
+          minimum: 0
+          example: 0
+        retryAfter:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when retry will be attempted
+          example: null
+      required:
+        - stepId
+        - stepType
+        - stepStatus
+        - retryCount
+        - retryAfter
+
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: number
+        nextCursor:
+          type: string
+          nullable: true
+      required:
+        - limit
+
+    DocumentsListWithPagination:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentListItem'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+        - documents
+        - pagination
+
+    DocumentListItem:
+      allOf:
+        - $ref: '#/components/schemas/Document'
+        - type: object
+          required: [inProgress]
+          properties:
+            inProgress:
+              type: boolean
+              description: Whether this document currently has a non-terminal job in progress (from any user)
+
+    AuditLogResponse:
+      type: object
+      properties:
+        auditLog:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
+      required:
+        - auditLog
+
+    BaseAuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        jobId:
+          type: string
+          format: uuid
+        stepId:
+          type: string
+          format: uuid
+          nullable: true
+        eventType:
+          $ref: '#/components/schemas/AuditEventType'
+        eventTimestamp:
+          type: string
+          format: date-time
+        processingStartTime:
+          type: string
+          format: date-time
+          nullable: true
+        processingEndTime:
+          type: string
+          format: date-time
+          nullable: true
+        processingDurationMs:
+          type: integer
+          nullable: true
+      required:
+        - id
+        - jobId
+        - eventType
+        - eventTimestamp
+
+    StepExecutedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STEP_EXECUTED]
+            stepType:
+              $ref: '#/components/schemas/StepType'
+            retryCount:
+              type: integer
+            nextRetryTime:
+              type: string
+              format: date-time
+              nullable: true
+            success:
+              type: boolean
+            prompt:
+              type: string
+              nullable: true
+            rawResponse:
+              type: string
+              nullable: true
+            message:
+              type: string
+          required:
+            - stepType
+            - retryCount
+            - message
+            - success
+            - nextRetryTime
+
+
+    DecisionSubmittedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [DECISION_SUBMITTED]
+            decision:
+              type: string
+          required:
+            - decision
+
+
+    # --- Audit Log Entry Event Types ---
+    JobCreatedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [JOB_CREATED]
+            documentId:
+              type: integer
+            jobType:
+              $ref: '#/components/schemas/WorkflowType'
+            message:
+              type: string
+              nullable: true
+          required:
+            - documentId
+            - jobType
+
+    JobCompletedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [JOB_COMPLETED]
+            documentId:
+              type: integer
+            jobType:
+              $ref: '#/components/schemas/WorkflowType'
+          required:
+            - documentId
+            - jobType
+
+    JobFailedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [JOB_FAILED]
+            message:
+              type: string
+          required:
+            - message
+
+    StepCreatedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STEP_CREATED]
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - stepType
+
+    StepCompletedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STEP_COMPLETED]
+            message:
+              type: string
+            success:
+              type: boolean
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - message
+            - success
+            - stepType
+
+    DecisionRequestedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [DECISION_REQUESTED]
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - stepType
+
+    StepManuallyRetriedEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STEP_MANUALLY_RETRIED]
+            previousStatus:
+              $ref: '#/components/schemas/StepStatus'
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - previousStatus
+            - stepType
+
+    StepCancelledEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STEP_CANCELLED]
+            previousStatus:
+              type: string
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - previousStatus
+            - stepType
+
+    StuckStepResetEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [STUCK_STEP_RESET]
+            stuckDurationMs:
+              type: integer
+            previousStartedAt:
+              type: string
+              format: date-time
+            stepType:
+              $ref: '#/components/schemas/StepType'
+          required:
+            - stuckDurationMs
+            - previousStartedAt
+            - stepType
+
+    ErrorEntry:
+      allOf:
+        - $ref: '#/components/schemas/BaseAuditLogEntry'
+        - type: object
+          properties:
+            eventType:
+              type: string
+              enum: [ERROR]
+            message:
+              type: string
+          required:
+            - message
+
+    AuditLogEntry:
+      oneOf:
+        - $ref: '#/components/schemas/JobCreatedEntry'
+        - $ref: '#/components/schemas/JobCompletedEntry'
+        - $ref: '#/components/schemas/JobFailedEntry'
+        - $ref: '#/components/schemas/StepCreatedEntry'
+        - $ref: '#/components/schemas/StepExecutedEntry'
+        - $ref: '#/components/schemas/StepCompletedEntry'
+        - $ref: '#/components/schemas/DecisionRequestedEntry'
+        - $ref: '#/components/schemas/DecisionSubmittedEntry'
+        - $ref: '#/components/schemas/StepManuallyRetriedEntry'
+        - $ref: '#/components/schemas/StepCancelledEntry'
+        - $ref: '#/components/schemas/StuckStepResetEntry'
+        - $ref: '#/components/schemas/ErrorEntry'
+      discriminator:
+        propertyName: eventType
+        mapping:
+          # (approval legacy mappings removed)
+          JOB_CREATED: '#/components/schemas/JobCreatedEntry'
+          JOB_COMPLETED: '#/components/schemas/JobCompletedEntry'
+          JOB_FAILED: '#/components/schemas/JobFailedEntry'
+          STEP_CREATED: '#/components/schemas/StepCreatedEntry'
+          STEP_EXECUTED: '#/components/schemas/StepExecutedEntry'
+          STEP_COMPLETED: '#/components/schemas/StepCompletedEntry'
+          DECISION_REQUESTED: '#/components/schemas/DecisionRequestedEntry'
+          DECISION_SUBMITTED: '#/components/schemas/DecisionSubmittedEntry'
+          STEP_MANUALLY_RETRIED: '#/components/schemas/StepManuallyRetriedEntry'
+          STEP_CANCELLED: '#/components/schemas/StepCancelledEntry'
+          STUCK_STEP_RESET: '#/components/schemas/StuckStepResetEntry'
+          ERROR: '#/components/schemas/ErrorEntry'
+
+    JobStats:
+      type: object
+      properties:
+        pending:
+          type: integer
+          minimum: 0
+          example: 5
+        llmProcessing:
+          type: integer
+          minimum: 0
+          example: 3
+        pendingApproval:
+          type: integer
+          minimum: 0
+          example: 2
+        updatingDocument:
+          type: integer
+          minimum: 0
+          example: 1
+        completed:
+          type: integer
+          minimum: 0
+          example: 42
+        failed:
+          type: integer
+          minimum: 0
+          example: 1
+        rejected:
+          type: integer
+          minimum: 0
+          example: 0
+      required:
+        - pending
+        - llmProcessing
+        - pendingApproval
+        - updatingDocument
+        - completed
+        - failed
+        - rejected
+
+    ApprovalsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApprovalItem'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Cursor for fetching the next page of results
+      required:
+        - items
+        - nextCursor
+
+    ApprovalItem:
+      type: object
+      properties:
+        stepId:
+          type: string
+          format: uuid
+          example: "c3d4e5f6-a7b8-9012-cdef-123456789012"
+        jobId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        documentId:
+          type: number
+          example: 123
+        paperlessUrl:
+          type: string
+          format: uri
+          description: URL to view the document in Paperless-NGX
+          example: "http://paperless.local/documents/123"
+        jobType:
+          type: string
+          example: title
+        document:
+          $ref: '#/components/schemas/Document'
+          description: Full document object related to this approval item
+        proposedActions:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+                example: "d5e6f7a8-b9c0-1234-ef01-234567890123"
+              actionType:
+                type: string
+                example: update_title
+              fieldType:
+                $ref: '#/components/schemas/ProposedActionFieldType'
+              isMultiple:
+                type: boolean
+                example: false
+              oldValue:
+                type: string
+                nullable: true
+                example: "Untitled"
+              newValue:
+                type: string
+                nullable: true
+                example: "Invoice 2026-05-11"
+            required:
+              - id
+              - actionType
+              - fieldType
+              - isMultiple
+              - oldValue
+              - newValue
+        possibleDecisions:
+          type: array
+          items:
+            type: string
+          example: ["approve", "reject"]
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-05-11T10:15:00Z"
+      required:
+        - stepId
+        - jobId
+        - documentId
+        - paperlessUrl
+        - jobType
+        - document
+        - proposedActions
+        - possibleDecisions
+        - createdAt
+
+    ApprovalStats:
+      type: object
+      properties:
+        pendingCount:
+          type: integer
+          minimum: 0
+          example: 3
+      required:
+        - pendingCount
+
+    PromptsListResponse:
+      type: object
+      properties:
+        prompts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromptResponse'
+      required:
+        - prompts
+
+    PromptResponse:
+      type: object
+      properties:
+        stepType:
+          $ref: '#/components/schemas/StepType'
+        template:
+          type: string
+          description: Prompt template with variable placeholders
+          example: "Generate a concise title for this document:\n\n{{documentContent}}"
+        version:
+          type: integer
+          minimum: 1
+          description: Version number of the prompt template
+          example: 1
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-05-11T09:00:00Z"
+      required:
+        - stepType
+        - template
+        - version
+        - updatedAt
+
+    QueueStats:
+      type: object
+      properties:
+        total:
+          type: integer
+          minimum: 0
+          example: 15
+        pending:
+          type: integer
+          minimum: 0
+          example: 10
+        processing:
+          type: integer
+          minimum: 0
+          example: 2
+        completed:
+          type: integer
+          minimum: 0
+          example: 2
+        failed:
+          type: integer
+          minimum: 0
+          example: 1
+      required:
+        - total
+        - pending
+        - processing
+        - completed
+        - failed
+
+    QueueItemsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
+        pagination:
+          type: object
+          properties:
+            limit:
+              type: integer
+              example: 50
+            nextCursor:
+              type: string
+              nullable: true
+          required:
+            - limit
+            - nextCursor
+      required:
+        - items
+        - pagination
+
+    QueueItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "d4e5f6a7-b8c9-0123-def0-1234567890ab"
+        jobId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        documentId:
+          type: number
+          example: 123
+        document:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/Document'
+          description: Full document object related to this queue item
+        stepType:
+          type: string
+          example: LLM_GENERATE_TITLE
+        jobType:
+          type: string
+          example: title
+        status:
+          $ref: '#/components/schemas/WorkItemStatus'
+        retryCount:
+          type: integer
+          minimum: 0
+          example: 0
+        retryAfter:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        claimedBy:
+          type: string
+          nullable: true
+          description: Worker identifier that claimed this item
+          example: "worker-1"
+        claimedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-05-11T10:10:00Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-05-11T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-05-11T10:10:00Z"
+        jobState:
+          type: string
+          description: Current state of the parent job
+          example: llm_processing
+      required:
+        - id
+        - jobId
+        - documentId
+        - document
+        - stepType
+        - jobType
+        - status
+        - retryCount
+        - retryAfter
+        - claimedBy
+        - claimedAt
+        - createdAt
+        - updatedAt
+        - jobState
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: number
+          example: 123
+        title:
+          type: string
+          example: "Invoice 2026-05-11"
+        content:
+          type: string
+          description: Full text content of the document
+      required:
+        - id
+        - title
+        - content
+
+    Tag:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 42
+        name:
+          type: string
+          example: "Invoice"
+        color:
+          type: string
+          example: "#ff0000"
+        isInboxTag:
+          type: boolean
+          example: false
+      required:
+        - id
+        - name
+
+    Correspondent:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 15
+        name:
+          type: string
+          example: "ACME Corporation"
+      required:
+        - id
+        - name
+
+    DocumentType:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 8
+        name:
+          type: string
+          example: "Invoice"
+      required:
+        - id
+        - name
+
+    SystemHealthResponse:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/SystemStatus'
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-05-11T10:30:00Z"
+        components:
+          type: object
+          properties:
+            database:
+              $ref: '#/components/schemas/ComponentHealth'
+            paperless:
+              $ref: '#/components/schemas/ComponentHealth'
+            llm:
+              $ref: '#/components/schemas/ComponentHealth'
+          required:
+            - database
+            - paperless
+            - llm
+      required:
+        - status
+        - timestamp
+        - components
+
+    JobFieldsList:
+      type: array
+      items:
+        type: string
+
+    JobTypesList:
+      type: object
+      properties:
+        jobTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowType'
+      required:
+        - jobTypes
+
+    ApprovalDecision:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+
+    DocumentsList:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+      required:
+        - documents
+
+    TagsList:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+      required:
+        - tags
+
+    CorrespondentsList:
+      type: object
+      properties:
+        correspondents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Correspondent'
+      required:
+        - correspondents
+
+    DocumentTypesList:
+      type: object
+      properties:
+        documentTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentType'
+      required:
+        - documentTypes
+
+    ComponentHealth:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/ServiceStatus'
+      required:
+        - status
+
+    OperationResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+      required:
+        - success
+
+    ProblemDetails:
+      type: object
+      description: RFC 7807 Problem Details for HTTP APIs
+      properties:
+        type:
+          type: string
+          format: uri
+          description: URI reference identifying the problem type
+          example: "about:blank"
+        title:
+          type: string
+          description: Short, human-readable summary of the problem
+          example: "Bad Request"
+        status:
+          type: integer
+          description: HTTP status code
+          example: 400
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence
+          example: "Validation failed for field 'documentId'"
+        instance:
+          type: string
+          format: uri-reference
+          description: URI reference identifying the specific occurrence
+          example: "/jobs/abc123"
+      required:
+        - type
+        - title
+        - status
+
+    EntityDescriptionEntity:
+      type: object
+      required: [paperlessId, name, description]
+      properties:
+        paperlessId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+
+    EntityDescriptionType:
+      type: object
+      required: [type, label, entities]
+      properties:
+        type:
+          type: string
+          enum: [tag, correspondent, document_type]
+        label:
+          type: string
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntityDescriptionEntity'
+
+    EntityDescriptionsResponse:
+      type: object
+      required: [entityTypes]
+      properties:
+        entityTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntityDescriptionType'
+
+    UpdateEntityDescriptionRequest:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+          nullable: true
+
+    WorkerType:
+      type: string
+      enum:
+        - step_processor
+        - stuck_step_reset
+        - entity_sync
+        - document_auto_queue
+      description: Identifies which background worker loop an execution belongs to
+
+    WorkerExecutionStatus:
+      type: string
+      enum:
+        - running
+        - succeeded
+        - failed
+      description: Current status of a worker execution run
+
+    WorkerExecutionItem:
+      type: object
+      properties:
+        itemType:
+          type: string
+          description: Kind of item touched (e.g. step, entity_sync_user, document)
+          example: step
+        itemId:
+          type: string
+          description: ID of the referenced item (step id, username, document id, etc.)
+        outcome:
+          type: string
+          description: Outcome for this item — varies by worker/item type (e.g. success, failed, skipped, retrying, fallout, requeued, created)
+          example: success
+        errorMessage:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+      required:
+        - itemType
+        - itemId
+        - outcome
+        - startedAt
+        - finishedAt
+
+    WorkerExecutionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workerType:
+          $ref: '#/components/schemas/WorkerType'
+        status:
+          $ref: '#/components/schemas/WorkerExecutionStatus'
+        result:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Summary counts for the run (e.g. processed/retried/created/skipped)
+        errorMessage:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - workerType
+        - status
+        - startedAt
+
+    WorkerExecutionDetail:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/WorkerExecutionSummary'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkerExecutionItem'
+          required:
+            - items
+
+    WorkerExecutionListResponse:
+      type: object
+      properties:
+        executions:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkerExecutionSummary'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Cursor for fetching the next page of results
+      required:
+        - executions
+        - nextCursor
+
+  responses:
+    BadRequest:
+      description: Bad request - validation error or malformed input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "about:blank"
+            title: "Bad Request"
+            status: 400
+            detail: "Validation failed: documentId is required"
+
+    Forbidden:
+      description: Forbidden - the authenticated user lacks the required permission
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "about:blank"
+            title: "Forbidden"
+            status: 403
+            detail: "Settings can only be edited by a Paperless superuser"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "about:blank"
+            title: "Not Found"
+            status: 404
+            detail: "Job with id 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' not found"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "about:blank"
+            title: "Internal Server Error"
+            status: 500
+            detail: "An unexpected error occurred while processing the request"

@@ -1,0 +1,92 @@
+# Hand-curated descriptions/defaults for each config.yaml field, keyed by the
+# dotted path from the AppConfig class property through any nested *Config
+# interfaces down to the leaf field. docs/tooling/generate-config-docs.ts
+# cross-references this against server/src/config/AppConfig.ts and fails if a
+# field here is missing or stale relative to the source.
+#
+# config.yaml holds TECHNICAL settings only (infrastructure, credentials,
+# ports — restart required to change). Non-technical settings (auto-process
+# tags, worker timing, retry policy, LLM model/temperature/timeout) live in
+# the database and are live-editable via the Settings page in the UI /
+# PUT /api/settings — see docs/user_guide/settings.md, not this file.
+
+redis.host:
+  required: true
+  description: Redis host used for caching Paperless API responses.
+redis.port:
+  required: true
+  description: Redis port.
+redis.username:
+  required: true
+  description: Redis username (use an empty string if your Redis instance has no ACL user configured).
+redis.password:
+  required: true
+  description: Redis password (use an empty string if your Redis instance has no auth configured).
+redis.db:
+  required: true
+  description: Redis logical database index.
+redis.ttlInSeconds:
+  required: true
+  description: How long cached Paperless API responses are kept in Redis before they're refetched.
+redis.reconnectBaseDelayMs:
+  required: false
+  default: "500"
+  description: Initial delay before retrying a failed Redis connection; subsequent retries back off exponentially (doubling) from this value. While disconnected, caching is skipped and requests pass through to Paperless.
+redis.reconnectMaxDelayMs:
+  required: false
+  default: "30000 (30 seconds)"
+  description: Cap on the exponential backoff delay between Redis reconnection attempts. Reconnection retries forever, never giving up.
+
+database.host:
+  required: true
+  description: PostgreSQL host.
+database.port:
+  required: true
+  description: PostgreSQL port.
+database.username:
+  required: true
+  description: PostgreSQL username.
+database.password:
+  required: true
+  description: PostgreSQL password.
+database.database:
+  required: true
+  description: PostgreSQL database name.
+
+workers.instanceId:
+  required: false
+  default: "`unified-worker-<timestamp>`"
+  description: Identifier for this worker process. Currently only used to label log lines — auto-generated if omitted or null.
+
+paperless.url:
+  required: true
+  description: Base URL of the Paperless-NGX instance to read/write documents from.
+paperless.token:
+  required: true
+  description: Paperless-NGX API token. Generate one from the Paperless-NGX admin UI under your user profile.
+
+logging.level:
+  required: true
+  description: "Pino log level (e.g. `debug`, `info`, `warn`, `error`)."
+logging.pretty:
+  required: true
+  description: Enable human-readable pretty-printed logs instead of structured JSON. Useful for local development, should generally be `false` in production.
+
+llm.url:
+  required: true
+  description: Base URL of the Ollama (or Ollama-compatible) LLM server.
+
+api.port:
+  required: true
+  description: Port the Express API server listens on.
+api.corsOrigins:
+  required: true
+  description: List of allowed CORS origins for the API (use `["*"]` to allow any origin, e.g. in local development).
+
+auth.jwtSecret:
+  required: true
+  description: Secret used to sign and verify login JWTs. Must be a long, random value — never reuse the example/default.
+auth.jwtExpiresIn:
+  required: false
+  default: "8h"
+  description: "JWT expiry duration, in [jsonwebtoken](https://github.com/auth0/node-jsonwebtoken) `expiresIn` format (e.g. `8h`, `30m`)."

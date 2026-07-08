@@ -1,0 +1,51 @@
+# Paperless LLM Configuration Example
+# Copy this file to config.yaml and update with your settings
+#
+# This file holds TECHNICAL configuration only (infrastructure, credentials,
+# ports) — restart required to change. Non-technical settings (auto-process
+# tags, worker timing, retry policy, LLM model/temperature/timeout) live in
+# the database and are live-editable via the Settings page in the UI /
+# PUT /api/settings, without a restart. Editing them requires the 'settings'
+# permission, granted automatically on login to Paperless superusers.
+
+database:
+  host: localhost
+  port: 5432
+  username: paperless_llm
+  password: devpassword
+  database: paperless_llm_dev
+
+redis:
+  host: localhost
+  port: 6379
+  username: ""
+  password: null
+  db: 0
+  ttlInSeconds: 300
+  # If Redis is unreachable, the app keeps running with the cache disabled
+  # (pass-through to Paperless) and retries with exponential backoff forever.
+  reconnectBaseDelayMs: 500
+  reconnectMaxDelayMs: 30000
+
+paperless:
+  url: http://localhost:8000
+  token: your_paperless_token_here
+
+llm:
+  url: http://localhost:11434
+
+auth:
+  jwtSecret: change_me_to_a_long_random_secret   # required - used to sign/verify login JWTs
+  jwtExpiresIn: 8h                               # optional, defaults to 8h
+
+workers:
+  instanceId: null  # Auto-generated if not specified
+
+logging:
+  level: debug
+  pretty: true
+
+api:
+  port: 3000
+  corsOrigins:
+    - "*"
