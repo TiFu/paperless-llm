@@ -138,8 +138,8 @@ connection fields are deliberately excluded — the chart fills those in from
 the values above, so don't set them under `config`). Non-technical settings
 (auto-process tags, worker timing, retry policy, LLM model/temperature/timeout)
 live in the database and are configured after deploy via the Settings page in
-the UI (or `PUT /api/settings`), by a user who is a superuser in Paperless —
-not via this chart:
+the UI (or `PUT /api/settings`), by a user who is a superuser or admin in
+Paperless — not via this chart:
 
 ```yaml
 image:

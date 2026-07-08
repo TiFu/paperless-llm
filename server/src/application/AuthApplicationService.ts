@@ -27,7 +27,7 @@ export class AuthApplicationService {
     logger.info({ username }, 'User logged in, token stored');
 
     await this.ensureUserHasPrompts(username);
-    await this.ensureSettingsPermissionSynced(username, paperlessToken.isSuperuser);
+    await this.ensureSettingsPermissionSynced(username, paperlessToken.isAdmin);
 
     const token = jwt.sign(
       { sub: username, username },
@@ -57,23 +57,24 @@ export class AuthApplicationService {
 
   /**
    * Keeps the local 'settings' permission grant in sync with Paperless's own
-   * is_superuser flag on every login: grants it if the user is a superuser
-   * and doesn't already hold it, revokes it if they're not (and held it from
-   * a previous login before being demoted in Paperless). isSuperuser being
+   * is_superuser/is_staff flags on every login: grants it if the user is a
+   * superuser or admin (Paperless's "Admin" account toggle, i.e. is_staff)
+   * and doesn't already hold it, revokes it if they're neither (and held it
+   * from a previous login before being demoted in Paperless). isAdmin being
    * undefined means the lookup itself failed — leave existing access as-is
    * rather than guessing.
    */
-  private async ensureSettingsPermissionSynced(username: string, isSuperuser: boolean | undefined): Promise<void> {
-    if (isSuperuser === undefined) return;
+  private async ensureSettingsPermissionSynced(username: string, isAdmin: boolean | undefined): Promise<void> {
+    if (isAdmin === undefined) return;
 
     await using uow = await this.uowFactory.createUoW({ username });
     await uow.start();
     const permissions = uow.getPermissions();
     const hasSettingsPermission = await permissions.hasPermission('settings', SETTINGS_RESOURCE_ID, username);
 
-    if (isSuperuser && !hasSettingsPermission) {
+    if (isAdmin && !hasSettingsPermission) {
       await permissions.grant('settings', SETTINGS_RESOURCE_ID, username);
-    } else if (!isSuperuser && hasSettingsPermission) {
+    } else if (!isAdmin && hasSettingsPermission) {
       await permissions.revoke('settings', SETTINGS_RESOURCE_ID, username);
     }
 

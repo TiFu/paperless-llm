@@ -88,8 +88,8 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     try {
       const response = await this.authClient.post<{ token: string }>('/api/token/', { username, password });
       const token = response.data.token;
-      const isSuperuser = await this.fetchIsSuperuser(username, token);
-      return { token, success: true, isSuperuser };
+      const isAdmin = await this.fetchIsAdmin(username, token);
+      return { token, success: true, isAdmin };
     } catch (error) {
       if (axios.isAxiosError(error) && [400, 401, 403].includes(error.response?.status ?? 0)) {
         return { token: null, success: false, status: 401, message: 'Invalid credentials' };
@@ -102,24 +102,30 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
   /**
    * Looks up the just-authenticated user's own record via
    * GET /api/users/?username=... (UserFilterSet supports exact username
-   * filtering) to read is_superuser — Paperless's /api/token/ response and
-   * its /api/profile/ "who am I" endpoint don't carry this field, only the
-   * /api/users/ collection's UserSerializer does. Best-effort: a failure
-   * here doesn't fail the login, it just skips settings-permission sync for
-   * this login (existing local access, if any, is left as-is).
+   * filtering) to read is_superuser/is_staff — Paperless's /api/token/
+   * response and its /api/profile/ "who am I" endpoint don't carry these
+   * fields, only the /api/users/ collection's UserSerializer does.
+   * is_staff is what Paperless's own UI labels "Admin" on a user's account
+   * settings, so either flag grants local settings-edit access. Best-effort:
+   * a failure here doesn't fail the login, it just skips settings-permission
+   * sync for this login (existing local access, if any, is left as-is).
    */
-  private async fetchIsSuperuser(username: string, token: string): Promise<boolean | undefined> {
+  private async fetchIsAdmin(username: string, token: string): Promise<boolean | undefined> {
     try {
-      const response = await this.authClient.get<{ results: Array<{ username: string; is_superuser: boolean }> }>(
+      const response = await this.authClient.get<{
+        results: Array<{ username: string; is_superuser: boolean; is_staff: boolean }>;
+      }>(
         '/api/users/',
         {
           params: { username },
           headers: { Authorization: `Token ${token}` },
         },
       );
-      return response.data.results.find(u => u.username === username)?.is_superuser;
+      const user = response.data.results.find(u => u.username === username);
+      if (!user) return undefined;
+      return user.is_superuser || user.is_staff;
     } catch (error) {
-      this.logger.warn({ error, api: 'fetchIsSuperuser' }, 'Failed to look up Paperless user is_superuser status');
+      this.logger.warn({ error, api: 'fetchIsAdmin' }, 'Failed to look up Paperless user is_superuser/is_staff status');
       return undefined;
     }
   }

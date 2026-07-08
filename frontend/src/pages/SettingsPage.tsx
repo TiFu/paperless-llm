@@ -132,8 +132,8 @@ export const SettingsPage: React.FC = () => {
 
       {!canEdit && (
         <Alert severity="info" sx={{ mb: 3 }}>
-          You can view settings but not edit them. Editing requires being a superuser in Paperless — log in again
-          after a role change to pick it up.
+          You can view settings but not edit them. Editing requires being a superuser or admin in Paperless — log in
+          again after a role change to pick it up.
         </Alert>
       )}
 

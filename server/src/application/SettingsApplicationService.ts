@@ -59,7 +59,7 @@ export class SettingsApplicationService {
 
     const canEdit = await uow.getPermissions().hasPermission('settings', SETTINGS_RESOURCE_ID, user.username);
     if (!canEdit) {
-      throw new ApiError(403, 'Forbidden', 'Settings can only be edited by a Paperless superuser');
+      throw new ApiError(403, 'Forbidden', 'Settings can only be edited by a Paperless admin');
     }
 
     const updated = await uow.getSettings().update(input, user.username);

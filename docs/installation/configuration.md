@@ -13,7 +13,7 @@ cp config.example.yaml config.yaml
 
 `AppConfig` validates `config.yaml` on startup (required sections/fields) and fails fast with a descriptive error if something's missing — see [`server/src/config/AppConfig.ts`](../server.md) for the exact checks. Numeric-range validation for the non-technical settings (`llm.temperature`, the various `*PollIntervalMs`/`*TimeoutMs` minimums, etc.) lives in [`server/src/domain/settings/SettingsDomainService.ts`](../server.md) instead, applied both when `PUT /api/settings` is called and each time `AppConfig` polls the database.
 
-When deploying via Helm, the same technical `config.yaml` structure is rendered into a Kubernetes Secret from `values.yaml`'s `config.*` keys — see [Installation > Helm](helm.md). Non-technical settings aren't part of the chart; configure them after deploy via the Settings page, as a Paperless superuser.
+When deploying via Helm, the same technical `config.yaml` structure is rendered into a Kubernetes Secret from `values.yaml`'s `config.*` keys — see [Installation > Helm](helm.md). Non-technical settings aren't part of the chart; configure them after deploy via the Settings page, as a Paperless admin.
 
 ## CORS and port
 
