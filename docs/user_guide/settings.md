@@ -24,7 +24,7 @@ Each of the four worker loops (Step Execution, Stuck-Step Reset, Entity Sync, Au
 
 ### Who can edit settings
 
-Anyone signed in can view settings (`GET /api/settings`). Editing them (`PUT /api/settings`) requires the `settings` permission, which isn't granted manually — it's synced automatically from Paperless's own `is_superuser` flag every time you log in: if your Paperless account is a superuser, you get edit access; if you're later demoted in Paperless, the next login revokes it. There's no separate local admin concept to manage.
+Anyone signed in can view settings (`GET /api/settings`). Editing them (`PUT /api/settings`) requires the `settings` permission, which isn't granted manually — it's synced automatically from Paperless's own `is_superuser`/`is_staff` flags every time you log in: if your Paperless account is a superuser or has the "Admin" toggle enabled, you get edit access; if you're later demoted in Paperless, the next login revokes it. There's no separate local admin concept to manage.
 
 ### Customizing settings
 
