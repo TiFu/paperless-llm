@@ -52,10 +52,11 @@ export interface DatabaseConfig {
 /**
  * Paperless-NG technical connection info. Non-technical fields (tags,
  * autoProcessTags) are live-editable and exposed via IPaperlessConfig below.
+ * No system-level API token: every real request uses the per-user token
+ * captured at login (see UoWImplementation._createDMSForUser).
  */
 export interface PaperlessConfig {
   readonly url: string;
-  readonly token: string;
 }
 
 /**
@@ -140,7 +141,6 @@ interface RawConfig {
   database: DatabaseConfig;
   paperless: {
     url: string;
-    token: string;
   };
   llm: {
     url: string;
@@ -210,7 +210,7 @@ export class AppConfig implements ILLMConfig, IWorkersConfig, IPaperlessConfig, 
     const rawConfig = this.loadConfig(configPath);
 
     this.database = rawConfig.database;
-    this.paperless = { url: rawConfig.paperless.url, token: rawConfig.paperless.token };
+    this.paperless = { url: rawConfig.paperless.url };
     this.llm = { url: rawConfig.llm.url };
     this.logging = rawConfig.logging;
     this.api = rawConfig.api;

@@ -13,7 +13,7 @@ const user: UserRecord = { username: 'alice', paperlessToken: 'tok', lastLogin: 
 
 function fakePaperlessConfig(tags: AutoProcessTagConfig[]): IPaperlessConfig {
   return {
-    paperless: { url: 'http://paperless.example.com', token: 't' },
+    paperless: { url: 'http://paperless.example.com' },
     getTags: () => undefined,
     getAutoProcessTags: () => tags,
   };

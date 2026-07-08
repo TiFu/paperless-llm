@@ -61,9 +61,6 @@ workers.instanceId:
 paperless.url:
   required: true
   description: Base URL of the Paperless-NGX instance to read/write documents from.
-paperless.token:
-  required: true
-  description: Paperless-NGX API token. Generate one from the Paperless-NGX admin UI under your user profile.
 
 logging.level:
   required: true

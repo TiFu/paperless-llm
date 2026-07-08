@@ -5,7 +5,7 @@ import { DMSCacheService, DMSSerializers } from '../../../src/services/CacheServ
 import { CachedPaperlessServiceAdapter } from '../../../src/services/CachedPaperlessServiceAdapter.js';
 
 const paperlessConfig: IPaperlessConfig = {
-  paperless: { url: 'https://paperless.example.com', token: 'system-token' },
+  paperless: { url: 'https://paperless.example.com' },
   getTags: () => undefined,
   getAutoProcessTags: () => [],
 };

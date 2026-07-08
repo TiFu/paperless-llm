@@ -24,10 +24,6 @@ database:
 
 paperless:
   url: http://paperless:8000
-  # Unused for document/tag operations — those always go through the
-  # per-user token captured at login time (see server/src/infrastructure/UoW.ts).
-  # Only needs to be a non-empty string to pass config validation.
-  token: e2e-placeholder
 
 llm:
   url: http://stub-llm:80

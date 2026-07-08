@@ -160,10 +160,9 @@ jobs:
       - name: Render sanity check
         run: |
           helm template ci helm/paperless-llm \
-            --set server.image.repository=ghcr.io/${{ steps.owner.outputs.name }}/paperless-llm-server \
+            --set image.repository=ghcr.io/${{ steps.owner.outputs.name }}/paperless-llm-server \
             --set frontend.image.repository=ghcr.io/${{ steps.owner.outputs.name }}/paperless-llm-frontend \
-            --set server.config.auth.jwtSecret=ci-placeholder \
-            --set server.config.paperless.token=ci-placeholder
+            --set config.auth.jwtSecret=ci-placeholder
 
       - name: Package chart
         run: |

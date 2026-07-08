@@ -9,15 +9,17 @@ import { createChildLogger } from '../utils/logger.js';
 import pino from 'pino';
 
 /**
- * PaperlessService's own view of what it needs to talk to Paperless: url/
- * token are technical (from AppConfig), tags/autoProcessTags are live
- * settings — assembled fresh by the caller (see UoWImplementation.
- * _createDMSForUser) rather than imported from AppConfig's own (narrower)
- * PaperlessConfig type.
+ * PaperlessService's own view of what it needs to talk to Paperless: url is
+ * technical (from AppConfig), tags/autoProcessTags are live settings —
+ * assembled fresh by the caller (see UoWImplementation._createDMSForUser)
+ * rather than imported from AppConfig's own (narrower) PaperlessConfig type.
+ * token is the per-user Paperless API token captured at login (see
+ * UoWImplementation._createDMSForUser) — omitted for the bootstrap-level
+ * instance used only for authenticate()/healthCheck(), which don't need one.
  */
 export interface PaperlessServiceConfig {
   readonly url: string;
-  readonly token: string;
+  readonly token?: string;
   readonly tags?: string;
   readonly autoProcessTags: AutoProcessTagConfig[];
 }
@@ -69,7 +71,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     this.client = axios.create({
       baseURL: config.url,
       headers: {
-        Authorization: `Token ${config.token}`,
+        ...(config.token ? { Authorization: `Token ${config.token}` } : {}),
         'Content-Type': 'application/json',
       },
       timeout: 30000,
@@ -633,7 +635,15 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     return names;
   }
 
+  /**
+   * Connectivity check only — uses the unauthenticated client since the
+   * bootstrap-level instance has no token. A 401/403 still means the server
+   * is up and answering, so only a response-less failure (connection
+   * refused, timeout, DNS) counts as unhealthy.
+   */
   async healthCheck(): Promise<boolean> {
-    return await this.client.get('/api/').then(() => true).catch(() => false);
+    return await this.authClient.get('/api/')
+      .then(() => true)
+      .catch((error) => axios.isAxiosError(error) && error.response !== undefined);
   }
 }

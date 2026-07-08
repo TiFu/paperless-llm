@@ -150,7 +150,6 @@ image:
 config:
   paperless:
     url: http://paperless.example.com
-    token: ""  # not used for real document access, see note below
   llm:
     url: http://ollama.example.com:11434
   workers:
@@ -167,6 +166,8 @@ config:
     jwtExpiresIn: 8h
   redisCache:
     ttlInSeconds: 300
+    reconnectBaseDelayMs: 500
+    reconnectMaxDelayMs: 30000
 
 # Per-component replica count and resources — see Scaling below.
 backend:
@@ -178,13 +179,10 @@ worker:
   resources: {}
 ```
 
-`config.paperless.token` still needs to be set to *some* non-empty value for
-the server to pass its startup config validation, but it is not used for
-real per-user document access — each user authenticates with their own
-Paperless-NGX credentials, and their personal Paperless token is captured
-and stored at login. Any non-empty placeholder satisfies the validation;
-there is no working "global" Paperless API token to obtain or rotate as
-part of operating this chart.
+There is no system-level Paperless API token to configure for the chart:
+each user authenticates with their own Paperless-NGX credentials, and their
+personal Paperless token is captured and stored at login — there is no
+"global" token to obtain or rotate as part of operating this chart.
 
 This entire `config` block is rendered into a Kubernetes `Secret` (see
 [How config.yaml Becomes a Secret](#how-configyaml-becomes-a-secret) below)

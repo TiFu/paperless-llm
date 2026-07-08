@@ -23,10 +23,6 @@ database:
 
 paperless:
   url: http://paperless:8000
-  # paperless-ngx has no API token until you create a user on first boot —
-  # visit http://localhost:8000, log in, create a token under My Profile,
-  # then restart the server service with it set here.
-  token: REPLACE_ME_AFTER_FIRST_PAPERLESS_LOGIN
 
 llm:
   url: http://host.docker.internal:11434

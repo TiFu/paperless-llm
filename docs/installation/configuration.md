@@ -57,7 +57,6 @@ When deploying via Helm, the same technical `config.yaml` structure is rendered 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `url` | `string` | Yes | - | Base URL of the Paperless-NGX instance to read/write documents from. |
-| `token` | `string` | Yes | - | Paperless-NGX API token. Generate one from the Paperless-NGX admin UI under your user profile. |
 
 ### `logging`
 
@@ -108,7 +107,6 @@ redis:
   ttlInSeconds: 300
 paperless:
   url: http://localhost:8000
-  token: your_paperless_token_here
 llm:
   url: http://localhost:11434
 logging:

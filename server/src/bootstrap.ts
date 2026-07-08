@@ -83,7 +83,6 @@ export async function createAppContext(processName: string): Promise<AppContext>
   // fresh in UoWImplementation._createDMSForUser with live values).
   const paperlessService = new PaperlessService({
     url: config.paperless.url,
-    token: config.paperless.token,
     tags: undefined,
     autoProcessTags: [],
   });

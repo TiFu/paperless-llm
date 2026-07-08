@@ -29,7 +29,6 @@ redis:
 
 paperless:
   url: http://localhost:8000
-  token: your_paperless_token_here
 
 llm:
   url: http://localhost:11434

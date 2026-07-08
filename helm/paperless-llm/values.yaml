@@ -37,7 +37,6 @@ image:
 config:
   paperless:
     url: http://paperless.example.com
-    token: ""
   llm:
     url: http://ollama.example.com:11434
   workers:
@@ -54,6 +53,8 @@ config:
     jwtExpiresIn: 8h
   redisCache:
     ttlInSeconds: 300
+    reconnectBaseDelayMs: 500
+    reconnectMaxDelayMs: 30000
 
 # API server (--mode=server). Exposes the HTTP API consumed by the frontend.
 backend:

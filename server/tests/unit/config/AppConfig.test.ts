@@ -12,7 +12,7 @@ import { WorkflowType } from '../../../src/domain/workflows/WorkflowType.js';
 function baseConfig(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     database: { host: 'localhost', port: 5432, username: 'u', password: 'p', database: 'db' },
-    paperless: { url: 'http://paperless.example.com', token: 't' },
+    paperless: { url: 'http://paperless.example.com' },
     llm: { url: 'http://llm.example.com' },
     auth: { jwtSecret: 'secret' },
     logging: { level: 'info', pretty: false },
@@ -44,7 +44,7 @@ describe('AppConfig', () => {
     const config = new AppConfig(configPath);
 
     expect(config.database.host).toBe('localhost');
-    expect(config.paperless).toEqual({ url: 'http://paperless.example.com', token: 't' });
+    expect(config.paperless).toEqual({ url: 'http://paperless.example.com' });
     expect(config.llm).toEqual({ url: 'http://llm.example.com' });
     expect(config.auth.jwtExpiresIn).toBe('8h'); // default
   });
