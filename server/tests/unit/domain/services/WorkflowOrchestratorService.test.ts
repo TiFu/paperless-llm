@@ -114,7 +114,7 @@ describe('WorkflowOrchestratorDomainService', () => {
       expect(jobAdvancement.isTerminalState).toBe(false);
     });
 
-    it('fails the job when the leaf step ends up FAILED', async () => {
+    it('routes the job into cleanup when the leaf step ends up FAILED', async () => {
       const job = makeJob(JobState.LLM_PROCESSING);
       const step = new StepFactory().newUpdateDocumentStep(job.id);
       step.moveToInProgress();
@@ -133,8 +133,9 @@ describe('WorkflowOrchestratorDomainService', () => {
         message: 'boom',
       });
 
-      expect(job.state).toBe(JobState.FAILED);
-      expect(jobAdvancement.isTerminalState).toBe(true);
+      expect(job.state).toBe(JobState.CLEANUP_AFTER_FAILURE);
+      expect(jobAdvancement.isTerminalState).toBe(false);
+      expect(jobAdvancement.step).not.toBeNull();
     });
 
     it('merges document actions from the result onto the job', async () => {
@@ -182,7 +183,7 @@ describe('WorkflowOrchestratorDomainService', () => {
       );
     });
 
-    it('rejects the step and moves the job to REJECTED', async () => {
+    it('rejects the step and moves the job into cleanup before REJECTED', async () => {
       const job = makeJob(JobState.PENDING_APPROVAL, WorkflowType.APPROVAL);
       const step = new ApprovalInteractionStep('approval-step', job.id, StepStatus.WAITING);
       const service = new WorkflowOrchestratorDomainService(
@@ -194,13 +195,14 @@ describe('WorkflowOrchestratorDomainService', () => {
       const result = await service.processUserDecision(step, 'REJECTED');
 
       expect(step.getStepStatus()).toBe(StepStatus.FAILED);
-      expect(job.state).toBe(JobState.REJECTED);
-      expect(result.isTerminalState).toBe(true);
+      expect(job.state).toBe(JobState.CLEANUP_AFTER_REJECTION);
+      expect(result.isTerminalState).toBe(false);
+      expect(result.step).not.toBeNull();
     });
   });
 
   describe('processStepCancellation', () => {
-    it('moves an eligible step to FAILED and fails the job', async () => {
+    it('moves an eligible step to FAILED and routes the job into cleanup', async () => {
       const job = makeJob(JobState.LLM_PROCESSING);
       const step = new StepFactory().newUpdateDocumentStep(job.id);
       step.markExecutionFailed({ maxRetries: 3, retryDelayInMs: 1000, retryExponent: 2 }); // -> RETRYING
@@ -215,7 +217,7 @@ describe('WorkflowOrchestratorDomainService', () => {
       await service.processStepCancellation(step);
 
       expect(step.getStepStatus()).toBe(StepStatus.FAILED);
-      expect(job.state).toBe(JobState.FAILED);
+      expect(job.state).toBe(JobState.CLEANUP_AFTER_FAILURE);
       expect(auditCollector.record).toHaveBeenCalledWith(
         expect.objectContaining({ eventType: 'STEP_CANCELLED' }),
       );

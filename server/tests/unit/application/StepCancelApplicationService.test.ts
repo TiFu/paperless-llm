@@ -12,7 +12,7 @@ function makeJob(state: JobState): Job {
 }
 
 describe('StepCancelApplicationService', () => {
-  it('moves an eligible step to FAILED and fails its job', async () => {
+  it('moves an eligible step to FAILED and routes its job into tag cleanup before failing', async () => {
     const fakeUoW = createFakeUoW();
     const job = makeJob(JobState.LLM_PROCESSING);
     const step = new StepFactory().newUpdateDocumentStep(job.id);
@@ -24,7 +24,7 @@ describe('StepCancelApplicationService', () => {
     await service.cancelStep('step-1');
 
     expect(step.getStepStatus()).toBe(StepStatus.FAILED);
-    expect(job.state).toBe(JobState.FAILED);
+    expect(job.state).toBe(JobState.CLEANUP_AFTER_FAILURE);
     expect(fakeUoW.save).toHaveBeenCalled();
     expect(fakeUoW.commit).toHaveBeenCalled();
   });

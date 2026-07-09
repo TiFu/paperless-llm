@@ -24,18 +24,22 @@ export class AutomatedWorkflow extends BaseWorkflow {
     return createTransitionMap({
       [JobState.PENDING]: {
         [Transition.SUCCESS]: JobState.LLM_PROCESSING,
-        [Transition.FAILURE]: JobState.FAILED,
+        [Transition.FAILURE]: JobState.CLEANUP_AFTER_FAILURE,
       },
       [JobState.LLM_PROCESSING]: {
         [Transition.SUCCESS]: JobState.UPDATING_DOCUMENT,
-        [Transition.FAILURE]: JobState.FAILED,
+        [Transition.FAILURE]: JobState.CLEANUP_AFTER_FAILURE,
       },
       [JobState.UPDATING_DOCUMENT]: {
         [Transition.SUCCESS]: JobState.REMOVING_TAGS,
-        [Transition.FAILURE]: JobState.FAILED,
+        [Transition.FAILURE]: JobState.CLEANUP_AFTER_FAILURE,
       },
       [JobState.REMOVING_TAGS]: {
         [Transition.SUCCESS]: JobState.COMPLETED,
+        [Transition.FAILURE]: JobState.FAILED,
+      },
+      [JobState.CLEANUP_AFTER_FAILURE]: {
+        [Transition.SUCCESS]: JobState.FAILED,
         [Transition.FAILURE]: JobState.FAILED,
       },
     });
@@ -60,6 +64,7 @@ export class AutomatedWorkflow extends BaseWorkflow {
         return factory.newUpdateDocumentStep(job.id)
 
       case JobState.REMOVING_TAGS:
+      case JobState.CLEANUP_AFTER_FAILURE:
         return factory.newRemoveTagsStep(job.id)
 
       case JobState.COMPLETED:

@@ -1145,6 +1145,8 @@ components:
         - removing_tags
         - failed
         - rejected
+        - cleanup_after_rejection
+        - cleanup_after_failure
       description: Current state of a job in its workflow
 
     StepType:
