@@ -37,6 +37,7 @@ export function makeFakeJobRepo(): jest.Mocked<IJobRepository> {
     'getByDocumentId',
     'getJobCountsByState',
     'filterInProgressDocuments',
+    'getActiveJobsByDocumentIds',
   ]);
 }
 

@@ -121,7 +121,10 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
           headers: { Authorization: `Token ${token}` },
         },
       );
-      const user = response.data.results.find(u => u.username === username);
+      // Case-insensitive: Paperless's own username filter/login is
+      // case-insensitive, so the returned record's username casing isn't
+      // guaranteed to match what was typed at login.
+      const user = response.data.results.find(u => u.username.toLowerCase() === username.toLowerCase());
       if (!user) return undefined;
       return user.is_superuser || user.is_staff;
     } catch (error) {

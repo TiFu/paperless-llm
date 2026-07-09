@@ -113,9 +113,9 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
       }
 
       const result = await autoQueueService.processNewDocuments();
-      if (result.created > 0 || result.skipped > 0) {
+      if (result.created > 0 || result.skipped > 0 || result.joined > 0) {
         logger.info(
-          { processed: result.processed, created: result.created, skipped: result.skipped },
+          { processed: result.processed, created: result.created, skipped: result.skipped, joined: result.joined },
           'Auto-queue processed documents',
         );
       }
@@ -130,7 +130,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
       }));
 
       return {
-        summary: { processed: result.processed, created: result.created, skipped: result.skipped },
+        summary: { processed: result.processed, created: result.created, skipped: result.skipped, joined: result.joined },
         items,
       };
     },

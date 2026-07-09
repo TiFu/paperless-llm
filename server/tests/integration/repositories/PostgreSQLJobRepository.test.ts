@@ -83,6 +83,39 @@ describe('PostgreSQLJobRepository (integration)', () => {
         expect(result.items).toHaveLength(2);
       });
     });
+
+    it('filterInProgressDocuments only counts jobs the user has been granted access to', async () => {
+      await withRepositoryTransaction(async (repos, user) => {
+        await repos.getUsers().upsert(user!.username, 'paperless-token');
+        const own = await repos.getJobs().create('1', WorkflowType.AUTOMATED, []);
+        await repos.getJobs().create('2', WorkflowType.AUTOMATED, []); // owned by someone else
+        await repos.getPermissions().grant('job', own.id, user!.username);
+
+        const result = await repos.getJobs().filterInProgressDocuments([1, 2]);
+
+        // Doc 2 has an in-progress job too, but not one this user can see —
+        // filterInProgressDocuments alone won't surface it to them (the
+        // application layer is responsible for granting them access to it
+        // instead of treating it as free to claim; see
+        // getActiveJobsByDocumentIds below).
+        expect(result).toEqual([1]);
+      }, { username: 'alice' });
+    });
+
+    it('getActiveJobsByDocumentIds finds jobs regardless of who they\'re granted to', async () => {
+      await withRepositoryTransaction(async (repos, user) => {
+        await repos.getUsers().upsert(user!.username, 'paperless-token');
+        await repos.getUsers().upsert('someone-else', 'paperless-token');
+        const job = await repos.getJobs().create('1', WorkflowType.AUTOMATED, []);
+        // Deliberately not granted to this UoW's user — the method must
+        // still find it, so the caller can grant access to it.
+        await repos.getPermissions().grant('job', job.id, 'someone-else');
+
+        const result = await repos.getJobs().getActiveJobsByDocumentIds([1]);
+
+        expect(result.map(j => j.id)).toEqual([job.id]);
+      }, { username: 'alice' });
+    });
   });
 
   it('filterInProgressDocuments excludes documents whose jobs are all terminal', async () => {
@@ -95,6 +128,19 @@ describe('PostgreSQLJobRepository (integration)', () => {
       const result = await repos.getJobs().filterInProgressDocuments([100, 200, 300]);
 
       expect(result).toEqual([inProgress.documentId]);
+    });
+  });
+
+  it('getActiveJobsByDocumentIds excludes documents whose jobs are all terminal', async () => {
+    await withRepositoryTransaction(async (repos) => {
+      const inProgress = await repos.getJobs().create('100', WorkflowType.AUTOMATED, []);
+      const done = await repos.getJobs().create('200', WorkflowType.AUTOMATED, []);
+      done.updateJobState(JobState.COMPLETED);
+      await repos.getJobs().update(done);
+
+      const result = await repos.getJobs().getActiveJobsByDocumentIds([100, 200, 300]);
+
+      expect(result.map(j => j.id)).toEqual([inProgress.id]);
     });
   });
 });

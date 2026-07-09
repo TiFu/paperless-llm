@@ -50,6 +50,22 @@ describe('AuthApplicationService.login', () => {
     expect(decoded.username).toBe('alice');
   });
 
+  it('normalizes the username to lowercase before authenticating and persisting', async () => {
+    const paperlessAuth = makeFakePaperlessAuth({ token: 'paperless-token', success: true });
+    const usersRepo = makeFakeUsersRepo();
+    const fakeUoW = createFakeUoW();
+    fakeUoW.repos.prompts.getAllForUser.mockResolvedValue([]);
+    fakeUoW.repos.prompts.getGlobalDefaults.mockResolvedValue([]);
+    const service = new AuthApplicationService(paperlessAuth, usersRepo, makeFakeUoWFactory(fakeUoW), authConfig);
+
+    const result = await service.login(' Alice ', 'correct-password');
+
+    expect(paperlessAuth.authenticate).toHaveBeenCalledWith('alice', 'correct-password');
+    expect(usersRepo.upsert).toHaveBeenCalledWith('alice', 'paperless-token');
+    const decoded = jwt.verify(result.token, authConfig.jwtSecret) as { username: string };
+    expect(decoded.username).toBe('alice');
+  });
+
   it('copies global default prompts for a first-time user with none of their own', async () => {
     const paperlessAuth = makeFakePaperlessAuth({ token: 'paperless-token', success: true });
     const usersRepo = makeFakeUsersRepo();

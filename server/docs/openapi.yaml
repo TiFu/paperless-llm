@@ -2531,7 +2531,15 @@ components:
           description: ID of the referenced item (step id, username, document id, etc.)
         outcome:
           type: string
-          description: Outcome for this item — varies by worker/item type (e.g. success, failed, skipped, retrying, fallout, requeued, created)
+          description: >-
+            Outcome for this item — varies by worker/item type (e.g. success,
+            failed, skipped, retrying, fallout, requeued, created). For
+            document_auto_queue specifically: "created" a new job, "skipped"
+            because this user already has a visible job for the document, or
+            "joined" an existing job another user's run already started on
+            that document (documents are a single shared Paperless resource,
+            so at most one job processes a given document at a time — other
+            users are granted access to it rather than getting a duplicate).
           example: success
         errorMessage:
           type: string
@@ -2563,7 +2571,7 @@ components:
           type: object
           nullable: true
           additionalProperties: true
-          description: Summary counts for the run (e.g. processed/retried/created/skipped)
+          description: Summary counts for the run (e.g. processed/retried/created/skipped/joined)
         errorMessage:
           type: string
           nullable: true
