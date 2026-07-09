@@ -10,7 +10,7 @@ import { WorkflowType } from '../domain/workflows/WorkflowType.js';
 
 export interface AutoQueueItemResult {
   documentId: number;
-  outcome: 'created' | 'skipped' | 'failed';
+  outcome: 'created' | 'skipped' | 'joined' | 'failed';
   errorMessage?: string;
   startedAt: Date;
   finishedAt: Date;
@@ -20,6 +20,7 @@ export interface AutoQueueProcessResult {
   processed: number;
   created: number;
   skipped: number;
+  joined: number;
   items: AutoQueueItemResult[];
 }
 
@@ -46,18 +47,19 @@ export class DocumentAutoQueueApplicationService {
 
     if (autoProcessTags.length === 0) {
       logger.info('No auto-process tags configured, skipping auto-queue');
-      return { processed: 0, created: 0, skipped: 0, items: [] };
+      return { processed: 0, created: 0, skipped: 0, joined: 0, items: [] };
     }
 
     const users = await this.usersRepo.findAll();
     if (users.length === 0) {
       logger.info('No users found, skipping auto-queue');
-      return { processed: 0, created: 0, skipped: 0, items: [] };
+      return { processed: 0, created: 0, skipped: 0, joined: 0, items: [] };
     }
 
     let totalProcessed = 0;
     let totalCreated = 0;
     let totalSkipped = 0;
+    let totalJoined = 0;
     const items: AutoQueueItemResult[] = [];
 
     for (const user of users) {
@@ -115,26 +117,39 @@ export class DocumentAutoQueueApplicationService {
 
         const documentIds = documents.map(doc => doc.id);
 
-        await using uow1 = await this.uowFactory.createSystemUoW();
-        await uow1.start();
-        const inProgressIds = new Set<number>(await uow1.getJobs().filterInProgressDocuments(documentIds));
-        await uow1.save();
-        await uow1.commit();
+        // Documents this user can already see an in-progress job for —
+        // nothing to do.
+        const myInProgressIds = new Set<number>(await uow.getJobs().filterInProgressDocuments(documentIds));
+        const remaining = [...merged.values()].filter(m => !myInProgressIds.has(m.doc.id));
 
-        const availableEntries = [...merged.values()].filter(m => !inProgressIds.has(m.doc.id));
+        // Among the rest, a document may already be mid-processing under a
+        // *different* user's job — it's the same shared Paperless document,
+        // so starting a second concurrent job would mean two jobs racing to
+        // write title/tags/correspondent to it. Grant this user access to
+        // the existing job instead of duplicating the work.
+        const activeElsewhere = remaining.length > 0
+          ? await uow.getJobs().getActiveJobsByDocumentIds(remaining.map(m => m.doc.id))
+          : [];
+        const joinedAt = new Date();
+        for (const job of activeElsewhere) {
+          await uow.getPermissions().grant('job', job.id, userCtx.username);
+          items.push({ documentId: job.documentId, outcome: 'joined', startedAt, finishedAt: joinedAt });
+        }
+        const joinedIds = new Set(activeElsewhere.map(j => j.documentId));
+
+        const availableEntries = remaining.filter(m => !joinedIds.has(m.doc.id));
         const skippedAt = new Date();
         items.push(
-          ...documents
-            .filter(doc => inProgressIds.has(doc.id))
-            .map(doc => ({ documentId: doc.id, outcome: 'skipped' as const, startedAt, finishedAt: skippedAt })),
+          ...[...myInProgressIds].map(documentId => ({ documentId, outcome: 'skipped' as const, startedAt, finishedAt: skippedAt })),
         );
 
         totalProcessed += documents.length;
-        totalSkipped += inProgressIds.size;
+        totalSkipped += myInProgressIds.size;
+        totalJoined += joinedIds.size;
 
         if (availableEntries.length === 0) {
           logger.info(
-            { username: user.username, processed: documents.length, skipped: inProgressIds.size },
+            { username: user.username, processed: documents.length, skipped: myInProgressIds.size, joined: joinedIds.size },
             'All documents already have active jobs, skipping',
           );
           continue;
@@ -172,10 +187,10 @@ export class DocumentAutoQueueApplicationService {
     }
 
     logger.info(
-      { processed: totalProcessed, created: totalCreated, skipped: totalSkipped },
+      { processed: totalProcessed, created: totalCreated, skipped: totalSkipped, joined: totalJoined },
       'Auto-queue processing completed',
     );
 
-    return { processed: totalProcessed, created: totalCreated, skipped: totalSkipped, items };
+    return { processed: totalProcessed, created: totalCreated, skipped: totalSkipped, joined: totalJoined, items };
   }
 }

@@ -40,7 +40,7 @@ const getStatusColor = (status: WorkerExecutionStatus): 'default' | 'info' | 'su
 };
 
 const getOutcomeColor = (outcome: string): 'default' | 'success' | 'error' | 'warning' => {
-  if (outcome === 'success' || outcome === 'created' || outcome === 'retrying') return 'success';
+  if (outcome === 'success' || outcome === 'created' || outcome === 'retrying' || outcome === 'joined') return 'success';
   if (outcome === 'failed' || outcome === 'fallout') return 'error';
   if (outcome === 'skipped') return 'warning';
   return 'default';

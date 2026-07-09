@@ -73,9 +73,24 @@ export interface IJobRepository {
 
   /**
    * Filter the given document IDs to return only those with jobs in progress
-   * (i.e., jobs that are not in terminal states: completed, failed, rejected)
+   * (i.e., jobs that are not in terminal states: completed, failed, rejected).
+   * Scoped to the UoW user when a user context is present (a document only
+   * counts as "in progress" if that user can see the in-progress job for
+   * it); returns matches across all users' jobs for a system UoW.
    * @param documentIds Array of document IDs to check
    * @returns Array of document IDs that have jobs in progress
    */
   filterInProgressDocuments(documentIds: number[]): Promise<number[]>;
+
+  /**
+   * Get the currently in-progress (non-terminal-state) jobs for the given
+   * document IDs, always system-wide regardless of UoW user — a document is
+   * one shared Paperless resource, so there is at most one active job per
+   * document across all users. Used to find an existing job to grant a user
+   * access to instead of starting a second, concurrently-writing job for a
+   * document another user's job is already processing.
+   * @param documentIds Array of document IDs to check
+   * @returns The active jobs found, at most one per document
+   */
+  getActiveJobsByDocumentIds(documentIds: number[]): Promise<Job[]>;
 }

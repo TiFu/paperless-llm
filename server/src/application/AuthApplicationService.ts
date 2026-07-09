@@ -17,6 +17,12 @@ export class AuthApplicationService {
   async login(username: string, password: string): Promise<{ token: string, success: boolean, status?: number, message?: string }> {
     const logger = getLogger();
 
+    // Paperless authenticates usernames case-insensitively, but everything
+    // downstream of here (users table PK, permission grants, prompts,
+    // JWT subject) keys off this string exactly. Normalize once, up front,
+    // so "Tino" and "tino" always resolve to the same local identity.
+    username = username.trim().toLowerCase();
+
     const paperlessToken = await this.paperlessAuth.authenticate(username, password)
 
     if (!paperlessToken.success) {

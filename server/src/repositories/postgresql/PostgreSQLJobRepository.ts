@@ -332,6 +332,27 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     );
   }
 
+  async getActiveJobsByDocumentIds(documentIds: number[]): Promise<Job[]> {
+    if (documentIds.length === 0) {
+      return [];
+    }
+
+    const query = `
+      SELECT * FROM jobs
+      WHERE document_id = ANY($1)
+        AND state NOT IN ('completed', 'failed', 'rejected')
+    `;
+
+    const result = await this.getClient().query(query, [documentIds]);
+    return Promise.all(
+      result.rows.map(async (row) => {
+        const actions = await this.loadActions(row.id as string);
+        const fields = await this.loadFields(row.id as string);
+        return Job.fromDb(row, fields, actions);
+      }),
+    );
+  }
+
   async getJobCountsByState(): Promise<{ [state: string]: number }> {
     const allowedIds = await this.resolveAllowedJobIds();
     if (allowedIds !== null && allowedIds.length === 0) return {};
@@ -357,14 +378,23 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
       return [];
     }
 
+    const allowedIds = await this.resolveAllowedJobIds();
+    if (allowedIds !== null && allowedIds.length === 0) return [];
+
+    const conditions = ['document_id = ANY($1)', "state NOT IN ('completed', 'failed', 'rejected')"];
+    const params: unknown[] = [documentIds];
+    if (allowedIds !== null) {
+      conditions.push(`id = ANY($${params.length + 1})`);
+      params.push(allowedIds);
+    }
+
     const query = `
-      SELECT DISTINCT document_id 
-      FROM jobs 
-      WHERE document_id = ANY($1)
-        AND state NOT IN ('completed', 'failed', 'rejected')
+      SELECT DISTINCT document_id
+      FROM jobs
+      WHERE ${conditions.join(' AND ')}
     `;
 
-    const result = await this.getClient().query(query, [documentIds]);
+    const result = await this.getClient().query(query, params);
     return result.rows.map((row) => row.document_id);
   }
 }
