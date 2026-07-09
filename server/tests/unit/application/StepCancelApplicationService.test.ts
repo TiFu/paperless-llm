@@ -25,6 +25,13 @@ describe('StepCancelApplicationService', () => {
 
     expect(step.getStepStatus()).toBe(StepStatus.FAILED);
     expect(job.state).toBe(JobState.CLEANUP_AFTER_FAILURE);
+    // The FAILURE transition now lands on a non-terminal cleanup state with its own
+    // RemoveTagsStep — it must be persisted, or the job is stuck forever with no step
+    // left to execute (this regressed once before: processStepCancellation used to
+    // discard the newly created step instead of returning it to the caller).
+    expect(fakeUoW.repos.steps.create).toHaveBeenCalledWith(
+      expect.objectContaining({ jobId: job.id }),
+    );
     expect(fakeUoW.save).toHaveBeenCalled();
     expect(fakeUoW.commit).toHaveBeenCalled();
   });

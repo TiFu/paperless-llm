@@ -39,8 +39,11 @@ test('approval workflow: an operator rejects the LLM-proposed tags, and Paperles
   const rejectedJob = await waitForJobState(jwt, job.id, ['rejected'], 15_000);
   expect(rejectedJob.status).toBe('rejected');
 
-  // PENDING_APPROVAL + REJECTED is terminal (see ApprovalWorkflow.ts) — the workflow
-  // never reaches UpdateDocumentStep, so Paperless was never touched.
+  // PENDING_APPROVAL + REJECTED routes through the non-terminal cleanup_after_rejection
+  // state first (see ApprovalWorkflow.ts), which runs a REMOVE_TAGS step so a rejected
+  // document isn't left with its trigger tag for Auto-Queue to immediately re-pick-up.
+  // The workflow never reaches UpdateDocumentStep, so document fields are untouched;
+  // the document was uploaded with no tags, so the tag cleanup is a no-op here.
   const untouchedDocument = await getDocument(paperlessToken, document.id);
   expect(untouchedDocument.tags).toEqual([]);
 });

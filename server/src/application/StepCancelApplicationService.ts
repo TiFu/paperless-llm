@@ -52,7 +52,8 @@ export class StepCancelApplicationService {
       this.logger.info(
         'Entering process step cancellation'
       );
-      await workflowOrchestrator.processStepCancellation(step);
+      const nextStepResult = await workflowOrchestrator.processStepCancellation(step);
+      if (nextStepResult.step) steps.create(nextStepResult.step);
       this.logger.info(
         'Exited process step cancellation'
       );

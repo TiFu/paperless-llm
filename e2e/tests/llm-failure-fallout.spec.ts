@@ -35,7 +35,11 @@ test('LLM failure: a step that keeps failing exhausts retries, falls out, and an
   const failedJob = await waitForJobState(jwt, job.id, ['failed'], 15_000);
   expect(failedJob.status).toBe('failed');
 
-  // The workflow never reached UpdateDocumentStep, so Paperless was never touched.
+  // The workflow never reached UpdateDocumentStep, so document fields were never
+  // touched — but failing the job does still run a REMOVE_TAGS cleanup step
+  // (cleanup_after_failure) so the document isn't left with a trigger tag Auto-Queue
+  // would immediately re-pick-up. The document was uploaded with no tags, so that
+  // cleanup is a no-op here, and tags stay empty.
   const untouchedDocument = await getDocument(paperlessToken, document.id);
   expect(untouchedDocument.tags).toEqual([]);
 });

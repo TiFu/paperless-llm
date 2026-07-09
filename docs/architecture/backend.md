@@ -235,18 +235,20 @@ Fully automated processing, no human gate:
 stateDiagram-v2
     [*] --> pending
     pending --> llm_processing: SUCCESS
-    pending --> failed: FAILURE
+    pending --> cleanup_after_failure: FAILURE
     llm_processing --> updating_document: SUCCESS
-    llm_processing --> failed: FAILURE
+    llm_processing --> cleanup_after_failure: FAILURE
     updating_document --> removing_tags: SUCCESS
-    updating_document --> failed: FAILURE
+    updating_document --> cleanup_after_failure: FAILURE
     removing_tags --> completed: SUCCESS
     removing_tags --> failed: FAILURE
+    cleanup_after_failure --> failed: SUCCESS
+    cleanup_after_failure --> failed: FAILURE
     completed --> [*]
     failed --> [*]
 ```
 
-Step mapping: `llm_processing` creates a composite `LLM_GENERATE_FIELDS` step (which fans out into the per-field LLM steps the job actually requested — title, tags, correspondent, document type, created date); `updating_document` creates `UPDATE_DOCUMENT`; `removing_tags` creates `REMOVE_TAGS` (clearing the trigger tag once processing succeeds).
+Step mapping: `llm_processing` creates a composite `LLM_GENERATE_FIELDS` step (which fans out into the per-field LLM steps the job actually requested — title, tags, correspondent, document type, created date); `updating_document` creates `UPDATE_DOCUMENT`; `removing_tags` and `cleanup_after_failure` both create `REMOVE_TAGS` — clearing the trigger tag whether the job is about to succeed or fail, so a failed job's document isn't immediately re-picked-up by Auto-Queue. `removing_tags` itself failing is left going straight to `failed` (already an attempted cleanup — routing it through another cleanup state would just loop).
 
 #### ApprovalWorkflow
 
@@ -256,23 +258,27 @@ Adds a manual approval gate between LLM generation and applying changes:
 stateDiagram-v2
     [*] --> pending
     pending --> llm_processing: SUCCESS
-    pending --> failed: FAILURE
+    pending --> cleanup_after_failure: FAILURE
     llm_processing --> pending_approval: SUCCESS
-    llm_processing --> failed: FAILURE
+    llm_processing --> cleanup_after_failure: FAILURE
     pending_approval --> updating_document: SUCCESS (approved)
-    pending_approval --> rejected: FAILURE (rejected)
+    pending_approval --> cleanup_after_rejection: FAILURE (rejected)
     updating_document --> removing_tags: SUCCESS
-    updating_document --> failed: FAILURE
+    updating_document --> cleanup_after_failure: FAILURE
     removing_tags --> completed: SUCCESS
     removing_tags --> failed: FAILURE
+    cleanup_after_failure --> failed: SUCCESS
+    cleanup_after_failure --> failed: FAILURE
+    cleanup_after_rejection --> rejected: SUCCESS
+    cleanup_after_rejection --> failed: FAILURE
     completed --> [*]
     failed --> [*]
     rejected --> [*]
 ```
 
-Step mapping is identical to `AutomatedWorkflow` except `pending_approval` creates a `REQUIRE_APPROVAL` step — a manual step that blocks until a user approves or rejects the proposed `DocumentAction`s via the API/frontend.
+Step mapping is identical to `AutomatedWorkflow` except `pending_approval` creates a `REQUIRE_APPROVAL` step — a manual step that blocks until a user approves or rejects the proposed `DocumentAction`s via the API/frontend. A rejection routes through `cleanup_after_rejection` (also a `REMOVE_TAGS` step) before reaching `rejected`, for the same reason as `cleanup_after_failure` above: without it, the just-rejected document would still carry its trigger tag and Auto-Queue would recreate the job on its next pass.
 
-Both workflows share `removing_tags` as a step after document update, and both treat `completed`, `failed`, and (for approval) `rejected` as terminal states once reached.
+Both workflows share `REMOVE_TAGS` as the step behind `removing_tags`, `cleanup_after_failure`, and (for approval) `cleanup_after_rejection` — every path off the happy path still ends with the trigger tag removed. `completed`, `failed`, and (for approval) `rejected` are the only true terminal states; the `cleanup_after_*` states are ordinary non-terminal steps that just happen to sit right before one.
 
 ### Progression flow
 

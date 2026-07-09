@@ -214,10 +214,12 @@ describe('WorkflowOrchestratorDomainService', () => {
         auditCollector,
       );
 
-      await service.processStepCancellation(step);
+      const nextStepResult = await service.processStepCancellation(step);
 
       expect(step.getStepStatus()).toBe(StepStatus.FAILED);
       expect(job.state).toBe(JobState.CLEANUP_AFTER_FAILURE);
+      expect(nextStepResult.isTerminalState).toBe(false);
+      expect(nextStepResult.step).not.toBeNull();
       expect(auditCollector.record).toHaveBeenCalledWith(
         expect.objectContaining({ eventType: 'STEP_CANCELLED' }),
       );
