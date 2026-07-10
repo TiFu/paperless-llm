@@ -2152,12 +2152,17 @@ components:
           type: integer
           minimum: 0
           example: 1
+        inFallout:
+          type: integer
+          minimum: 0
+          example: 0
       required:
         - total
         - pending
         - processing
         - completed
         - failed
+        - inFallout
 
     QueueItemsResponse:
       type: object

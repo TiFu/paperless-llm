@@ -28,6 +28,7 @@ export interface StepWithJob {
   stepCreatedAt: Date;
   stepStartedAt: Date | null;
   stepCompletedAt: Date | null;
+  retryCount: number;
   // Job fields
   jobId: string;
   documentId: number;
