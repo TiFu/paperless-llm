@@ -35,6 +35,8 @@ const getStatusColor = (status: JobState): 'default' | 'info' | 'warning' | 'suc
     case JobState.pending:
     case JobState.llm_processing:
     case JobState.updating_document:
+    case JobState.cleanup_after_rejection:
+    case JobState.cleanup_after_failure:
       return 'info';
     case JobState.pending_approval:
       return 'warning';

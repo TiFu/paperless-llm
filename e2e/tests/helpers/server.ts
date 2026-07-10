@@ -12,7 +12,9 @@ export type JobState =
   | 'removing_tags'
   | 'completed'
   | 'failed'
-  | 'rejected';
+  | 'rejected'
+  | 'cleanup_after_rejection'
+  | 'cleanup_after_failure';
 
 export interface JobResponse {
   id: string;

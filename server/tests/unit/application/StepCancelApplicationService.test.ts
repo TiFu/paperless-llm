@@ -12,7 +12,7 @@ function makeJob(state: JobState): Job {
 }
 
 describe('StepCancelApplicationService', () => {
-  it('moves an eligible step to FAILED and fails its job', async () => {
+  it('moves an eligible step to FAILED and routes its job into tag cleanup before failing', async () => {
     const fakeUoW = createFakeUoW();
     const job = makeJob(JobState.LLM_PROCESSING);
     const step = new StepFactory().newUpdateDocumentStep(job.id);
@@ -24,7 +24,14 @@ describe('StepCancelApplicationService', () => {
     await service.cancelStep('step-1');
 
     expect(step.getStepStatus()).toBe(StepStatus.FAILED);
-    expect(job.state).toBe(JobState.FAILED);
+    expect(job.state).toBe(JobState.CLEANUP_AFTER_FAILURE);
+    // The FAILURE transition now lands on a non-terminal cleanup state with its own
+    // RemoveTagsStep — it must be persisted, or the job is stuck forever with no step
+    // left to execute (this regressed once before: processStepCancellation used to
+    // discard the newly created step instead of returning it to the caller).
+    expect(fakeUoW.repos.steps.create).toHaveBeenCalledWith(
+      expect.objectContaining({ jobId: job.id }),
+    );
     expect(fakeUoW.save).toHaveBeenCalled();
     expect(fakeUoW.commit).toHaveBeenCalled();
   });

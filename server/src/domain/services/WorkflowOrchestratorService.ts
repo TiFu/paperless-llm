@@ -93,8 +93,7 @@ export class WorkflowOrchestratorDomainService {
     return this._processJobTransition(job, Transition.SUCCESS)
   }
 
-  // TODO: Technically a cancellation can cause new steps to be created
-  async processStepCancellation(step: ExecutableStep): Promise<void> {
+  async processStepCancellation(step: ExecutableStep): Promise<NextStepResult> {
     this.logger.info("Entered processStepCancellation")
     // Verify step is eligible for cancellation (same as retry eligibility)
     if (!step.isEligibleForRetry()) {
@@ -113,10 +112,11 @@ export class WorkflowOrchestratorDomainService {
     this.logger.error({step}, "Moved step to failed due to cancellation")
     // Record that step is cancelled
     const entry = AuditLogEntry.createStepCancelled(step, {stepType: step.getStepType(), previousStatus: prevStatus}, new Date())
-    this.auditCollector.record(entry) 
+    this.auditCollector.record(entry)
     // Then add the job transition
-    this._processJobTransition(job, Transition.FAILURE)
+    const nextStepResult = this._processJobTransition(job, Transition.FAILURE)
     this.logger.error({job}, "Updated job due to cancellation")
+    return nextStepResult
   }
 
   async processStepExecutionResult(step: ExecutableStep, result: StepResult): Promise<StepExecutionResult> {

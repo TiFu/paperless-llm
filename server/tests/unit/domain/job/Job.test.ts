@@ -32,13 +32,19 @@ describe('Job', () => {
       expect(result.step?.getStepType()).toBe(StepType.LLM_GENERATE_FIELDS);
     });
 
-    it('moves to FAILED on FAILURE from any non-terminal state', () => {
+    it('moves to CLEANUP_AFTER_FAILURE on FAILURE, then to FAILED once tag cleanup succeeds', () => {
       const job = makeJob(JobState.LLM_PROCESSING);
       const result = job.advance(Transition.FAILURE);
 
+      expect(job.state).toBe(JobState.CLEANUP_AFTER_FAILURE);
+      expect(result.isTerminalState).toBe(false);
+      expect(result.step).not.toBeNull();
+
+      const cleanupResult = job.advance(Transition.SUCCESS);
+
       expect(job.state).toBe(JobState.FAILED);
-      expect(result.isTerminalState).toBe(true);
-      expect(result.step).toBeNull();
+      expect(cleanupResult.isTerminalState).toBe(true);
+      expect(cleanupResult.step).toBeNull();
     });
 
     it('reaches COMPLETED as a terminal state with no further step', () => {
@@ -62,12 +68,18 @@ describe('Job', () => {
       expect(result.step?.getStepType()).toBe(StepType.REQUIRE_APPROVAL);
     });
 
-    it('moves PENDING_APPROVAL -> REJECTED on FAILURE (approval rejected)', () => {
+    it('moves PENDING_APPROVAL -> CLEANUP_AFTER_REJECTION on FAILURE (approval rejected), then to REJECTED once tag cleanup succeeds', () => {
       const job = makeJob(JobState.PENDING_APPROVAL, WorkflowType.APPROVAL);
       const result = job.advance(Transition.FAILURE);
 
+      expect(job.state).toBe(JobState.CLEANUP_AFTER_REJECTION);
+      expect(result.isTerminalState).toBe(false);
+      expect(result.step).not.toBeNull();
+
+      const cleanupResult = job.advance(Transition.SUCCESS);
+
       expect(job.state).toBe(JobState.REJECTED);
-      expect(result.isTerminalState).toBe(true);
+      expect(cleanupResult.isTerminalState).toBe(true);
       expect(job.isRejected()).toBe(true);
       expect(job.isTerminal()).toBe(true);
     });

@@ -28,22 +28,30 @@ export class ApprovalWorkflow extends BaseWorkflow {
     return createTransitionMap({
       [JobState.PENDING]: {
         [Transition.SUCCESS]: JobState.LLM_PROCESSING,
-        [Transition.FAILURE]: JobState.FAILED,
+        [Transition.FAILURE]: JobState.CLEANUP_AFTER_FAILURE,
       },
       [JobState.LLM_PROCESSING]: {
         [Transition.SUCCESS]: JobState.PENDING_APPROVAL,
-        [Transition.FAILURE]: JobState.FAILED,
+        [Transition.FAILURE]: JobState.CLEANUP_AFTER_FAILURE,
       },
       [JobState.PENDING_APPROVAL]: {
-        [Transition.SUCCESS]: JobState.UPDATING_DOCUMENT, // Approval granted
-        [Transition.FAILURE]: JobState.REJECTED,          // Approval rejected
+        [Transition.SUCCESS]: JobState.UPDATING_DOCUMENT,       // Approval granted
+        [Transition.FAILURE]: JobState.CLEANUP_AFTER_REJECTION, // Approval rejected
       },
       [JobState.UPDATING_DOCUMENT]: {
         [Transition.SUCCESS]: JobState.REMOVING_TAGS,
-        [Transition.FAILURE]: JobState.FAILED,
+        [Transition.FAILURE]: JobState.CLEANUP_AFTER_FAILURE,
       },
       [JobState.REMOVING_TAGS]: {
         [Transition.SUCCESS]: JobState.COMPLETED,
+        [Transition.FAILURE]: JobState.FAILED,
+      },
+      [JobState.CLEANUP_AFTER_REJECTION]: {
+        [Transition.SUCCESS]: JobState.REJECTED,
+        [Transition.FAILURE]: JobState.FAILED,
+      },
+      [JobState.CLEANUP_AFTER_FAILURE]: {
+        [Transition.SUCCESS]: JobState.FAILED,
         [Transition.FAILURE]: JobState.FAILED,
       },
     });
@@ -70,6 +78,8 @@ export class ApprovalWorkflow extends BaseWorkflow {
         return factory.newUpdateDocumentStep(job.id)
 
       case JobState.REMOVING_TAGS:
+      case JobState.CLEANUP_AFTER_REJECTION:
+      case JobState.CLEANUP_AFTER_FAILURE:
         return factory.newRemoveTagsStep(job.id)
 
       case JobState.COMPLETED:
