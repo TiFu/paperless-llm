@@ -159,7 +159,7 @@ export class QueueApplicationService {
       stepType: step.stepType,
       jobType: step.jobType,
       status: this.mapStepStatusToWorkItemStatus(step.stepStatus),
-      retryCount: 0, // Steps don't have retry mechanism yet
+      retryCount: step.retryCount,
       retryAfter: null,
       claimedBy: null,
       claimedAt: null,

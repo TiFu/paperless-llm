@@ -117,8 +117,8 @@ export const Sidebar: React.FC = () => {
       nested: true,
       badgeColor: 'warning',
       getBadgeCount: () => {
-        // inFallout removed: not present on QueueStats
-        return 0;
+        if (!queueStats) return 0;
+        return queueStats.inFallout;
       },
     },
     // Automated Steps as last sub-item under Jobs
