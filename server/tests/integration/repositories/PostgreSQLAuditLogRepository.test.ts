@@ -57,6 +57,30 @@ describe('PostgreSQLAuditLogRepository (integration)', () => {
     });
   });
 
+  it('getByStepIds returns entries for all requested steps, excluding others', async () => {
+    await withRepositoryTransaction(async (repos) => {
+      const job = await repos.getJobs().create('1', WorkflowType.AUTOMATED, []);
+      const stepAId = crypto.randomUUID();
+      const stepBId = crypto.randomUUID();
+      const stepCId = crypto.randomUUID();
+      const forStepA = AuditLogEntry.createError(job.id, stepAId, { message: 'a' });
+      const forStepB = AuditLogEntry.createError(job.id, stepBId, { message: 'b' });
+      const forStepC = AuditLogEntry.createError(job.id, stepCId, { message: 'c' });
+      await repos.getAuditLog().createAll([forStepA, forStepB, forStepC]);
+
+      const entries = await repos.getAuditLog().getByStepIds([stepAId, stepBId]);
+
+      expect(entries).toHaveLength(2);
+      expect(entries.map(e => e.stepId)).toEqual(expect.arrayContaining([stepAId, stepBId]));
+    });
+  });
+
+  it('getByStepIds returns an empty array for an empty input', async () => {
+    await withRepositoryTransaction(async (repos) => {
+      expect(await repos.getAuditLog().getByStepIds([])).toEqual([]);
+    });
+  });
+
   it('deleteByJobId removes all entries for that job', async () => {
     await withRepositoryTransaction(async (repos) => {
       const job = await repos.getJobs().create('1', WorkflowType.AUTOMATED, []);

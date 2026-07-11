@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { OpenInNew, Refresh, Cancel } from '@mui/icons-material';
 import { QueueItem } from '../services/api/generated/models/QueueItem';
+import { AuditLogTimeline } from './AuditLogTimeline';
 
 interface FalloutCardProps {
   fallout: QueueItem;
@@ -180,6 +181,10 @@ export const FalloutCard: React.FC<FalloutCardProps> = ({
           <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
             Job State: {fallout.jobState}
           </Typography>
+        </Box>
+
+        <Box sx={{ mt: 2 }}>
+          <AuditLogTimeline entries={fallout.auditLog ?? []} />
         </Box>
       </CardContent>
     </Card>

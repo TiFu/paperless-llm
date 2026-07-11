@@ -36,6 +36,13 @@ export interface IAuditLogRepository {
   getByStepId(stepId: string): Promise<AuditLogEntry[]>;
 
   /**
+   * Get all audit log entries for a set of steps in a single query
+   * @param stepIds The step IDs to fetch audit logs for
+   * @returns Array of audit log entries ordered by event_timestamp DESC
+   */
+  getByStepIds(stepIds: string[]): Promise<AuditLogEntry[]>;
+
+  /**
    * Delete all audit log entries for a job
    * Typically called when a job is deleted (though CASCADE should handle this)
    * @param jobId The job ID to delete audit logs for

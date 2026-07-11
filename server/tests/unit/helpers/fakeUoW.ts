@@ -72,7 +72,7 @@ export function makeFakePromptsRepo(): jest.Mocked<IPromptsRepository> {
 }
 
 export function makeFakeAuditLogRepo(): jest.Mocked<IAuditLogRepository> {
-  return fakeOf<IAuditLogRepository>(['create', 'createAll', 'getByJobId', 'getByStepId', 'deleteByJobId']);
+  return fakeOf<IAuditLogRepository>(['create', 'createAll', 'getByJobId', 'getByStepId', 'getByStepIds', 'deleteByJobId']);
 }
 
 export function makeFakePermissionsRepo(): jest.Mocked<IPermissionsRepository> {

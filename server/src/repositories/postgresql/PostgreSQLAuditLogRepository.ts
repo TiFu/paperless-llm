@@ -112,6 +112,19 @@ export class PostgreSQLAuditLogRepository implements IAuditLogRepository {
     return result.rows.map(row => this.mapRowToEntity(row));
   }
 
+  async getByStepIds(stepIds: string[]): Promise<AuditLogEntry[]> {
+    if (stepIds.length === 0) return [];
+
+    const query = `
+      SELECT * FROM audit_log
+      WHERE step_id = ANY($1)
+      ORDER BY event_timestamp DESC
+    `;
+
+    const result = await this.pool.query(query, [stepIds]);
+    return result.rows.map(row => this.mapRowToEntity(row));
+  }
+
   async deleteByJobId(jobId: string): Promise<void> {
     const query = `
       DELETE FROM audit_log
