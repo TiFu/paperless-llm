@@ -5,14 +5,17 @@ import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
 export class StepExecutedEntryDisplay implements AuditLogEntryDisplay {
   private entry: StepExecutedEntry;
   alwaysDisplayFields;
-  popupFields = ['Message', 'Prompt', 'Raw Response'];
+  popupFields;
 
   constructor(entry: StepExecutedEntry) {
     this.entry = entry;
     if (this.entry.success) {
         this.alwaysDisplayFields = [ 'Step ID']
+        this.popupFields = ['Prompt', 'Raw Response'];
     } else {
-        this.alwaysDisplayFields = ['Step ID', 'Next Retry']
+        // Errors must always be visible inline, not hidden behind the "Show Details" popup.
+        this.alwaysDisplayFields = ['Step ID', 'Message', 'Next Retry']
+        this.popupFields = [];
     }
   }
   getLabel() {
