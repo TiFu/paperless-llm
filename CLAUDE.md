@@ -28,6 +28,25 @@ not replace the deeper docs it links to.
   `server/src/web/dtos/` and `frontend/src/services/api/generated/` are generated from it and
   gitignored — never hand-edit files under either directory.
 
+## Workflow
+
+For any non-trivial change, follow this sequence:
+
+1. **Plan first — actually enter plan mode.** Before writing or editing any code, call the
+   `EnterPlanMode` tool (do not just narrate a plan in prose while staying in normal mode).
+   Explore, write the plan to the plan file, then call `ExitPlanMode` and wait for explicit
+   human approval before implementing.
+2. **Persist the approved plan to GitHub.** Once approved, post it as a comment on the
+   relevant GitHub issue. If no issue tracks the work yet, create one first, then comment the
+   plan on it.
+3. **Implement the fix and commit.** Implement per the approved plan, then commit using
+   Conventional Commits format with a scope required from the allowed list in
+   `commitlint.config.cjs` (`server`, `frontend`, `build`, `testing`, `docs`) — commits without
+   an allowed scope are rejected by commitlint.
+4. **Open a PR and request review from TiFu, then stop.** Do not merge. Do not proceed to
+   further changes unless: (a) CI fails on the PR — fix, commit (same Conventional Commits +
+   scope rule), and push, or (b) TiFu gives further instructions.
+
 ## Planning checklist (things that have bitten us before)
 
 - **Tests live under `server/tests/unit/` and `server/tests/integration/`** (Jest
