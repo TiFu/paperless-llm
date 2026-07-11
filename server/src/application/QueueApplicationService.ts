@@ -4,7 +4,6 @@ import { StepWithJob } from '../domain/steps/IStepRepository.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { getLogger } from '../utils/logger.js';
 import { DocumentEnriched, enrichAllWithDocument } from './util/documentEnrichment.js';
-import { AuditLogApplicationService } from './AuditLogApplicationService.js';
 import { UserContext } from '../domain/auth/UserContext.js';
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 
@@ -38,6 +37,8 @@ export interface QueueItem {
   updatedAt: Date | null;
   // Additional context
   jobState: string;
+  // Present only when requested via includeAuditLog
+  auditLog?: AuditLogEntry[];
 }
 
 export type QueueItemWithDocument = DocumentEnriched<QueueItem>;
@@ -51,22 +52,6 @@ export class QueueApplicationService {
   constructor(
     private readonly uowFactory: UoWFactory,
   ) {}
-
-  /**
-   * Get all fallout steps (in_fallout) enriched with audit log
-   * @param auditLogService Instance of AuditLogApplicationService
-   * @returns Array of fallout items with audit log
-   */
-  async getFallouts(user: UserContext, auditLogService: AuditLogApplicationService): Promise<(QueueItemWithDocument & { auditLog: AuditLogEntry[] })[]> {
-    const { items: falloutItems } = await this.getQueueItems(user, 100, undefined, 'in_fallout');
-    const enriched = await Promise.all(
-      falloutItems.map(async (item) => {
-        const auditLog = await auditLogService.getAuditLogForStep(item.id);
-        return { ...item, auditLog };
-      })
-    );
-    return enriched;
-  }
 
   async getQueueStats(user: UserContext): Promise<QueueStats> {
     const logger = getLogger();
@@ -96,13 +81,15 @@ export class QueueApplicationService {
    * @param limit Maximum number of items to return (capped at 100)
    * @param cursor Optional cursor for pagination (step ID)
    * @param status Optional filter by status (WorkItemStatus enum values)
+   * @param includeAuditLog When true, embed each item's audit log entries (opt-in; not needed by most callers)
    * @returns Paginated list of queue items
    */
   async getQueueItems(
     user: UserContext,
     limit: number,
     cursor?: string,
-    status?: string
+    status?: string,
+    includeAuditLog: boolean = false
   ): Promise<{ items: QueueItemWithDocument[]; nextCursor: string | null }> {
     const logger = getLogger();
 
@@ -114,9 +101,28 @@ export class QueueApplicationService {
       logger.info({ limit, cursor, stepStatus }, 'Requesting automated steps for queue');
       const result = await context.getSteps().listAutomatedStepsWithJob(limit, cursor, stepStatus);
       const dms = await context.getDMS()
-      await context.commit();
 
       const items = result.items.map((step) => this.mapStepToQueueItem(step));
+
+      if (includeAuditLog) {
+        const auditLogEntries = await context.getAuditLog().getByStepIds(items.map((item) => item.id));
+        const auditLogByStepId = new Map<string, AuditLogEntry[]>();
+        for (const entry of auditLogEntries) {
+          if (!entry.stepId) continue;
+          const existing = auditLogByStepId.get(entry.stepId);
+          if (existing) {
+            existing.push(entry);
+          } else {
+            auditLogByStepId.set(entry.stepId, [entry]);
+          }
+        }
+        for (const item of items) {
+          item.auditLog = auditLogByStepId.get(item.id) ?? [];
+        }
+      }
+
+      await context.commit();
+
       const enrichedItems = await enrichAllWithDocument(items, dms);
 
       return {

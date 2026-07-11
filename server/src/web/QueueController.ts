@@ -15,8 +15,8 @@ export class QueueController {
     return this.queueAppService.getQueueStats(user);
   }
 
-  async listQueueItems(user: UserContext, limit: number = 50, cursor?: string, status?: string): Promise<QueueItemsResponse> {
-    const { items, nextCursor } = await this.queueAppService.getQueueItems(user, limit, cursor, status);
+  async listQueueItems(user: UserContext, limit: number = 50, cursor?: string, status?: string, includeAuditLog: boolean = false): Promise<QueueItemsResponse> {
+    const { items, nextCursor } = await this.queueAppService.getQueueItems(user, limit, cursor, status, includeAuditLog);
     return {
       items: AppMapper.toQueueItemList(items),
       pagination: { limit, nextCursor },

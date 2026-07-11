@@ -29,6 +29,7 @@ export function createQueueRouter(appFactory: ApplicationServiceFactory): Router
       const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 100);
       const cursor = req.query.cursor as string | undefined;
       const status = req.query.status as string | undefined;
+      const includeAuditLog = req.query.includeAuditLog === 'true';
 
       // Validate status if provided
       const validStatuses = ['pending', 'processing', 'completed', 'failed', 'retrying', 'in_fallout'];
@@ -42,8 +43,8 @@ export function createQueueRouter(appFactory: ApplicationServiceFactory): Router
         return;
       }
 
-      logger.info({ limit, cursor, status }, "Requesting queue items");
-      const result = await controller.listQueueItems(req.user!, limit, cursor, status);
+      logger.info({ limit, cursor, status, includeAuditLog }, "Requesting queue items");
+      const result = await controller.listQueueItems(req.user!, limit, cursor, status, includeAuditLog);
       res.json(result);
     } catch (error) {
       logger.error({ error }, 'Failed to fetch queue items');

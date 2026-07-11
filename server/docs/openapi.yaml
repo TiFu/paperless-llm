@@ -723,6 +723,12 @@ paths:
           description: Filter by work item status
           schema:
             $ref: '#/components/schemas/WorkItemStatus'
+        - name: includeAuditLog
+          in: query
+          description: When true, embed each item's audit log entries in the response
+          schema:
+            type: boolean
+            default: false
       responses:
         '200':
           description: List of queue items
@@ -2247,6 +2253,11 @@ components:
           type: string
           description: Current state of the parent job
           example: llm_processing
+        auditLog:
+          type: array
+          description: Audit log entries for this step, only present when includeAuditLog=true was requested
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
       required:
         - id
         - jobId

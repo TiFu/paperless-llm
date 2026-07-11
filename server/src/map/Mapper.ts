@@ -107,6 +107,7 @@ export class AppMapper {
       createdAt: domain.createdAt,
       updatedAt: domain.updatedAt,
       jobState: domain.jobState,
+      auditLog: domain.auditLog ? AppMapper.toAuditLogEntryList(domain.auditLog) : undefined,
     };
   }
 
