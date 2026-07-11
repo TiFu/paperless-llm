@@ -97,7 +97,7 @@ export const AuditLogEntryDisplayComponent: React.FC<AuditLogEntryDisplayCompone
             onClick={() => setPromptDialogOpen(true)}
             sx={{ mt: 1 }}
           >
-            Show Prompt
+            Show Details
           </Button>
         )}
       </TimelineContent>
