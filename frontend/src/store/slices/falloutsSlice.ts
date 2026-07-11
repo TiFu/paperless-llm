@@ -31,7 +31,7 @@ export const fetchFallouts = createAsyncThunk<
   async (arg = {}, { getState }) => {
     const append = arg.append ?? false;
     const cursor = append ? (getState().fallouts.nextCursor ?? undefined) : undefined;
-    const response = await apiClient.fetchQueueItems(50, cursor, WorkItemStatus.in_fallout);
+    const response = await apiClient.fetchQueueItems(50, cursor, WorkItemStatus.in_fallout, true);
     return { response, append };
   },
 );

@@ -245,9 +245,9 @@ export const apiClient = {
       throw normalizeError(e);
     }
   },
-  async fetchQueueItems(limit: number = 50, cursor?: string, status?: WorkItemStatus) {
+  async fetchQueueItems(limit: number = 50, cursor?: string, status?: WorkItemStatus, includeAuditLog?: boolean) {
     try {
-      return await queueApi.listQueueItems(limit, cursor, status);
+      return await queueApi.listQueueItems(limit, cursor, status, includeAuditLog);
     } catch (e) {
       throw normalizeError(e);
     }
