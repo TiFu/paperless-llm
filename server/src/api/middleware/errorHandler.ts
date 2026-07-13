@@ -21,22 +21,32 @@ export class ApiError extends Error {
   }
 }
 
+// ApiError -> its own status; express-openapi-validator's HttpError
+// instances (BadRequest, Forbidden, etc., from request schema violations
+// against docs/openapi.yaml) -> their numeric status; express-validator's
+// ValidationError -> 400; anything else -> 500.
+function resolveStatus(err: Error): number {
+  if (err instanceof ApiError) return err.status;
+  if (err.name === 'ValidationError') return 400;
+  const status = (err as { status?: unknown }).status;
+  if (typeof status === 'number' && status >= 400 && status < 500) return status;
+  return 500;
+}
+
 /**
  * Global error handler middleware that converts errors to RFC 7807 Problem Details format
  */
 export function errorHandler(logger: pino.Logger) {
   return (err: Error, req: Request, res: Response, _next: NextFunction): void => {
-    // Log the error
-    logger.error(
-      {
-        error: err,
-        path: req.path,
-        method: req.method,
-        body: req.body,
-        response: res.json
-      },
-      'API error occurred',
-    );
+    const status = resolveStatus(err);
+
+    // 4xx: an expected-but-abnormal condition (validation failure, bad
+    // request) — warn. 5xx/unrecognized: a true unexpected exception — error.
+    if (status >= 400 && status < 500) {
+      logger.warn({ error: err, path: req.path, method: req.method, body: req.body, status }, 'API request rejected');
+    } else {
+      logger.error({ error: err, path: req.path, method: req.method, body: req.body, status }, 'API error occurred');
+    }
 
     // Handle known API errors
     if (err instanceof ApiError) {
@@ -72,8 +82,7 @@ export function errorHandler(logger: pino.Logger) {
     // Forbidden, etc.) with a numeric `status` and a descriptive `message`,
     // but aren't ApiError instances, so without this branch they'd fall
     // through to the generic 500 below despite being a client-side 4xx.
-    const status = (err as { status?: unknown }).status;
-    if (typeof status === 'number' && status >= 400 && status < 500) {
+    if (status >= 400 && status < 500) {
       const problem: ProblemDetails = {
         type: 'about:blank',
         title: 'Bad Request',

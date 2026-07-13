@@ -1,5 +1,6 @@
 import pino from 'pino';
 import { createChildLogger } from '../utils/logger.js';
+import { LogArea } from '../utils/LogArea.js';
 import { StepStatus } from '../domain/steps/IStep.js';
 import { IRetryConfig, IWorkersConfig } from '../config/AppConfig.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
@@ -22,7 +23,7 @@ export class StuckStepResetApplicationService {
     private readonly workersConfig: IWorkersConfig,
     private readonly retryConfig: IRetryConfig,
   ) {
-    this.logger = createChildLogger({ service: 'StuckStepResetApplicationService' });
+    this.logger = createChildLogger(LogArea.WORKER, 'StuckStepResetApplicationService');
   }
 
   /**

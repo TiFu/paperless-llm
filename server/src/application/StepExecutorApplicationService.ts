@@ -1,8 +1,11 @@
 import pino from 'pino';
+import { randomUUID } from 'node:crypto';
 import { StepExecutionContext } from '../domain/steps/IStep.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
 import { IRetryConfig } from '../config/AppConfig.js';
 import { createChildLogger } from '../utils/logger.js';
+import { LogArea } from '../utils/LogArea.js';
+import { runWithLogContext } from '../utils/LogContext.js';
 import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
 import { AuditCollector, UoWFactory } from '../infrastructure/UoW.js';
 import { StepExecutorDomainService } from '../domain/services/StepExecutorDomainService.js';
@@ -34,10 +37,24 @@ export class StepExecutorApplicationService {
     private readonly llmService: ILLMService,
     private readonly retryConfig: IRetryConfig,
   ) {
-    this.logger = createChildLogger({ service: 'StepExecutorApplicationService' });
+    this.logger = createChildLogger(LogArea.WORKFLOW, 'StepExecutorApplicationService');
   }
 
+  // Stamps a fresh correlation id plus jobId/stepId on an AsyncLocalStorage
+  // context for the duration of this step's execution attempt, so every log
+  // line made anywhere downstream — inside doExecute, PaperlessService,
+  // OllamaService, repository writes — carries them automatically via
+  // logger.ts's pino mixin(), without those call sites needing to know about
+  // it. A fresh id per attempt (not reused across retries) keeps this simple;
+  // jobId/stepId already give cross-attempt correlation.
   private async executeStep(step: ExecutableStep, user: UserContext): Promise<void> {
+    return runWithLogContext(
+      { correlationId: randomUUID(), jobId: step.getJobId(), stepId: step.getStepId() },
+      () => this._executeStep(step, user),
+    );
+  }
+
+  private async _executeStep(step: ExecutableStep, user: UserContext): Promise<void> {
     const stepLogger = this.logger.child({ name: 'Step ' + step.getStepId() });
 
     if (step.isCompleted()) { stepLogger.info('Step already completed, skipping'); return; }

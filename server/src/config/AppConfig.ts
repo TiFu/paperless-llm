@@ -2,7 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import pino from 'pino';
-import { createChildLogger } from '../utils/logger.js';
+import { createChildLogger, applyLogLevels } from '../utils/logger.js';
+import { LogArea } from '../utils/LogArea.js';
 import type { UoWFactory } from '../infrastructure/UoW.js';
 import { RetryConfig } from '../domain/steps/IStep.js';
 import {
@@ -12,6 +13,7 @@ import {
   StuckStepResetSettings,
   EntitySyncSettings,
   AutoQueueSettings,
+  LoggingSettings,
 } from '../domain/settings/AppSettingsTypes.js';
 import { validateAppSettings } from '../domain/settings/SettingsDomainService.js';
 import { WorkflowType } from '../domain/workflows/WorkflowType.js';
@@ -22,6 +24,7 @@ export {
   StuckStepResetSettings,
   EntitySyncSettings,
   AutoQueueSettings,
+  LoggingSettings,
 } from '../domain/settings/AppSettingsTypes.js';
 
 /**
@@ -132,6 +135,10 @@ export interface IRetryConfig {
   getRetry(): RetryConfig;
 }
 
+export interface ILoggingConfig {
+  getLogging(): LoggingSettings;
+}
+
 /**
  * Raw config structure from YAML file — technical settings only. Everything
  * non-technical lives in Postgres (see AppSettingsData) and is loaded/kept
@@ -174,6 +181,7 @@ const DEFAULT_LIVE_SETTINGS: AppSettingsData = {
   llmModel: 'qwen3:4b',
   llmTemperature: 0.7,
   llmTimeoutMs: 30000,
+  logging: { default: 'info', levels: {} },
 };
 
 const LIVE_SETTINGS_POLL_INTERVAL_MS = 5000;
@@ -186,7 +194,7 @@ const LIVE_SETTINGS_POLL_INTERVAL_MS = 5000;
  * it also loads non-technical settings from Postgres and keeps them fresh via
  * a periodic poll, exposed through the narrow I*Config interfaces above.
  */
-export class AppConfig implements ILLMConfig, IWorkersConfig, IPaperlessConfig, IRetryConfig {
+export class AppConfig implements ILLMConfig, IWorkersConfig, IPaperlessConfig, IRetryConfig, ILoggingConfig {
   public readonly redis: RedisConfig;
   public readonly database: DatabaseConfig;
   public readonly workers: WorkersConfig;
@@ -299,7 +307,7 @@ export class AppConfig implements ILLMConfig, IWorkersConfig, IPaperlessConfig, 
    */
   public async start(uowFactory: UoWFactory): Promise<void> {
     // Deferred from the constructor — see the `logger` field comment.
-    this.logger ??= createChildLogger({ name: 'AppConfig' });
+    this.logger ??= createChildLogger(LogArea.SETTINGS, 'AppConfig');
 
     if (this.running) {
       this.logger.warn('AppConfig live-settings loop already running');
@@ -349,6 +357,7 @@ export class AppConfig implements ILLMConfig, IWorkersConfig, IPaperlessConfig, 
         return;
       }
       this.live = row;
+      applyLogLevels(row.logging.levels, row.logging.default);
     } catch (error) {
       this.logger.error({ error }, 'Failed to refresh live settings, keeping last-known-good');
     }
@@ -390,6 +399,11 @@ export class AppConfig implements ILLMConfig, IWorkersConfig, IPaperlessConfig, 
   // ---- IRetryConfig ----
   getRetry(): RetryConfig {
     return this.live.retry;
+  }
+
+  // ---- ILoggingConfig ----
+  getLogging(): LoggingSettings {
+    return this.live.logging;
   }
 }
 

@@ -1,6 +1,9 @@
 import { IStep, StepResult, StepStatus, StepType } from "../IStep.js";
 import { Transition } from "../../workflows/Transition.js";
 import { createChildLogger } from "../../../utils/logger.js";
+import { LogArea } from "../../../utils/LogArea.js";
+
+const logger = createChildLogger(LogArea.WORKFLOW, 'ManualStep');
 
 /**
  * Abstract base class for steps that require user interaction
@@ -53,7 +56,6 @@ export class ManualStep extends IStep  {
     decision: string,
   ): Promise<StepResult> {
       if (this.possibleDecisions.indexOf(decision) == -1) {
-        const logger = createChildLogger({ name: 'ManualStep' });
         logger.warn(`Invalid decision ${decision} for ApprovalInteractionStep`);
         this.moveToFailed();
         return Promise.resolve({

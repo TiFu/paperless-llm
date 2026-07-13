@@ -6,6 +6,9 @@ import { JobState } from '../job/JobState.js';
 import { IStep } from '../steps/IStep.js';
 import { Job } from '../job/Job.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
+
+const logger = createChildLogger(LogArea.WORKFLOW, 'ApprovalWorkflow');
 
 /**
  * ApprovalWorkflow - workflow with approval step
@@ -89,7 +92,7 @@ export class ApprovalWorkflow extends BaseWorkflow {
         return null;
 
       default:
-        createChildLogger({ name: 'ApprovalWorkflow' }).warn(`Unknown job state: ${state}`);
+        logger.warn(`Unknown job state: ${state}`);
         return null;
     }
   }

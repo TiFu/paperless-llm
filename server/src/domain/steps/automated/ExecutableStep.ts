@@ -2,6 +2,9 @@ import { IStep, RetryConfig, StepExecutionContext, StepResult, StepStatus, StepT
 import { Transition } from '../../workflows/Transition.js';
 import { AuditLogEntry } from '../../audit/AuditLogEntry.js';
 import { createChildLogger } from '../../../utils/logger.js';
+import { LogArea } from '../../../utils/LogArea.js';
+
+const logger = createChildLogger(LogArea.WORKFLOW, 'ExecutableStep');
 
 export interface StepResultWithAuditEntries {
   audit: AuditLogEntry[],
@@ -67,7 +70,6 @@ export abstract class ExecutableStep extends IStep {
     } catch (error) {
       this.markExecutionFailed(retryConfig)
       // On error, return failure transition with no actions
-      const logger = createChildLogger({ name: 'ExecutableStep' });
       logger.error({ error, stepId: this.getStepId() }, 'Automated step execution failed');
       return {
           actions: [],

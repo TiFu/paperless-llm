@@ -5,6 +5,7 @@ import { Prompt } from './Prompt.js';
 import { ExecutableStep } from '../steps/automated/ExecutableStep.js';
 import pino from 'pino';
 import { createChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
 import { IPromptsRepository } from './IPromptsRepository.js';
 import { DescribedAvailableFieldsObtainer } from '../entityDescriptions/IDescribedEntities.js';
 
@@ -30,7 +31,7 @@ const PROMPT_VARIABLES: readonly PromptVariableDescriptor[] = [
 export class PromptService implements IPromptDomainService {
   private readonly logger: pino.Logger
   public constructor(private readonly repo: IPromptsRepository, private readonly fieldsObtainer: DescribedAvailableFieldsObtainer) {
-    this.logger = createChildLogger({ name: "PromptService"})
+    this.logger = createChildLogger(LogArea.WORKFLOW, "PromptService");
   }
 
   getAvailableVariables(): readonly PromptVariableDescriptor[] {

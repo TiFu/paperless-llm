@@ -5,6 +5,7 @@ import { PaperlessService } from './PaperlessService.js';
 import { DMSCacheService } from './CacheService.js';
 import pino from 'pino';
 import { createChildLogger } from '../utils/logger.js';
+import { LogArea } from '../utils/LogArea.js';
 
 interface IDable {
   id: string | number
@@ -21,7 +22,7 @@ export class CachedPaperlessServiceAdapter implements IDocumentManagementSystem 
   constructor(service: PaperlessService, cacheService: DMSCacheService) {
     this.service = service;
     this.cache = cacheService;
-    this.logger = createChildLogger({name: "CachedPaperlessServiceAdapter"})
+    this.logger = createChildLogger(LogArea.PAPERLESS, "CachedPaperlessServiceAdapter");
   }
 
   async getDocument(documentId: number): Promise<IDocument> {
