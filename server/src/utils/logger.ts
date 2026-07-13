@@ -154,6 +154,20 @@ export function createChildLogger(area: LogArea, name: string, extra?: Record<st
 }
 
 /**
+ * Like createChildLogger, but returns a memoized accessor instead of the
+ * logger itself, so the actual createChildLogger()/getLogger() call (which
+ * throws before initializeLogger() has run) is deferred to first real use.
+ * Needed for module-scope loggers in files that may be statically imported
+ * — directly or transitively — before bootstrap.ts calls initializeLogger();
+ * a bare `createChildLogger(...)` at module scope would run during that
+ * import, not at first actual log call.
+ */
+export function createLazyChildLogger(area: LogArea, name: string, extra?: Record<string, unknown>): () => pino.Logger {
+  let cached: pino.Logger | undefined;
+  return () => (cached ??= createChildLogger(area, name, extra));
+}
+
+/**
  * Applies a runtime level change to every logger created via
  * createChildLogger so far, per area, falling back to `fallback` for any
  * area not present in `levels` (e.g. one added after this settings row was

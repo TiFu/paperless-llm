@@ -1,4 +1,4 @@
-import { createChildLogger, applyLogLevels } from '../../../src/utils/logger.js';
+import { createChildLogger, createLazyChildLogger, applyLogLevels } from '../../../src/utils/logger.js';
 import { LogArea } from '../../../src/utils/LogArea.js';
 
 describe('logger area-level registry', () => {
@@ -38,5 +38,35 @@ describe('logger area-level registry', () => {
 
     expect(settingsChild.level).toBe('warn');
     expect(dbChild.level).toBe('debug');
+  });
+});
+
+describe('createLazyChildLogger', () => {
+  // Regression guard: several module-scope loggers (e.g. AutomatedWorkflow,
+  // ExecutableStep) are statically imported — directly or transitively — by
+  // bootstrap.ts before it calls initializeLogger(). A bare
+  // `createChildLogger(...)` at module scope would call getLogger()
+  // (which throws "Logger not initialized") during that import, before
+  // initializeLogger() ever runs. createLazyChildLogger must defer the real
+  // createChildLogger() call to first actual use.
+  it('does not register (or otherwise touch the logger) until the returned accessor is first called', () => {
+    const getLazy = createLazyChildLogger(LogArea.GENERAL, 'lazy-registry-test');
+
+    // Not yet invoked — applyLogLevels has nothing to update for it yet, and
+    // critically, merely constructing the accessor must not have thrown.
+    expect(() => applyLogLevels({ [LogArea.GENERAL]: 'debug' }, 'info')).not.toThrow();
+
+    const first = getLazy();
+    applyLogLevels({ [LogArea.GENERAL]: 'warn' }, 'info');
+    expect(first.level).toBe('warn');
+  });
+
+  it('memoizes: repeated calls return the same instance rather than creating a new registry entry each time', () => {
+    const getLazy = createLazyChildLogger(LogArea.GENERAL, 'lazy-memoize-test');
+
+    const first = getLazy();
+    const second = getLazy();
+
+    expect(second).toBe(first);
   });
 });

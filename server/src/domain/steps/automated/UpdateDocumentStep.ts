@@ -2,10 +2,10 @@ import { ExecutableStep } from './ExecutableStep.js';
 import { StepExecutionContext, StepResult, StepStatus } from '../IStep.js';
 import { Transition } from '../../workflows/Transition.js';
 import { StepType } from '../IStep.js';
-import { createChildLogger } from '../../../utils/logger.js';
+import { createLazyChildLogger } from '../../../utils/logger.js';
 import { LogArea } from '../../../utils/LogArea.js';
 
-const logger = createChildLogger(LogArea.WORKFLOW, 'UpdateDocumentStep');
+const getLogger = createLazyChildLogger(LogArea.WORKFLOW, 'UpdateDocumentStep');
 
 /**
  * Step: Update document in DMS
@@ -30,7 +30,7 @@ export class UpdateDocumentStep extends ExecutableStep {
 
     const documentId = context.job.documentId
 
-    logger.debug({ documentId }, 'Starting document update');
+    getLogger().debug({ documentId }, 'Starting document update');
 
     const document = await context.services.dms.getDocument(documentId);
 
@@ -40,12 +40,12 @@ export class UpdateDocumentStep extends ExecutableStep {
 
     const updates = Object.assign({}, ...partials)
 
-    logger.debug({ documentId, updates }, 'Applying document updates');
+    getLogger().debug({ documentId, updates }, 'Applying document updates');
 
     // Execute the document update
     await context.services.dms.updateDocument(document.id, updates)
 
-    logger.debug({ documentId }, 'Document update complete');
+    getLogger().debug({ documentId }, 'Document update complete');
 
     // Return the action and SUCCESS transition
     return {

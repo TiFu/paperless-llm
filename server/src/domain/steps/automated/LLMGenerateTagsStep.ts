@@ -2,10 +2,10 @@ import { ExecutableStep } from './ExecutableStep.js';
 import { StepExecutionContext, StepResult, StepStatus, StepType } from '../IStep.js';
 import { TagUpdateAction } from '../../actions/TagUpdateAction.js';
 import { Transition } from '../../workflows/Transition.js';
-import { createChildLogger } from '../../../utils/logger.js';
+import { createLazyChildLogger } from '../../../utils/logger.js';
 import { LogArea } from '../../../utils/LogArea.js';
 
-const logger = createChildLogger(LogArea.WORKFLOW, 'LLMGenerateTagsStep');
+const getLogger = createLazyChildLogger(LogArea.WORKFLOW, 'LLMGenerateTagsStep');
 
 /**
  * Step: Generate tags using LLM
@@ -44,7 +44,7 @@ export class LLMGenerateTagsStep extends ExecutableStep {
       throw new Error('LLMGenerateTagsStep requires a prompt');
     }
 
-    logger.debug({ jobId: context.job.id, documentId: context.job.documentId }, 'Starting LLM tag generation');
+    getLogger().debug({ jobId: context.job.id, documentId: context.job.documentId }, 'Starting LLM tag generation');
 
     // Fetch document from DMS
     const document = await context.services.dms.getDocument(context.job.documentId);
@@ -61,7 +61,7 @@ export class LLMGenerateTagsStep extends ExecutableStep {
 
     // Parse the tags from the LLM response
     const proposedTagNames = this.parseTags(generatedResponse);
-    logger.debug({ proposedTagNames }, 'Parsed tags from LLM response');
+    getLogger().debug({ proposedTagNames }, 'Parsed tags from LLM response');
 
     // Get current tag IDs from document metadata (metadata contains the original Paperless document)
     const currentTagIds: string[] = Array.isArray(document.tags)
@@ -77,7 +77,7 @@ export class LLMGenerateTagsStep extends ExecutableStep {
       currentTagIds
     );
 
-    logger.debug({ jobId: context.job.id, newTags: proposedTagNames }, 'LLM tag generation step complete');
+    getLogger().debug({ jobId: context.job.id, newTags: proposedTagNames }, 'LLM tag generation step complete');
 
     return {
       actions: [action],
