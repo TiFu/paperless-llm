@@ -108,6 +108,12 @@ export function createApiServer(
       // structurally incompatible with our top-level pino's — cast through
       // unknown rather than depending on pino-http's nested pino types.
       logger: logger as unknown as PinoHttpOptions['logger'],
+      // pino-http's default (wrapSerializers: true) composes any custom
+      // serializer on top of its own default one, so a custom fn receives the
+      // already-serialized plain object instead of the live req/res — our
+      // serializers below call stdSerializers.req/res themselves and need
+      // the raw Express objects (e.g. req.query, res.locals), not that.
+      wrapSerializers: false,
       genReqId: () => getLogContext()?.correlationId ?? randomUUID(),
       autoLogging: {
         ignore: (req) => req.url === '/health' || req.url === '/api/health',
@@ -127,10 +133,17 @@ export function createApiServer(
           query: (req as unknown as Request).query,
           body: summarizeBody((req as unknown as Request).body, req.headers['content-type']),
         }),
+        // Deliberately not `customProps`: pino-http's customProps merge path
+        // (logger.js's onResFinished) calls an internal symbol private to its
+        // own bundled pino copy, which is a different module instance than
+        // our top-level `pino` — it crashed the whole process on every
+        // request once customProps started returning a truthy value. A `res`
+        // serializer goes through plain pino serialization instead.
+        res: (res) => ({
+          ...stdSerializers.res(res),
+          body: (res as unknown as Response).locals.loggedResponseBody,
+        }),
       },
-      customProps: (_req, res) => ({
-        responseBody: (res as unknown as Response).locals.loggedResponseBody,
-      }),
     }),
   );
 
