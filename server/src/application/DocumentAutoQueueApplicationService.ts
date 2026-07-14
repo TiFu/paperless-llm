@@ -2,6 +2,7 @@ import { IDocument } from '../domain/document/IDocument.js';
 import { JobApplicationService } from './JobApplicationService.js';
 import { IPaperlessConfig } from '../config/AppConfig.js';
 import { createChildLogger } from '../utils/logger.js';
+import { LogArea } from '../utils/LogArea.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { UserContext } from '../domain/auth/UserContext.js';
 import { IUsersRepository } from '../domain/auth/IUsersRepository.js';
@@ -34,6 +35,8 @@ interface MergedDocument {
 }
 
 export class DocumentAutoQueueApplicationService {
+  private readonly logger = createChildLogger(LogArea.WORKER, 'DocumentAutoQueueApplicationService');
+
   constructor(
     private readonly uowFactory: UoWFactory,
     private readonly usersRepo: IUsersRepository,
@@ -42,7 +45,7 @@ export class DocumentAutoQueueApplicationService {
   ) {}
 
   async processNewDocuments(): Promise<AutoQueueProcessResult> {
-    const logger = createChildLogger({ service: "DocumentAutoQueueApplicationService"});
+    const logger = this.logger;
     const autoProcessTags = this.paperlessConfig.getAutoProcessTags();
 
     if (autoProcessTags.length === 0) {

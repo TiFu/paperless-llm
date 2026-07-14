@@ -1,10 +1,11 @@
 import { Pool, PoolConfig } from 'pg';
 import { DatabaseConfig } from '../config/AppConfig.js';
 import { createChildLogger } from '../utils/logger.js';
+import { LogArea } from '../utils/LogArea.js';
 
 export class Database {
   private pool: Pool;
-  private readonly logger = createChildLogger({ name: 'Database' });
+  private readonly logger = createChildLogger(LogArea.DATABASE, 'Database');
 
   constructor(config: DatabaseConfig) {
     const poolConfig: PoolConfig = {

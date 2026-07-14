@@ -4,6 +4,7 @@ import { EntitySyncApplicationService } from '../../application/EntitySyncApplic
 import { ENTITY_TYPES, EntityType } from '../../domain/entityDescriptions/EntityType.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
 
 const VALID_ENTITY_TYPES = ENTITY_TYPES.map(t => t.type) as EntityType[];
 
@@ -11,7 +12,7 @@ export function createEntityDescriptionsRouter(
   repo: IEntityDescriptionsRepository,
   syncService: EntitySyncApplicationService,
 ): Router {
-  const logger = createChildLogger({ name: 'entity-descriptions-router' });
+  const logger = createChildLogger(LogArea.HTTP, 'entity-descriptions-router');
   const router = Router();
 
   /**

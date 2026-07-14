@@ -1,5 +1,6 @@
 import pino from 'pino';
 import { createChildLogger } from '../utils/logger.js';
+import { LogArea } from '../utils/LogArea.js';
 import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
@@ -14,7 +15,7 @@ export class StepCancelApplicationService {
   constructor(
     private readonly uowFactory: UoWFactory
   ) {
-    this.logger = createChildLogger({ service: 'StepCancelApplicationService' });
+    this.logger = createChildLogger(LogArea.WORKFLOW, 'StepCancelApplicationService');
   }
 
   /**

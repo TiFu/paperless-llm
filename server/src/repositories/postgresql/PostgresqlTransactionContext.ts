@@ -1,6 +1,7 @@
 import { Pool, PoolClient } from "pg";
 import { UoW } from "../../infrastructure/UoW.js";
 import { createChildLogger } from "../../utils/logger.js";
+import { LogArea } from "../../utils/LogArea.js";
 import { DatabaseTransactionContext, DatabaseTransactionContextFactory, RepositoryRegistryFactory as RepositoryRegistryFactory, RepositoryRegistry, DBContextWithRepositoryFactory } from "../../infrastructure/TransactionManager.js";
 import { IPromptsRepository } from "../../domain/prompt/IPromptsRepository.js";
 import { IJobRepository } from "../../domain/job/IJobRepository.js";
@@ -33,7 +34,7 @@ export class PostgresqlDatabaseTransactionContext implements DatabaseTransaction
     this.client = client;
     PostgresqlDatabaseTransactionContext.contextNo++;
     this.name = "TransactionContext " + PostgresqlDatabaseTransactionContext.contextNo;
-    this.logger = createChildLogger({ name: this.name });
+    this.logger = createChildLogger(LogArea.DATABASE, this.name);
   }
   
   getClient(): PoolClient {

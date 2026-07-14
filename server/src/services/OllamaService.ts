@@ -3,6 +3,7 @@ import { ILLMService } from '../domain/llm/ILLMService.js';
 import { ILLMConfig } from '../config/AppConfig.js';
 import pino from 'pino';
 import { createChildLogger } from '../utils/logger.js';
+import { LogArea } from '../utils/LogArea.js';
 
 export interface OllamaChatRequest {
   model: string;
@@ -26,7 +27,7 @@ export class OllamaService implements ILLMService {
   private readonly client: AxiosInstance;
 
   constructor(private readonly config: ILLMConfig) {
-    this.logger = createChildLogger({ name: "OllamaService"})
+    this.logger = createChildLogger(LogArea.LLM, "OllamaService");
 
     this.client = axios.create({
       baseURL: config.llm.url,
@@ -62,12 +63,15 @@ export class OllamaService implements ILLMService {
       },
     };
 
-    this.logger.info({ request: request, client: this.client}, "Request")
+    this.logger.debug(
+      { model: request.model, promptLength: prompt.length, prompt, temperature: request.options?.temperature },
+      'Sending LLM request',
+    );
     try {
       const response = await this.client.post<OllamaChatResponse>('/api/generate', request, {
         timeout: this.config.getTimeoutMs(),
       });
-      this.logger.info({ response: response}, "Ollama response")
+      this.logger.debug({ responseText: response.data.response, done: response.data.done }, 'Received LLM response');
 
       if (!response.data.response) {
         throw new Error('Empty response from Ollama');
@@ -75,7 +79,7 @@ export class OllamaService implements ILLMService {
 
       return response.data.response.trim();
     } catch (error) {
-      this.logger.info({ error: error}, "Ollama request failed")
+      this.logger.warn({ error }, 'Ollama request failed');
       if (axios.isAxiosError(error)) {
         throw new Error(`Ollama API error: ${error.message}: ${error.response?.data}`, { cause: error });
       }

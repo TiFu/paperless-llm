@@ -2,6 +2,8 @@ import pino from 'pino';
 import { LoggingConfig, WorkersConfig } from '../config/AppConfig.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { LogArea, LOG_AREAS, LogLevel } from './LogArea.js';
+import { getLogContext } from './LogContext.js';
 
 // Only the two config sections initializeLogger actually reads — kept
 // narrower than the full AppConfig so callers (e.g. tests) don't need to
@@ -12,6 +14,13 @@ export interface LoggerConfig {
 }
 
 let logger: pino.Logger;
+
+// Every child logger ever created, grouped by area, so a runtime level
+// change (applyLogLevels) can reach instances that were cached in a
+// constructor long before the change happened — pino children hold their
+// own independently-mutable `.level` once set, they don't stay live-linked
+// to the parent's level automatically.
+const registry = new Map<LogArea, pino.Logger[]>();
 
 /**
  * Custom error serializer that extracts useful information from PostgreSQL errors
@@ -106,9 +115,18 @@ export function initializeLogger(config: LoggerConfig, processName: string = 'se
         error: errorSerializer,
         err: errorSerializer, // pino uses 'err' as the default error key
       },
+      // Merges the current request/step correlation context (if any) into
+      // every log line, including ones made through child loggers that were
+      // cached long before that context existed — see utils/LogContext.ts.
+      mixin() {
+        const ctx = getLogContext();
+        return ctx ? { ...ctx } : {};
+      },
     },
     pino.multistream(streams)
   );
+
+  registry.clear();
 
   return logger;
 }
@@ -121,8 +139,48 @@ export function getLogger(): pino.Logger {
 }
 
 /**
- * Create a child logger with additional context
+ * Create a child logger scoped to a logging area, registered so its level
+ * can be updated at runtime by applyLogLevels(). `name` identifies the
+ * specific class/module within that area (kept separate from `area` itself
+ * so log lines remain individually attributable even though the level is
+ * controlled per-area, not per-name).
  */
-export function createChildLogger(context: Record<string, unknown>): pino.Logger {
-  return getLogger().child(context);
+export function createChildLogger(area: LogArea, name: string, extra?: Record<string, unknown>): pino.Logger {
+  const child = getLogger().child({ area, name, ...extra });
+  const list = registry.get(area) ?? [];
+  list.push(child);
+  registry.set(area, list);
+  return child;
+}
+
+/**
+ * Like createChildLogger, but returns a memoized accessor instead of the
+ * logger itself, so the actual createChildLogger()/getLogger() call (which
+ * throws before initializeLogger() has run) is deferred to first real use.
+ * Needed for module-scope loggers in files that may be statically imported
+ * — directly or transitively — before bootstrap.ts calls initializeLogger();
+ * a bare `createChildLogger(...)` at module scope would run during that
+ * import, not at first actual log call.
+ */
+export function createLazyChildLogger(area: LogArea, name: string, extra?: Record<string, unknown>): () => pino.Logger {
+  let cached: pino.Logger | undefined;
+  return () => (cached ??= createChildLogger(area, name, extra));
+}
+
+/**
+ * Applies a runtime level change to every logger created via
+ * createChildLogger so far, per area, falling back to `fallback` for any
+ * area not present in `levels` (e.g. one added after this settings row was
+ * last saved). Also updates the root logger's own level so anything logged
+ * directly via getLogger() (rather than through a child) respects the
+ * fallback too. Called by AppConfig after each successful settings refresh.
+ */
+export function applyLogLevels(levels: Partial<Record<LogArea, LogLevel>>, fallback: LogLevel): void {
+  for (const area of LOG_AREAS) {
+    const level = levels[area] ?? fallback;
+    for (const child of registry.get(area) ?? []) {
+      child.level = level;
+    }
+  }
+  getLogger().level = fallback;
 }

@@ -1,7 +1,9 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express, NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import pino from 'pino';
-import {pinoHttp, Options as PinoHttpOptions} from 'pino-http';
+import { randomUUID } from 'node:crypto';
+import {pinoHttp, Options as PinoHttpOptions, stdSerializers} from 'pino-http';
+import { getLogContext, runWithLogContext } from '../utils/LogContext.js';
 import { ApplicationServiceFactory } from '../application/ApplicationServiceFactory.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
 import { ILLMService } from '../domain/llm/ILLMService.js';
@@ -33,6 +35,18 @@ export interface ApiServerConfig {
   corsOrigins: string[];
   apiSpec: string
 }
+
+const MAX_LOGGED_BODY_LENGTH = 10_000;
+
+// Only JSON bodies are logged (multipart/binary uploads are skipped
+// entirely), and an oversized JSON body degrades to a length marker instead
+// of the full payload.
+function summarizeBody(body: unknown, contentType: string | undefined): unknown {
+  if (body === undefined || body === null) return undefined;
+  if (!contentType?.includes('application/json')) return undefined;
+  const json = JSON.stringify(body);
+  return json.length > MAX_LOGGED_BODY_LENGTH ? { truncated: true, length: json.length } : body;
+}
 export function createApiServer(
   config: ApiServerConfig,
   appFactory: ApplicationServiceFactory,
@@ -60,13 +74,47 @@ export function createApiServer(
   }
   app.use(cors({ origin: corsOrigin }));
 
-  // HTTP request logging with pino-http
+  // Stamps a correlation id (reusing an incoming x-request-id if present) on
+  // an AsyncLocalStorage context for the lifetime of this request. logger.ts's
+  // pino mixin() merges it into every log line made anywhere downstream
+  // during this request — including through child loggers that were cached
+  // long before this request existed — without those call sites needing to
+  // know about it. Placed before pino-http so its own access-log line (and
+  // req.id, via genReqId below) uses the same id.
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    const correlationId = (req.headers['x-request-id'] as string) || randomUUID();
+    runWithLogContext({ correlationId }, next);
+  });
+
+  // Stashes the JSON response body into res.locals so pino-http's customProps
+  // (below) can include it in the access log — pino-http itself only sees
+  // status/headers by the time it logs on 'finish', never the body.
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    const originalJson = res.json.bind(res);
+    res.json = (body: unknown): Response => {
+      res.locals.loggedResponseBody = body;
+      return originalJson(body);
+    };
+    next();
+  });
+
+  // HTTP request logging with pino-http. Per the info/warn/debug convention,
+  // every request/response is logged at info (or warn/error per status,
+  // customLogLevel below) including query params and body — see
+  // summarizeBody() above for the JSON-only, size-capped extraction.
   app.use(
     pinoHttp({
       // pino-http bundles its own (newer) copy of pino, whose Logger type is
       // structurally incompatible with our top-level pino's — cast through
       // unknown rather than depending on pino-http's nested pino types.
       logger: logger as unknown as PinoHttpOptions['logger'],
+      // pino-http's default (wrapSerializers: true) composes any custom
+      // serializer on top of its own default one, so a custom fn receives the
+      // already-serialized plain object instead of the live req/res — our
+      // serializers below call stdSerializers.req/res themselves and need
+      // the raw Express objects (e.g. req.query, res.locals), not that.
+      wrapSerializers: false,
+      genReqId: () => getLogContext()?.correlationId ?? randomUUID(),
       autoLogging: {
         ignore: (req) => req.url === '/health' || req.url === '/api/health',
       },
@@ -78,6 +126,23 @@ export function createApiServer(
           return 'warn';
         }
         return 'info';
+      },
+      serializers: {
+        req: (req) => ({
+          ...stdSerializers.req(req),
+          query: (req as unknown as Request).query,
+          body: summarizeBody((req as unknown as Request).body, req.headers['content-type']),
+        }),
+        // Deliberately not `customProps`: pino-http's customProps merge path
+        // (logger.js's onResFinished) calls an internal symbol private to its
+        // own bundled pino copy, which is a different module instance than
+        // our top-level `pino` — it crashed the whole process on every
+        // request once customProps started returning a truthy value. A `res`
+        // serializer goes through plain pino serialization instead.
+        res: (res) => ({
+          ...stdSerializers.res(res),
+          body: (res as unknown as Response).locals.loggedResponseBody,
+        }),
       },
     }),
   );

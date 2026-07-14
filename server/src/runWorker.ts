@@ -1,6 +1,8 @@
 import { AppContext } from './bootstrap.js';
 import { WorkerExecutor, WorkerRunResult } from './infrastructure/WorkerExecutor.js';
 import { WorkerExecutionItem } from './domain/workerExecution/WorkerExecutionItem.js';
+import { createChildLogger } from './utils/logger.js';
+import { LogArea } from './utils/LogArea.js';
 
 export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
   const { config, logger, applicationServiceFactory, uowFactory } = ctx;
@@ -48,7 +50,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
     },
     () => config.getStepExecution().pollIntervalMs,
     uowFactory,
-    logger.child({ component: 'StepProcessorWorker' }),
+    createChildLogger(LogArea.WORKER, 'StepProcessorWorker'),
   );
 
   const stuckStepResetWorker = new WorkerExecutor(
@@ -76,7 +78,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
     },
     () => config.getStuckStepReset().checkIntervalMs,
     uowFactory,
-    logger.child({ component: 'StuckStepResetWorker' }),
+    createChildLogger(LogArea.WORKER, 'StuckStepResetWorker'),
   );
 
   const entitySyncWorker = new WorkerExecutor(
@@ -99,7 +101,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
     },
     () => config.getEntitySync().pollIntervalMs,
     uowFactory,
-    logger.child({ component: 'EntitySyncWorker' }),
+    createChildLogger(LogArea.WORKER, 'EntitySyncWorker'),
   );
 
   // Always constructed and started, regardless of whether auto-queue is
@@ -136,7 +138,7 @@ export async function runWorker(ctx: AppContext): Promise<() => Promise<void>> {
     },
     () => config.getAutoQueue().pollIntervalMs,
     uowFactory,
-    logger.child({ component: 'DocumentAutoQueueWorker' }),
+    createChildLogger(LogArea.WORKER, 'DocumentAutoQueueWorker'),
   );
 
   logger.info(

@@ -5,8 +5,6 @@ import { DOCUMENT_FIELDS, DocumentField } from '../domain/steps/StepFactory.js';
 import { WorkflowType } from '../domain/workflows/WorkflowType.js';
 import { JobState } from '../domain/job/JobState.js';
 import { UserContext } from '../domain/auth/UserContext.js';
-import pino from 'pino';
-import { createChildLogger } from '../utils/logger.js';
 import { JobStats } from '../application/JobApplicationService.js';
 import { JobResponse } from './dtos/models/JobResponse.js';
 import { JobStep } from './dtos/models/JobStep.js';
@@ -15,10 +13,8 @@ import type { AuditLogEntry } from './dtos/models/AuditLogEntry.js';
 type JobResponseDto = JobResponse & { paperlessUrl: string };
 
 export class JobController {
-  private logger: pino.Logger;
   private readonly paperlessBaseUrl: string;
   constructor(private readonly appFactory: ApplicationServiceFactory) {
-    this.logger = createChildLogger({ "name": "JobController"})
     this.paperlessBaseUrl = appFactory.getPaperlessBaseUrl();
   }
 

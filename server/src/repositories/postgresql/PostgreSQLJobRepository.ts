@@ -7,6 +7,7 @@ import { DocumentAction } from '../../domain/actions/DocumentAction.js';
 import { DocumentActionFactory } from '../../domain/actions/DocumentActionFactory.js';
 import { DocumentField } from '../../domain/steps/StepFactory.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
 import pino from 'pino';
 import { Saveable, UoW } from '../../infrastructure/UoW.js';
 
@@ -17,7 +18,7 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     private readonly pool: PoolClient,
     private readonly uow: UoW
   ) {
-    this.logger = createChildLogger({ name: "PostgreSQLJobRepository"})
+    this.logger = createChildLogger(LogArea.DATABASE, 'PostgreSQLJobRepository');
   }
 
   private getClient(): Pool | PoolClient {

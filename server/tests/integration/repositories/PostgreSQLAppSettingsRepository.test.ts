@@ -15,6 +15,7 @@ describe('PostgreSQLAppSettingsRepository (integration)', () => {
       expect(settings.entitySync).toEqual({ enabled: true, pollIntervalMs: 900000 });
       expect(settings.autoQueue).toEqual({ enabled: false, pollIntervalMs: 60000 });
       expect(settings.llmModel).toBe('qwen3:4b');
+      expect(settings.logging).toEqual({ default: 'info', levels: {} });
       expect(settings.paperlessTags).toBe('paperless-llm');
       expect(settings.paperlessAutoProcessTags).toEqual([
         { tag: 'paperless-llm-auto', fields: ['title'], workflowType: WorkflowType.APPROVAL },
@@ -38,6 +39,7 @@ describe('PostgreSQLAppSettingsRepository (integration)', () => {
         llmModel: 'qwen3:4b',
         llmTemperature: 0.3,
         llmTimeoutMs: 60000,
+        logging: { default: 'debug', levels: { http: 'warn', llm: 'debug' } },
       };
 
       const updated = await repos.getSettings().update(input, 'alice');
@@ -64,6 +66,7 @@ describe('PostgreSQLAppSettingsRepository (integration)', () => {
         llmModel: 'llama3',
         llmTemperature: 0.7,
         llmTimeoutMs: 30000,
+        logging: { default: 'info', levels: {} },
       };
 
       await repos.getSettings().update(input, 'alice');

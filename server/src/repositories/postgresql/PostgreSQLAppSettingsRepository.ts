@@ -3,6 +3,7 @@ import { AppSettingsRecord, IAppSettingsRepository } from '../../domain/settings
 import { AppSettingsData } from '../../domain/settings/AppSettingsTypes.js';
 import { normalizeAutoProcessTags } from '../../domain/settings/SettingsDomainService.js';
 import { DocumentField } from '../../domain/steps/StepFactory.js';
+import { LogArea, LogLevel } from '../../utils/LogArea.js';
 
 interface AppSettingsRow {
   paperless_tags: string | null;
@@ -23,6 +24,8 @@ interface AppSettingsRow {
   llm_model: string;
   llm_temperature: number;
   llm_timeout_ms: number;
+  logging_default: string;
+  logging_levels: Partial<Record<string, string>>;
   updated_at: Date;
   updated_by: string | null;
 }
@@ -60,6 +63,10 @@ export class PostgreSQLAppSettingsRepository implements IAppSettingsRepository {
       llmModel: row.llm_model,
       llmTemperature: row.llm_temperature,
       llmTimeoutMs: row.llm_timeout_ms,
+      logging: {
+        default: row.logging_default as LogLevel,
+        levels: row.logging_levels as Partial<Record<LogArea, LogLevel>>,
+      },
       updatedAt: row.updated_at,
       updatedBy: row.updated_by,
     };
@@ -91,8 +98,10 @@ export class PostgreSQLAppSettingsRepository implements IAppSettingsRepository {
          llm_model = $16,
          llm_temperature = $17,
          llm_timeout_ms = $18,
+         logging_default = $19,
+         logging_levels = $20,
          updated_at = NOW(),
-         updated_by = $19
+         updated_by = $21
        WHERE id = 1
        RETURNING *`,
       [
@@ -114,6 +123,8 @@ export class PostgreSQLAppSettingsRepository implements IAppSettingsRepository {
         input.llmModel,
         input.llmTemperature,
         input.llmTimeoutMs,
+        input.logging.default,
+        JSON.stringify(input.logging.levels),
         updatedBy,
       ],
     );

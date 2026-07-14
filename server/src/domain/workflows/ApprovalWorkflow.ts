@@ -5,7 +5,10 @@ import { StepFactory } from '../steps/StepFactory.js';
 import { JobState } from '../job/JobState.js';
 import { IStep } from '../steps/IStep.js';
 import { Job } from '../job/Job.js';
-import { createChildLogger } from '../../utils/logger.js';
+import { createLazyChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
+
+const getLogger = createLazyChildLogger(LogArea.WORKFLOW, 'ApprovalWorkflow');
 
 /**
  * ApprovalWorkflow - workflow with approval step
@@ -89,7 +92,7 @@ export class ApprovalWorkflow extends BaseWorkflow {
         return null;
 
       default:
-        createChildLogger({ name: 'ApprovalWorkflow' }).warn(`Unknown job state: ${state}`);
+        getLogger().warn(`Unknown job state: ${state}`);
         return null;
     }
   }

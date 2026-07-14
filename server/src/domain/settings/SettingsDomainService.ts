@@ -1,6 +1,7 @@
 import { WorkflowType } from '../workflows/WorkflowType.js';
 import { DOCUMENT_FIELDS, DocumentField } from '../steps/StepFactory.js';
 import { AppSettingsData, AutoProcessTagConfig } from './AppSettingsTypes.js';
+import { isLogArea, isLogLevel } from '../../utils/LogArea.js';
 
 /**
  * Validates a full non-technical settings payload, collecting every
@@ -43,6 +44,17 @@ export function validateAppSettings(input: AppSettingsData): string[] {
 
   if (input.autoQueue.enabled && input.paperlessAutoProcessTags.length === 0) {
     errors.push('workers.autoQueue.enabled is true but paperless.autoProcessTags is empty');
+  }
+
+  if (!isLogLevel(input.logging.default)) {
+    errors.push(`logging.default must be one of: debug, info, warn, error (got '${input.logging.default}')`);
+  }
+  for (const [area, level] of Object.entries(input.logging.levels)) {
+    if (!isLogArea(area)) {
+      errors.push(`logging.levels contains unknown area: '${area}'`);
+    } else if (!isLogLevel(level as string)) {
+      errors.push(`logging.levels.${area} must be one of: debug, info, warn, error (got '${level}')`);
+    }
   }
 
   return errors;

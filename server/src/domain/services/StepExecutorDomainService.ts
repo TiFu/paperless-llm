@@ -4,13 +4,14 @@ import { IAuditCollector } from "../audit/IAuditLogRepository.js";
 import { ExecutableStep } from "../steps/automated/ExecutableStep.js";
 import { RetryConfig, StepExecutionContext, StepResult } from "../steps/IStep.js";
 import { createChildLogger } from "../../utils/logger.js";
+import { LogArea } from "../../utils/LogArea.js";
 
 
 export class StepExecutorDomainService {
     private logger: pino.Logger
 
     constructor(private readonly auditCollector: IAuditCollector) {
-        this.logger = createChildLogger({ name: "StepExecutorDomainService"})
+        this.logger = createChildLogger(LogArea.WORKFLOW, "StepExecutorDomainService");
     }
 
     public async executeStep(step: ExecutableStep, context: StepExecutionContext, retryConfig: RetryConfig): Promise<StepResult> {

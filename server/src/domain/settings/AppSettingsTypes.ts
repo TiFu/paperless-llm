@@ -1,6 +1,7 @@
 import { WorkflowType } from '../workflows/WorkflowType.js';
 import { DocumentField } from '../steps/StepFactory.js';
 import { RetryConfig } from '../steps/IStep.js';
+import { LogArea, LogLevel } from '../../utils/LogArea.js';
 
 /**
  * A single auto-processing tag configuration: documents carrying `tag` in
@@ -44,6 +45,16 @@ export interface AutoQueueSettings {
 }
 
 /**
+ * Per-area logging levels, runtime-configurable via the Settings page.
+ * `levels` may omit areas — an omitted area falls back to `default`, which
+ * also means a new LogArea added later needs no migration/backfill.
+ */
+export interface LoggingSettings {
+  readonly default: LogLevel;
+  readonly levels: Partial<Record<LogArea, LogLevel>>;
+}
+
+/**
  * The full set of non-technical, live-editable settings — the shape shared by
  * AppConfig's internal snapshot, the settings repository, and the domain
  * validation logic.
@@ -59,4 +70,5 @@ export interface AppSettingsData {
   readonly llmModel: string;
   readonly llmTemperature: number;
   readonly llmTimeoutMs: number;
+  readonly logging: LoggingSettings;
 }

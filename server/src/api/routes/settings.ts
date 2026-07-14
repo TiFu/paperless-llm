@@ -1,12 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
 import { SettingsController } from '../../web/SettingsController.js';
 import { UpdateSettingsRequest } from '../../web/dtos/models/UpdateSettingsRequest.js';
 
 export function createSettingsRouter(appFactory: ApplicationServiceFactory): Router {
   const settingsController = new SettingsController(appFactory);
-  const logger = createChildLogger({ name: "settings-router" });
+  const logger = createChildLogger(LogArea.HTTP, 'settings-router');
   const router = Router();
 
   router.get('/', async (req: Request, res: Response, next: NextFunction) => {

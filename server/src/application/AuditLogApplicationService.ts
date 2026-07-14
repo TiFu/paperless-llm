@@ -1,6 +1,7 @@
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { createChildLogger } from '../utils/logger.js';
+import { LogArea } from '../utils/LogArea.js';
 import pino from 'pino';
 
 export interface JobTransition {
@@ -22,7 +23,7 @@ export class AuditLogApplicationService {
   private readonly logger: pino.Logger;
 
   constructor(private readonly uowFactory: UoWFactory) {
-    this.logger = createChildLogger({ service: "AuditLogApplicationService" })
+    this.logger = createChildLogger(LogArea.WORKFLOW, "AuditLogApplicationService");
   }
 
   async getAuditLogForJobById(jobId: string): Promise<AuditLogEntry[]> {

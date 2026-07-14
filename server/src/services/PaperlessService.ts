@@ -6,6 +6,7 @@ import { IDocument, PaginatedDocuments } from '../domain/document/IDocument.js';
 import { ITag, ICorrespondent, IDocumentType, AvailableFields } from '../domain/document/IDocumentEntities.js';
 import { decodeCursor, encodeCursor } from '../utils/cursorUtils.js';
 import { createChildLogger } from '../utils/logger.js';
+import { LogArea } from '../utils/LogArea.js';
 import pino from 'pino';
 
 /**
@@ -81,7 +82,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
       headers: { 'Content-Type': 'application/json' },
       timeout: 10000,
     });
-    this.logger = createChildLogger({"name": "PaperlessService"})
+    this.logger = createChildLogger(LogArea.PAPERLESS, "PaperlessService");
   }
 
   async authenticate(username: string, password: string): Promise<PaperlessAuthResult> {
@@ -169,6 +170,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     limit: number,
     cursor?: string
   ): Promise<PaginatedDocuments> {
+    this.logger.debug({ tag, cursor }, 'Querying documents by tag');
     try {
       // Decode cursor to get starting position
       let paperlessPage = 1;
@@ -254,9 +256,10 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
         }
       }
 
+      this.logger.debug({ tag, count: documents.length }, 'Documents by tag fetched');
       return { documents, nextCursor };
     } catch (error) {
-      this.logger.error({ error, "api": "getDocumentsByTag"})      
+      this.logger.error({ error, "api": "getDocumentsByTag"})
       if (axios.isAxiosError(error)) {
         throw new Error(`Paperless-NG API error: ${error.message}`, { cause: error });
       }
@@ -266,6 +269,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
 
   async getDocument(documentId: number): Promise<IDocument> {
     // No in-memory caching; handled by adapter
+    this.logger.debug({ documentId }, 'Fetching document from Paperless');
 
     try {
       const response = await this.client.get<PaperlessDocument>(
@@ -320,7 +324,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
       if (updates.createdDate !== undefined) {
         payload.created = updates.createdDate ? updates.createdDate.toISOString() : null;
       }
-      this.logger.info({ payload, "api": "updateDocument"}, "Updating document")
+      this.logger.debug({ payload, "api": "updateDocument"}, "Updating document")
       await this.client.patch(`/api/documents/${documentId}/`, payload);
     } catch (error) {
       this.logger.error({ error, "api": "updateDocument"})

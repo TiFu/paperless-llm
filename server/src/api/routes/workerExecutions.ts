@@ -3,9 +3,10 @@ import { query, param } from 'express-validator';
 import { UoWFactory } from '../../infrastructure/UoW.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
 
 export function createWorkerExecutionsRouter(uowFactory: UoWFactory): Router {
-  const logger = createChildLogger({ name: 'worker-executions-router' });
+  const logger = createChildLogger(LogArea.HTTP, 'worker-executions-router');
   const router = Router();
 
   /**

@@ -4,13 +4,14 @@ import { ApplicationServiceFactory } from '../../application/ApplicationServiceF
 import { ApiError } from '../middleware/errorHandler.js';
 import { decodeCursor } from '../../domain/common/Cursor.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
 
 
 
 export function createApprovalsRouter(
   appFactory: ApplicationServiceFactory,
 ): Router {
-  const logger = createChildLogger({ name: "approvals-router"});
+  const logger = createChildLogger(LogArea.HTTP, 'approvals-router');
   const router = Router();
 
   router.get('/stats', async (req: Request, res: Response, next: NextFunction) => {

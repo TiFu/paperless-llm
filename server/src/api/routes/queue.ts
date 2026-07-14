@@ -2,13 +2,14 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
 import { QueueController } from '../../web/controllers.js';
 
 
 
 
 export function createQueueRouter(appFactory: ApplicationServiceFactory): Router {
-  const logger = createChildLogger({ name: "queue-router" });
+  const logger = createChildLogger(LogArea.HTTP, 'queue-router');
   const router = Router();
   const controller = new QueueController(appFactory);
 

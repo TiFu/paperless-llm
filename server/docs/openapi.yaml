@@ -1406,6 +1406,28 @@ components:
           type: integer
           minimum: 1
 
+    LogLevel:
+      type: string
+      enum: [debug, info, warn, error]
+
+    LogArea:
+      type: string
+      enum: [http, workflow, llm, paperless, database, cache, auth, worker, settings, general]
+
+    LoggingSettings:
+      type: object
+      required: [defaultLevel, levels]
+      description: Per-area, runtime-configurable log levels.
+      properties:
+        defaultLevel:
+          $ref: '#/components/schemas/LogLevel'
+          description: Fallback level for any area not present in `levels`.
+        levels:
+          type: object
+          description: Per-area level overrides; areas omitted fall back to `default`.
+          additionalProperties:
+            $ref: '#/components/schemas/LogLevel'
+
     ConnectedSystems:
       type: object
       required: [paperlessUrl, llmUrl, databaseHost]
@@ -1429,7 +1451,7 @@ components:
 
     UpdateSettingsRequest:
       type: object
-      required: [paperless, workers, retry, llm]
+      required: [paperless, workers, retry, llm, logging]
       properties:
         paperless:
           $ref: '#/components/schemas/PaperlessSettings'
@@ -1439,10 +1461,12 @@ components:
           $ref: '#/components/schemas/RetrySettings'
         llm:
           $ref: '#/components/schemas/LLMSettings'
+        logging:
+          $ref: '#/components/schemas/LoggingSettings'
 
     SettingsResponse:
       type: object
-      required: [paperless, workers, retry, llm, connectedSystems, promptVariables, updatedAt]
+      required: [paperless, workers, retry, llm, logging, connectedSystems, promptVariables, updatedAt]
       properties:
         paperless:
           $ref: '#/components/schemas/PaperlessSettings'
@@ -1452,6 +1476,8 @@ components:
           $ref: '#/components/schemas/RetrySettings'
         llm:
           $ref: '#/components/schemas/LLMSettings'
+        logging:
+          $ref: '#/components/schemas/LoggingSettings'
         connectedSystems:
           $ref: '#/components/schemas/ConnectedSystems'
         promptVariables:

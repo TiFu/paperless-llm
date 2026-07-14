@@ -235,6 +235,10 @@ export class AppMapper {
         temperature: settings.llmTemperature,
         timeoutMs: settings.llmTimeoutMs,
       },
+      logging: {
+        defaultLevel: settings.logging.default as unknown as SettingsResponseDTO['logging']['defaultLevel'],
+        levels: settings.logging.levels as unknown as SettingsResponseDTO['logging']['levels'],
+      },
       connectedSystems: view.connectedSystems,
       // Domain and DTO shapes are structurally identical ({name, description}[])
       promptVariables: view.promptVariables as unknown as SettingsResponseDTO['promptVariables'],
@@ -274,6 +278,10 @@ export class AppMapper {
       llmModel: dto.llm.model,
       llmTemperature: dto.llm.temperature,
       llmTimeoutMs: dto.llm.timeoutMs,
+      logging: {
+        default: dto.logging.defaultLevel as unknown as AppSettingsData['logging']['default'],
+        levels: dto.logging.levels as unknown as AppSettingsData['logging']['levels'],
+      },
     };
   }
 }

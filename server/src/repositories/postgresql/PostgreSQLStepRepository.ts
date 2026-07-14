@@ -8,12 +8,13 @@ import { ManualStep } from '../../domain/steps/userinteraction/ManualStep.js';
 import { Cursor } from '../../domain/common/Cursor.js';
 import pino from 'pino';
 import { createChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
 import { Saveable, UoW } from '../../infrastructure/UoW.js';
 
 export class PostgreSQLStepRepository implements IStepRepository, Saveable<IStep> {
   private logger: pino.Logger;
   constructor(private readonly client: PoolClient, private readonly uow: UoW) {
-    this.logger = createChildLogger( { name: "PostgreSQLStepRepository"})
+    this.logger = createChildLogger(LogArea.DATABASE, 'PostgreSQLStepRepository');
   }
 
 

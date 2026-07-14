@@ -34,9 +34,13 @@ import { selectCanEditSettings } from '../store/slices/authSlice';
 import { UpdateSettingsRequest } from '../services/api/generated/models/UpdateSettingsRequest';
 import { AutoProcessTagEntry, AutoProcessTagEntryFieldsEnum } from '../services/api/generated/models/AutoProcessTagEntry';
 import { WorkflowType } from '../services/api/generated/models/WorkflowType';
+import { LogArea } from '../services/api/generated/models/LogArea';
+import { LogLevel } from '../services/api/generated/models/LogLevel';
 import { NumberField } from '../components/NumberField';
 
 const ALL_FIELDS = Object.values(AutoProcessTagEntryFieldsEnum);
+const ALL_LOG_AREAS = Object.values(LogArea);
+const ALL_LOG_LEVELS = Object.values(LogLevel);
 
 function toFormState(settings: NonNullable<ReturnType<typeof selectSettings>>): UpdateSettingsRequest {
   return {
@@ -44,6 +48,7 @@ function toFormState(settings: NonNullable<ReturnType<typeof selectSettings>>): 
     workers: settings.workers,
     retry: settings.retry,
     llm: settings.llm,
+    logging: settings.logging,
   };
 }
 
@@ -413,6 +418,64 @@ export const SettingsPage: React.FC = () => {
             </Grid>
           </Grid>
         </Box>
+      </Paper>
+
+      {/* Logging */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          Logging
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Per-area log levels, applied live without a restart. An area left unset falls back to the default level.
+        </Typography>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} sm={4}>
+            <Select
+              fullWidth
+              size="small"
+              value={form.logging.defaultLevel}
+              disabled={disabled}
+              onChange={(e) =>
+                setForm({ ...form, logging: { ...form.logging, defaultLevel: e.target.value as LogLevel } })
+              }
+            >
+              {ALL_LOG_LEVELS.map((level) => (
+                <MenuItem key={level} value={level}>
+                  {level} (default)
+                </MenuItem>
+              ))}
+            </Select>
+          </Grid>
+        </Grid>
+        <Grid container spacing={2} sx={{ pl: 6 }}>
+          {ALL_LOG_AREAS.map((area) => (
+            <Grid item xs={12} sm={4} key={area}>
+              <Select
+                fullWidth
+                size="small"
+                displayEmpty
+                value={form.logging.levels[area] ?? ''}
+                disabled={disabled}
+                onChange={(e) => {
+                  const levels = { ...form.logging.levels };
+                  if (e.target.value) {
+                    levels[area] = e.target.value as LogLevel;
+                  } else {
+                    delete levels[area];
+                  }
+                  setForm({ ...form, logging: { ...form.logging, levels } });
+                }}
+              >
+                <MenuItem value="">{area} (use default)</MenuItem>
+                {ALL_LOG_LEVELS.map((level) => (
+                  <MenuItem key={level} value={level}>
+                    {area}: {level}
+                  </MenuItem>
+                ))}
+              </Select>
+            </Grid>
+          ))}
+        </Grid>
       </Paper>
 
       {/* Retry policy */}

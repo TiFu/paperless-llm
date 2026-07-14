@@ -3,6 +3,7 @@ import { body } from 'express-validator';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
 import { PromptController } from '../../web/PromptController.js';
 import { UpdatePromptRequest } from '../../web/dtos/models/UpdatePromptRequest.js';
 import { StepType } from '../../web/dtos/models/StepType.js';
@@ -10,7 +11,7 @@ import { StepType } from '../../web/dtos/models/StepType.js';
 
 export function createPromptsRouter(appFactory: ApplicationServiceFactory): Router {
   const promptController = new PromptController(appFactory);
-  const logger = createChildLogger({ name: "prompt-router"});
+  const logger = createChildLogger(LogArea.HTTP, 'prompt-router');
   const router = Router();
 
   router.get('/', async (req: Request, res: Response, next: NextFunction) => {

@@ -3,6 +3,7 @@ import { RedisConfig } from '../config/AppConfig.js';
 import { IDocument } from '../domain/document/IDocument.js';
 import { ICorrespondent, IDocumentType, ITag } from '../domain/document/IDocumentEntities.js';
 import { createChildLogger } from '../utils/logger.js';
+import { LogArea } from '../utils/LogArea.js';
 import pino from 'pino';
 
 export interface Serializer<T> {
@@ -68,7 +69,7 @@ export class DMSCacheService {
   private readonly logger: pino.Logger;
 
   constructor(private readonly config: RedisConfig, dmsSerializers: IDMSSerializer) {
-    this.logger = createChildLogger({ name: "DMSCacheService"})
+    this.logger = createChildLogger(LogArea.CACHE, "DMSCacheService");
     const baseDelayMs = config.reconnectBaseDelayMs ?? 500;
     const maxDelayMs = config.reconnectMaxDelayMs ?? 30000;
     this.client = createClient({
@@ -143,7 +144,7 @@ export class RedisCacheService<T> implements CacheService<T> {
   private logger: pino.Logger
 
   constructor(private readonly client: ReturnType<typeof createClient>, private readonly ttlInSeconds: number, private readonly namespace: string, private serializer: Serializer<T>) {
-    this.logger = createChildLogger({ name: "RedisCacheService/" + this.namespace })
+    this.logger = createChildLogger(LogArea.CACHE, "RedisCacheService/" + this.namespace);
   }
 
 

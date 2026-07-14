@@ -15,6 +15,7 @@ function validSettings(overrides: Partial<AppSettingsData> = {}): AppSettingsDat
     llmModel: 'llama3',
     llmTemperature: 0.7,
     llmTimeoutMs: 30000,
+    logging: { default: 'info', levels: {} },
     ...overrides,
   };
 }
@@ -72,6 +73,25 @@ describe('validateAppSettings', () => {
       validSettings({ autoQueue: { enabled: true, pollIntervalMs: 60000 }, paperlessAutoProcessTags: [] }),
     );
     expect(errors).toContain('workers.autoQueue.enabled is true but paperless.autoProcessTags is empty');
+  });
+
+  it('rejects an unknown logging.default level', () => {
+    const errors = validateAppSettings(validSettings({ logging: { default: 'trace' as never, levels: {} } }));
+    expect(errors.some((e) => e.includes('logging.default'))).toBe(true);
+  });
+
+  it('rejects an unknown area key in logging.levels', () => {
+    const errors = validateAppSettings(
+      validSettings({ logging: { default: 'info', levels: { bogus: 'debug' } as never } }),
+    );
+    expect(errors.some((e) => e.includes("unknown area: 'bogus'"))).toBe(true);
+  });
+
+  it('rejects an unknown level value in logging.levels', () => {
+    const errors = validateAppSettings(
+      validSettings({ logging: { default: 'info', levels: { workflow: 'verbose' as never } } }),
+    );
+    expect(errors.some((e) => e.includes('logging.levels.workflow'))).toBe(true);
   });
 
   it('collects every violation at once rather than failing fast', () => {

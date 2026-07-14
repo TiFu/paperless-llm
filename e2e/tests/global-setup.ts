@@ -34,6 +34,7 @@ export default async function globalSetup(): Promise<void> {
       },
       retry: { maxRetries: 3, retryDelayInMs: 1000, retryExponent: 2 },
       llm: { model: 'stub-model', temperature: 0, timeoutMs: 10000 },
+      logging: { defaultLevel: 'info', levels: {} },
     }),
   });
 

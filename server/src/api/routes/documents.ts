@@ -2,11 +2,12 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { ApplicationServiceFactory } from '../../application/ApplicationServiceFactory.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { createChildLogger } from '../../utils/logger.js';
+import { LogArea } from '../../utils/LogArea.js';
 import { DocumentController } from '../../web/DocumentController.js';
 import { EntityValueType } from '../../application/DocumentApplicationService.js';
 
 export function createDocumentsRouter(appFactory: ApplicationServiceFactory): Router {
-  const logger = createChildLogger({ name: "document-router" })
+  const logger = createChildLogger(LogArea.HTTP, 'document-router');
   const router = Router();
   const controller = new DocumentController(appFactory);
 

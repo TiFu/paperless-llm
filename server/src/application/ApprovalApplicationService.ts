@@ -2,6 +2,7 @@ import { ManualStep } from "../domain/steps/userinteraction/ManualStep.js";
 
 import { Cursor, encodeCursor } from "../domain/common/Cursor.js";
 import { createChildLogger } from "../utils/logger.js";
+import { LogArea } from "../utils/LogArea.js";
 import { AuditLogEntry } from "../domain/audit/AuditLogEntry.js";
 import { UoWFactory } from "../infrastructure/UoW.js";
 import pino from "pino";
@@ -40,7 +41,7 @@ export class ManualStepApplicationService {
     private readonly uowFactory: UoWFactory,
     private readonly paperlessBaseUrl: string,
   ) {
-    this.logger = createChildLogger({name: "ManualStepApplicationService"})
+    this.logger = createChildLogger(LogArea.WORKFLOW, "ManualStepApplicationService");
   }
 
   async getApprovalStats(user: UserContext): Promise<ApprovalStats> {

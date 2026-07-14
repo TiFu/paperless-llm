@@ -1,6 +1,7 @@
 import { Job } from "../job/Job.js";
 import { Transition } from "../workflows/Transition.js";
 import { createChildLogger } from "../../utils/logger.js";
+import { LogArea } from "../../utils/LogArea.js";
 import { CompositeStep } from "../steps/automated/CompositeStep.js";
 import { AuditLogEntry, StepCompletedMetadata } from "../audit/AuditLogEntry.js";
 import { IJobRepository } from "../job/IJobRepository.js";
@@ -28,7 +29,7 @@ export class WorkflowOrchestratorDomainService {
   constructor(private readonly jobRepo: IJobRepository, 
                 private readonly stepRepo: IStepRepository, 
                 private readonly auditCollector: IAuditCollector) {
-      this.logger = createChildLogger({ name: "WorkflowOrchestratorDomainService"})
+      this.logger = createChildLogger(LogArea.WORKFLOW, "WorkflowOrchestratorDomainService");
   }
 
   manuallyRetry(step: ExecutableStep): void {
@@ -69,7 +70,7 @@ export class WorkflowOrchestratorDomainService {
 
   private _processJobTransition(job: Job, transition: Transition): NextStepResult {
       const nextStepResult = job.advance(transition)
-      this.logger.error({ nextStepResult, job, transition}, "Moved job to next step")
+      this.logger.debug({ nextStepResult, job, transition}, "Moved job to next step")
       const nextStep = nextStepResult.step
       const auditEntries = [];
       if (nextStep) {
@@ -109,13 +110,13 @@ export class WorkflowOrchestratorDomainService {
     // When we do this, we can also generalize, i.e. what happens if a composite step is cancelled?
     const prevStatus = step.getStepStatus();
     step.moveToFailed();
-    this.logger.error({step}, "Moved step to failed due to cancellation")
+    this.logger.info({step}, "Moved step to failed due to cancellation")
     // Record that step is cancelled
     const entry = AuditLogEntry.createStepCancelled(step, {stepType: step.getStepType(), previousStatus: prevStatus}, new Date())
     this.auditCollector.record(entry)
     // Then add the job transition
     const nextStepResult = this._processJobTransition(job, Transition.FAILURE)
-    this.logger.error({job}, "Updated job due to cancellation")
+    this.logger.info({job}, "Updated job due to cancellation")
     return nextStepResult
   }
 
