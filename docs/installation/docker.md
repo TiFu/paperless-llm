@@ -28,6 +28,27 @@ docker pull ghcr.io/TiFu/paperless-llm-server:latest
 docker pull ghcr.io/TiFu/paperless-llm-frontend:latest
 ```
 
+## Running the Containers
+
+The server image reads its config from a fixed path baked into the image,
+**`/config.yaml`** (not `/app/config.yaml`) — mount your file there:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -v "$(pwd)/config.yaml:/config.yaml:ro" \
+  ghcr.io/TiFu/paperless-llm-server:latest
+```
+
+The frontend image takes the API URL at container start instead — no rebuild
+needed per environment, `API_BASE_URL` is injected into `config.js` via
+`envsubst` when the container boots:
+
+```bash
+docker run --rm -p 8080:80 \
+  -e API_BASE_URL=http://localhost:3000/api \
+  ghcr.io/TiFu/paperless-llm-frontend:latest
+```
+
 ## Environment Variables
 
 The production server and frontend images are configured primarily through
