@@ -12,6 +12,23 @@ Scalable worker service that integrates Large Language Models (LLMs) with Paperl
 - **Structured Logging**: JSON-formatted logs with correlation IDs for traceability
 - **Health Checks**: Built-in connectivity checks for PostgreSQL, Paperless-NG, and Ollama
 
+## Screenshots
+
+Generated from a real run of the approval workflow — see `e2e/screenshots/capture.spec.ts` and
+the `screenshots` job in `.github/workflows/master.yml`.
+
+| Documents | Jobs |
+|---|---|
+| ![Documents page](https://raw.githubusercontent.com/TiFu/paperless-llm/docs-screenshots/documents.png) | ![Jobs page](https://raw.githubusercontent.com/TiFu/paperless-llm/docs-screenshots/jobs.png) |
+
+| Approval review | Job details |
+|---|---|
+| ![Approval review](https://raw.githubusercontent.com/TiFu/paperless-llm/docs-screenshots/approval.png) | ![Job details](https://raw.githubusercontent.com/TiFu/paperless-llm/docs-screenshots/job-details.png) |
+
+| Settings |
+|---|
+| ![Settings page](https://raw.githubusercontent.com/TiFu/paperless-llm/docs-screenshots/settings.png) |
+
 ## Architecture
 
 ### Deployment Modes

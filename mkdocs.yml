@@ -69,6 +69,7 @@ nav:
       - Helm: installation/helm.md
       - Configuration: installation/configuration.md
   - User Guide:
+      - Screenshots: user_guide/screenshots.md
       - Prompts: user_guide/prompts.md
       - Settings: user_guide/settings.md
   - Development: development.md
