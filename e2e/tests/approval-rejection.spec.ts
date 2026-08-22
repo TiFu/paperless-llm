@@ -36,7 +36,11 @@ test('approval workflow: an operator rejects the LLM-proposed tags, and Paperles
   await approvalCard.getByRole('button', { name: 'REJECTED' }).click();
   await expect(approvalCard).toBeHidden();
 
-  const rejectedJob = await waitForJobState(jwt, job.id, ['rejected'], 15_000);
+  // Goes through the non-terminal cleanup_after_rejection state (a real REMOVE_TAGS
+  // call to Paperless) before landing on rejected — give it the same headroom as the
+  // other worker-driven, multi-step transitions in this suite (15s was too tight and
+  // flaked under normal load).
+  const rejectedJob = await waitForJobState(jwt, job.id, ['rejected'], 30_000);
   expect(rejectedJob.status).toBe('rejected');
 
   // PENDING_APPROVAL + REJECTED routes through the non-terminal cleanup_after_rejection
