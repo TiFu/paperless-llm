@@ -2,21 +2,50 @@
 
 All notable changes to this project are documented here, grouped by release. Until the first tagged release, all changes are listed under **Unreleased**.
 
-<!--
-Entries for 0.1.0-alpha through 0.1.3 were dropped due to #42 (the release workflow ran
-`git-cliff --unreleased`, which finds commits not yet covered by any tag; since the workflow
-runs after the tag has already been pushed, that set is always empty). The workflow now uses
-`--latest` instead, so future tags will populate correctly. Backfilling the empty historical
-entries would require re-deriving them from each tag's commit range and is left as a follow-up.
--->
-
 ## [0.1.3] - 2026-07-08
+
+### Added
+
+- Improved prompt descriptions to include available tags & configured descriptions
+- Field selection for automatic job processing
+- Field selection for automatic job processing
+
+### Documentation
+
+- Add 0.1.2 release notes
+- Add 0.1.3 release notes
+- Refined configuration documentation
+
+### Fixed
+
+- Correctly handle removal of auto processing tags resolves #8
+- Fix entity sync missing deletes from paperless
 
 ## [0.1.2] - 2026-07-01
 
+### Documentation
+
+- Add 0.1.1 release notes
+
+### Fixed
+
+- Use redis deployment in helm chart
+
 ## [0.1.1] - 2026-06-30
 
+### Documentation
+
+- Add 0.1.0-alpha release notes
+
+### Fixed
+
+- Fix incorrect assertion in AppConfig loader
+
 ## [0.1.0-alpha] - 2026-06-30
+
+### Documentation
+
+- Add 0.1.0-alpha release notes
 
 ## [Unreleased]
 
