@@ -460,10 +460,9 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
   }
 
   /**
-   * Resolve tag name to tag ID, optionally creating if it doesn't exist
+   * Resolve tag name to tag ID.
    * @param tagName Tag name to resolve
-   * @param createIfMissing If true, create the tag if it doesn't exist
-   * @returns Tag ID, or null if not found and createIfMissing is false
+   * @returns Tag ID, or null if no tag with that name exists
    */
   async resolveTagId(tagName: string): Promise<number | null> {
     // No in-memory cache; handled by adapter
@@ -476,7 +475,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
       );
 
       if (response.data.results.length === 0) {
-        throw new Error("Tag " + tagName + " does not exist");
+        return null;
       }
 
       return response.data.results[0].id;
