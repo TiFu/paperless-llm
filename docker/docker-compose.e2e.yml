@@ -67,6 +67,16 @@ services:
       PAPERLESS_CSRF_TRUSTED_ORIGINS: http://localhost:8000
       PAPERLESS_ALLOWED_HOSTS: localhost,127.0.0.1,paperless
       PAPERLESS_SECRET_KEY: e2e-secret-key
+      # Paperless-ngx 3.0 added a default 5/min-per-IP throttle on POST /api/token/
+      # (DEFAULT_THROTTLE_RATES["login"], see paperless/settings.py) with no
+      # override elsewhere in this stack. The e2e suite logs in far more than 5
+      # times a minute across specs (server-side login() + the test's own direct
+      # paperlessLogin() + a UI-driven login for the two UI specs), which trips
+      # it and surfaces as "Paperless authentication service is unavailable"
+      # (a 429 from Paperless, generically reported as a 500 by
+      # PaperlessService.authenticate). Raise it for this trusted, single-tenant
+      # test stack via the documented override env var.
+      PAPERLESS_TOKEN_THROTTLE_RATE: 1000/min
     ports:
       - "8000:8000"
     healthcheck:

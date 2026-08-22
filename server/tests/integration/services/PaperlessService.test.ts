@@ -138,8 +138,8 @@ describe('PaperlessService (integration)', () => {
       await expect(service.resolveTagId(name)).resolves.toBe(id);
     });
 
-    it('resolveTagId rejects for a nonexistent tag name', async () => {
-      await expect(service.resolveTagId(uniqueName('does-not-exist'))).rejects.toThrow();
+    it('resolveTagId resolves to null for a nonexistent tag name', async () => {
+      await expect(service.resolveTagId(uniqueName('does-not-exist'))).resolves.toBeNull();
     });
 
     it('resolveCorrespondentId resolves a seeded correspondent by name', async () => {
