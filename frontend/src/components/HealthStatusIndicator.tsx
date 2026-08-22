@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography } from '@mui/material';
-import { Circle as CircleIcon } from '@mui/icons-material';
 import { apiClient } from '../services/api/api';
 import { SystemHealthResponse } from '../services/api/generated/models/SystemHealthResponse';
 import { ServiceStatus } from '../services/api/generated/models/ServiceStatus';
@@ -16,7 +15,17 @@ const StatusDot: React.FC<{ status: ServiceStatus | 'unknown'; label: string }> 
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <CircleIcon sx={{ fontSize: 10, color: getColor() }} />
+      <Box
+        sx={{
+          width: 10,
+          height: 10,
+          borderRadius: '50%',
+          backgroundColor: getColor(),
+          // Ring keeps the dot legible against any sidebar background color,
+          // since the primary theme color is also green (see #36).
+          border: '1.5px solid rgba(255, 255, 255, 0.6)',
+        }}
+      />
       <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
         {label}
       </Typography>
