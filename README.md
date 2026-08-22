@@ -49,12 +49,12 @@ The **API server** exposes a REST API for submitting jobs, monitoring queues, ma
 
 ## Getting Started
 
-📖 **[Full documentation](https://tifu.github.io/paperless-llm/)** — architecture, configuration reference, and API/TypeDoc reference.
+📖 **[Full documentation](https://tifu.github.io/paperless-llm/latest/)** — architecture, configuration reference, and API/TypeDoc reference.
 
-- [Quick Start](https://tifu.github.io/paperless-llm/quick-start/) — get the API server, worker, and frontend running locally
-- [Docker installation](https://tifu.github.io/paperless-llm/installation/docker/) — production images via Docker
-- [Helm installation](https://tifu.github.io/paperless-llm/installation/helm/) — deploy to Kubernetes
-- [Development setup](https://tifu.github.io/paperless-llm/development/) — local dev environment with hot reload
+- [Quick Start](https://tifu.github.io/paperless-llm/latest/quick-start/) — get the API server, worker, and frontend running locally
+- [Docker installation](https://tifu.github.io/paperless-llm/latest/installation/docker/) — production images via Docker
+- [Helm installation](https://tifu.github.io/paperless-llm/latest/installation/helm/) — deploy to Kubernetes
+- [Development setup](https://tifu.github.io/paperless-llm/latest/development/) — local dev environment with hot reload
 
 ## Contributing
 
