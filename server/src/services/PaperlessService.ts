@@ -86,18 +86,31 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
   }
 
   async authenticate(username: string, password: string): Promise<PaperlessAuthResult> {
-    try {
-      const response = await this.authClient.post<{ token: string }>('/api/token/', { username, password });
-      const token = response.data.token;
-      const isAdmin = await this.fetchIsAdmin(username, token);
-      return { token, success: true, isAdmin };
-    } catch (error) {
-      if (axios.isAxiosError(error) && [400, 401, 403].includes(error.response?.status ?? 0)) {
-        return { token: null, success: false, status: 401, message: 'Invalid credentials' };
+    // A connection blip (refused/reset, DNS hiccup, brief unresponsiveness) looks
+    // identical to a genuine outage from here, but is usually gone a moment later —
+    // retry transient failures a couple of times before reporting Paperless as
+    // unavailable. Credential errors (400/401/403) are never transient, so they
+    // fail immediately without retrying.
+    const maxAttempts = 3;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await this.authClient.post<{ token: string }>('/api/token/', { username, password });
+        const token = response.data.token;
+        const isAdmin = await this.fetchIsAdmin(username, token);
+        return { token, success: true, isAdmin };
+      } catch (error) {
+        if (axios.isAxiosError(error) && [400, 401, 403].includes(error.response?.status ?? 0)) {
+          return { token: null, success: false, status: 401, message: 'Invalid credentials' };
+        }
+        lastError = error;
+        if (attempt < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+        }
       }
-      this.logger.error({ error, api: 'authenticate' }, 'Paperless authentication request failed');
-      return { token: null, success: false, status: 500, message: 'Paperless authentication service is unavailable' };
     }
+    this.logger.error({ error: lastError, api: 'authenticate', attempts: maxAttempts }, 'Paperless authentication request failed');
+    return { token: null, success: false, status: 500, message: 'Paperless authentication service is unavailable' };
   }
 
   /**
