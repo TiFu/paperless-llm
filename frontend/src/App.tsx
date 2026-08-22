@@ -33,7 +33,8 @@ const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#1976d2',
+      // Paperless-NGX brand green (#17541f)
+      main: '#17541f',
     },
     secondary: {
       main: '#dc004e',
