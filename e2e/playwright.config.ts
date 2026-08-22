@@ -13,12 +13,6 @@ export default defineConfig({
     timeout: 15_000,
   },
   fullyParallel: false,
-  // All specs share one live stack (single server process, single Paperless
-  // instance, one worker poll loop) rather than a per-worker sandbox, so
-  // running spec files concurrently makes their fixed wait timeouts
-  // (waitForJobState, etc.) contend for the same resources and flake under
-  // load. Serialize instead of relying on Playwright's default (CPU/2) workers.
-  workers: 1,
   retries: 0,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['list']] : 'list',
   use: {
