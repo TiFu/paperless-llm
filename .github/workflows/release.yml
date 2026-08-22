@@ -134,7 +134,7 @@ jobs:
           tool: git-cliff
 
       - name: Generate changelog entry
-        run: git-cliff --tag "${{ steps.version.outputs.version }}" --unreleased --prepend docs/changelog.md --config cliff.toml
+        run: git-cliff --tag "${{ steps.version.outputs.version }}" --latest --prepend docs/changelog.md --config cliff.toml
 
       - name: Commit changelog
         run: |

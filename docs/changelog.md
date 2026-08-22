@@ -1,5 +1,14 @@
+# Changelog
 
-## [0.1.3] - 2026-07-08
+All notable changes to this project are documented here, grouped by release. Until the first tagged release, all changes are listed under **Unreleased**.
+
+<!--
+Entries for 0.1.0-alpha through 0.1.3 were dropped due to #42 (the release workflow ran
+`git-cliff --unreleased`, which finds commits not yet covered by any tag; since the workflow
+runs after the tag has already been pushed, that set is always empty). The workflow now uses
+`--latest` instead, so future tags will populate correctly. Backfilling the empty historical
+entries would require re-deriving them from each tag's commit range and is left as a follow-up.
+-->
 
 ## [0.1.3] - 2026-07-08
 
@@ -8,11 +17,6 @@
 ## [0.1.1] - 2026-06-30
 
 ## [0.1.0-alpha] - 2026-06-30
-
-## [0.1.0-alpha] - 2026-06-30
-# Changelog
-
-All notable changes to this project are documented here, grouped by release. Until the first tagged release, all changes are listed under **Unreleased**.
 
 ## [Unreleased]
 
