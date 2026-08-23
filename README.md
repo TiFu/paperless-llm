@@ -24,10 +24,6 @@ Paperless-LLM sidesteps this by moving to an asynchronous model — all processi
 
 ## Screenshots
 
-<!-- TODO(#35): add screenshots / a short demo clip of the Jobs list, Job details, and Approvals UI. -->
-
-## Screenshots
-
 Generated from a real run of the approval workflow — see `e2e/screenshots/capture.spec.ts` and
 the `screenshots` job in `.github/workflows/master.yml`.
 
