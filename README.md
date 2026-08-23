@@ -26,6 +26,23 @@ Paperless-LLM sidesteps this by moving to an asynchronous model — all processi
 
 <!-- TODO(#35): add screenshots / a short demo clip of the Jobs list, Job details, and Approvals UI. -->
 
+## Screenshots
+
+Generated from a real run of the approval workflow — see `e2e/screenshots/capture.spec.ts` and
+the `screenshots` job in `.github/workflows/master.yml`.
+
+| Documents | Jobs |
+|---|---|
+| ![Documents page](https://raw.githubusercontent.com/TiFu/paperless-llm/docs-screenshots/documents.png) | ![Jobs page](https://raw.githubusercontent.com/TiFu/paperless-llm/docs-screenshots/jobs.png) |
+
+| Approval review | Job details |
+|---|---|
+| ![Approval review](https://raw.githubusercontent.com/TiFu/paperless-llm/docs-screenshots/approval.png) | ![Job details](https://raw.githubusercontent.com/TiFu/paperless-llm/docs-screenshots/job-details.png) |
+
+| Settings |
+|---|
+| ![Settings page](https://raw.githubusercontent.com/TiFu/paperless-llm/docs-screenshots/settings.png) |
+
 ## Architecture
 
 ```mermaid

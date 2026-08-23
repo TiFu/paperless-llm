@@ -122,6 +122,64 @@ jobs:
       - name: Build docs site
         run: mkdocs build --strict
 
+  screenshots:
+    needs: [tests, e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Start stack
+        run: docker compose -f docker/docker-compose.e2e.yml up -d --build
+
+      - name: Wait for server health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/health > /dev/null; then
+              echo "Server is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Server did not become healthy in time"
+          docker compose -f docker/docker-compose.e2e.yml logs
+          exit 1
+
+      - run: npm ci
+        working-directory: e2e
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - run: npm run screenshots
+        working-directory: e2e
+
+      - name: Dump docker logs on failure
+        if: failure()
+        uses: jwalton/gh-docker-logs@v2
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose -f docker/docker-compose.e2e.yml down -v
+
+      # Publishes to a separate, unrelated branch rather than committing to master:
+      # master.yml only triggers on `push: branches: [master]`, so a push here can never
+      # re-trigger this workflow. force_orphan keeps docs-screenshots a single flat commit
+      # of current assets instead of accumulating binary history on every master push.
+      - name: Publish screenshots to docs-screenshots branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: docs-screenshots
+          publish_dir: e2e/screenshots/output
+          force_orphan: true
+          commit_message: 'docs: regenerate application screenshots'
+
   helm:
     needs: [tests, e2e]
     runs-on: ubuntu-latest
