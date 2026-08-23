@@ -56,7 +56,7 @@ test('capture application screenshots', async ({ page }) => {
   if (!jobId) throw new Error(`Could not parse job id from "View Job" link href: ${href}`);
 
   await page.goto('/jobs');
-  await expect(page.getByRole('link', { name: new RegExp(jobId.slice(0, 8)) }).first()).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(jobId.slice(0, 8)) }).first()).toBeVisible();
   await page.screenshot({ path: join(OUTPUT_DIR, 'jobs.png') });
 
   await waitForJobState(jwt, jobId, ['pending_approval'], 60_000);
