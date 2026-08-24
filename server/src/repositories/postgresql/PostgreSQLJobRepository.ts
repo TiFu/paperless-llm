@@ -36,6 +36,39 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     return result.rows.map((row) => DocumentActionFactory.fromDb(row));
   }
 
+  private async loadActionsBulk(jobIds: string[]): Promise<Map<string, DocumentAction[]>> {
+    const map = new Map<string, DocumentAction[]>();
+    if (jobIds.length === 0) return map;
+
+    const query = `
+      SELECT * FROM document_actions
+      WHERE job_id = ANY($1)
+      ORDER BY created_at DESC
+    `;
+
+    const result = await this.getClient().query(query, [jobIds]);
+    for (const row of result.rows) {
+      const list = map.get(row.job_id) ?? [];
+      list.push(DocumentActionFactory.fromDb(row));
+      map.set(row.job_id, list);
+    }
+    return map;
+  }
+
+  private async loadFieldsBulk(jobIds: string[]): Promise<Map<string, DocumentField[]>> {
+    const map = new Map<string, DocumentField[]>();
+    if (jobIds.length === 0) return map;
+
+    const query = `SELECT * FROM job_fields WHERE job_id = ANY($1)`;
+    const result = await this.getClient().query(query, [jobIds]);
+    for (const row of result.rows) {
+      const list = map.get(row.job_id) ?? [];
+      list.push(row.field as DocumentField);
+      map.set(row.job_id, list);
+    }
+    return map;
+  }
+
   private async saveActions(jobId: string, actions: DocumentAction[]): Promise<void> {
     const client = this.getClient();
 
@@ -284,7 +317,9 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     }
 
     if (cursor) {
-      conditions.push(`created_at < (SELECT created_at FROM jobs WHERE id = $${paramIndex})`);
+      conditions.push(
+        `(created_at, id) < (SELECT created_at, id FROM jobs WHERE id = $${paramIndex})`,
+      );
       params.push(cursor);
       paramIndex++;
     }
@@ -299,17 +334,18 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     const query = `
       SELECT * FROM jobs
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY created_at DESC, id DESC
       LIMIT $1
     `;
 
     const result = await this.getClient().query(query, params);
-    const items = await Promise.all(
-      result.rows.map(async (row) => {
-        const actions = await this.loadActions(row.id as string);
-        const fields = await this.loadFields(row.id);
-        return Job.fromDb(row, fields, actions);
-      }),
+    const jobIds = result.rows.map((row) => row.id as string);
+    const [actionsMap, fieldsMap] = await Promise.all([
+      this.loadActionsBulk(jobIds),
+      this.loadFieldsBulk(jobIds),
+    ]);
+    const items = result.rows.map((row) =>
+      Job.fromDb(row, fieldsMap.get(row.id) ?? [], actionsMap.get(row.id) ?? []),
     );
     const nextCursor = items.length === limit ? items[items.length - 1].id : null;
 

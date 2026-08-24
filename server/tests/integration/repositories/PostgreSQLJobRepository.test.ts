@@ -118,6 +118,48 @@ describe('PostgreSQLJobRepository (integration)', () => {
     });
   });
 
+  it('listForUser paginates correctly across jobs sharing the exact same created_at', async () => {
+    await withRepositoryTransaction(async (repos) => {
+      // createBulk inserts every row in a single statement, so Postgres's NOW()
+      // gives them all an identical created_at — the scenario that broke cursor
+      // pagination (see issue #48).
+      const created = await repos.getJobs().createBulk(
+        Array.from({ length: 25 }, (_, i) => ({
+          documentId: i + 1,
+          jobType: WorkflowType.AUTOMATED,
+          fields: [],
+        })),
+      );
+
+      const seen: string[] = [];
+      let cursor: string | undefined;
+      for (let page = 0; page < 10 && (page === 0 || cursor); page++) {
+        const result = await repos.getJobs().listForUser(10, cursor);
+        seen.push(...result.items.map((j) => j.id));
+        cursor = result.nextCursor ?? undefined;
+        if (!result.nextCursor) break;
+      }
+
+      expect(new Set(seen)).toEqual(new Set(created.map((j) => j.id)));
+      expect(seen).toHaveLength(created.length);
+    });
+  });
+
+  it('listForUser attaches each job\'s own fields after the bulk lookup', async () => {
+    await withRepositoryTransaction(async (repos) => {
+      await repos.getJobs().createBulk([
+        { documentId: 1, jobType: WorkflowType.AUTOMATED, fields: ['title'] },
+        { documentId: 2, jobType: WorkflowType.AUTOMATED, fields: ['tags', 'correspondent'] },
+      ]);
+
+      const result = await repos.getJobs().listForUser(10);
+
+      const byDocumentId = new Map(result.items.map((j) => [j.documentId, j]));
+      expect(byDocumentId.get(1)!.fields.sort()).toEqual(['title']);
+      expect(byDocumentId.get(2)!.fields.sort()).toEqual(['correspondent', 'tags']);
+    });
+  });
+
   it('filterInProgressDocuments excludes documents whose jobs are all terminal', async () => {
     await withRepositoryTransaction(async (repos) => {
       const inProgress = await repos.getJobs().create('100', WorkflowType.AUTOMATED, []);
