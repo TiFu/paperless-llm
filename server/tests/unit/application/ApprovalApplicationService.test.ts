@@ -37,12 +37,13 @@ describe('ManualStepApplicationService', () => {
       const job = makeJob(JobState.PENDING_APPROVAL);
       const step = new ApprovalInteractionStep('step-1', job.id, StepStatus.WAITING);
       fakeUoW.repos.steps.getPendingManualSteps.mockResolvedValue([step]);
-      fakeUoW.repos.jobs.getById.mockResolvedValue(job);
+      fakeUoW.repos.jobs.getByIds.mockResolvedValue([job]);
       fakeUoW.repos.dms.getDocumentsByIds.mockResolvedValue([makeDocument()]);
       const service = new ManualStepApplicationService(makeFakeUoWFactory(fakeUoW), paperlessBaseUrl);
 
       const result = await service.listPendingApprovals(user, 50);
 
+      expect(fakeUoW.repos.jobs.getByIds).toHaveBeenCalledWith(['job-1']);
       expect(result.items).toHaveLength(1);
       expect(result.items[0]).toMatchObject({
         stepId: 'step-1',
@@ -59,7 +60,7 @@ describe('ManualStepApplicationService', () => {
       const fakeUoW = createFakeUoW(user);
       const step = new ApprovalInteractionStep('step-1', 'job-1', StepStatus.WAITING);
       fakeUoW.repos.steps.getPendingManualSteps.mockResolvedValue([step]);
-      fakeUoW.repos.jobs.getById.mockResolvedValue(null as never);
+      fakeUoW.repos.jobs.getByIds.mockResolvedValue([]);
       fakeUoW.repos.dms.getDocumentsByIds.mockResolvedValue([]);
       const service = new ManualStepApplicationService(makeFakeUoWFactory(fakeUoW), paperlessBaseUrl);
 

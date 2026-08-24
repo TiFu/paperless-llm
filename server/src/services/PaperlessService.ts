@@ -163,19 +163,37 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
    */
   async getDocumentsByIds(ids: number[]): Promise<IDocument[]> {
     // Remove duplicates and filter falsy
-    const docs: IDocument[] = [];
-    for (const id of ids) {
-      const numId = typeof id === 'string' ? parseInt(id, 10) : id;
-      if (!numId || isNaN(numId)) continue;
-      try {
-        const doc = await this.getDocument(numId);
-        docs.push(doc);
-      } catch (e) {
-        // Optionally log or skip missing documents
-        this.logger.warn({ id, error: e }, 'Failed to fetch document for enrichment');
-      }
+    const uniqueIds = [...new Set(
+      ids
+        .map((id) => (typeof id === 'string' ? parseInt(id, 10) : id))
+        .filter((id) => id && !isNaN(id)),
+    )];
+
+    if (uniqueIds.length === 0) {
+      return [];
     }
-    return docs;
+
+    this.logger.debug({ count: uniqueIds.length }, 'Bulk fetching documents from Paperless');
+
+    try {
+      const response = await this.client.get<PaperlessPaginatedResponse<PaperlessDocument>>(
+        '/api/documents/',
+        {
+          params: {
+            id__in: uniqueIds.join(','),
+            page_size: uniqueIds.length,
+          },
+        },
+      );
+
+      return await Promise.all(response.data.results.map((doc) => this.convertToIDocument(doc)));
+    } catch (error) {
+      this.logger.error({ error, api: 'getDocumentsByIds' });
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Paperless-NG API error: ${error.message}`, { cause: error });
+      }
+      throw error;
+    }
   }
 
   async getDocumentsByTag(
