@@ -1,6 +1,7 @@
 import { withRepositoryTransaction } from '../helpers/db.js';
 import { JobState } from '../../../src/domain/job/JobState.js';
 import { WorkflowType } from '../../../src/domain/workflows/WorkflowType.js';
+import { TitleUpdateAction } from '../../../src/domain/actions/TitleUpdateAction.js';
 
 describe('PostgreSQLJobRepository (integration)', () => {
   it('creates a job with its requested fields and reads it back via getById', async () => {
@@ -206,6 +207,38 @@ describe('PostgreSQLJobRepository (integration)', () => {
       const result = await repos.getJobs().getActiveJobsByDocumentIds([100, 200, 300]);
 
       expect(result.map(j => j.id)).toEqual([inProgress.id]);
+    });
+  });
+
+  it('getByIds groups actions and fields per job without cross-job leakage', async () => {
+    await withRepositoryTransaction(async (repos) => {
+      const created = await repos.getJobs().create('1', WorkflowType.AUTOMATED, ['title']);
+      const second = await repos.getJobs().create('2', WorkflowType.AUTOMATED, ['tags']);
+      // Re-fetch via getById: create() returns a Job with an empty in-memory
+      // fields array (even though the requested fields were persisted), and
+      // update() overwrites job_fields with whatever fields are in memory.
+      const first = await repos.getJobs().getById(created.id);
+      first.addDocumentActions([TitleUpdateAction.create(first.id, 'New Title', null)]);
+      await repos.getJobs().update(first);
+
+      const result = await repos.getJobs().getByIds([first.id, second.id]);
+
+      const byId = new Map(result.map((j) => [j.id, j]));
+      expect(byId.get(first.id)!.fields).toEqual(['title']);
+      expect(byId.get(first.id)!.documentActions).toHaveLength(1);
+      expect(byId.get(first.id)!.documentActions[0].newValue).toBe('New Title');
+      expect(byId.get(second.id)!.fields).toEqual(['tags']);
+      expect(byId.get(second.id)!.documentActions).toHaveLength(0);
+    });
+  });
+
+  it('getByIds omits ids with no matching job instead of throwing', async () => {
+    await withRepositoryTransaction(async (repos) => {
+      const job = await repos.getJobs().create('1', WorkflowType.AUTOMATED, []);
+
+      const result = await repos.getJobs().getByIds([job.id, '00000000-0000-0000-0000-000000000000']);
+
+      expect(result.map((j) => j.id)).toEqual([job.id]);
     });
   });
 });
