@@ -86,7 +86,7 @@ export async function createAppContext(processName: string): Promise<AppContext>
     tags: undefined,
     autoProcessTags: [],
   });
-  const cachedPaperlessService = new CachedPaperlessServiceAdapter(paperlessService, dmsCacheService);
+  const cachedPaperlessService = new CachedPaperlessServiceAdapter(paperlessService, dmsCacheService, config);
 
   const paperlessHealthy = await cachedPaperlessService.healthCheck();
   if (!paperlessHealthy) {

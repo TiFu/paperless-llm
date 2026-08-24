@@ -13,7 +13,7 @@ import { UserContext } from "../domain/auth/UserContext.js";
 import { PaperlessService } from "../services/PaperlessService.js";
 import { CachedPaperlessServiceAdapter } from "../services/CachedPaperlessServiceAdapter.js";
 import { DMSCacheService } from "../services/CacheService.js";
-import { IPaperlessConfig } from "../config/AppConfig.js";
+import { IPaperlessConfig, IWorkersConfig } from "../config/AppConfig.js";
 import { IPermissionsRepository } from "../domain/authorization/IPermissionsRepository.js";
 import { CachedPermissionsRepositoryAdapter } from "../domain/authorization/CachedPermissionsRepositoryAdapter.js";
 import { IWorkerExecutionRepository } from "../domain/workerExecution/IWorkerExecutionRepository.js";
@@ -86,7 +86,7 @@ interface UoWRegistryEntry<T> {
 export class UoWFactory {
     constructor(
         private readonly txManager: DatabaseTransactionContextFactory,
-        private readonly paperlessConfig: IPaperlessConfig,
+        private readonly paperlessConfig: IPaperlessConfig & IWorkersConfig,
         private readonly dmsCacheService: DMSCacheService,
     ) {}
 
@@ -135,7 +135,7 @@ export class UoWImplementation implements UoW {
 
     constructor(
         context: DBContextWithRepositoryFactory,
-        private dmsConfig: IPaperlessConfig,
+        private dmsConfig: IPaperlessConfig & IWorkersConfig,
         private dmsCacheService: DMSCacheService,
         user?: UserContext,
     ) {
@@ -159,7 +159,7 @@ export class UoWImplementation implements UoW {
             tags: this.dmsConfig.getTags(),
             autoProcessTags: this.dmsConfig.getAutoProcessTags(),
         });
-        return new CachedPaperlessServiceAdapter(paperlessService, this.dmsCacheService);
+        return new CachedPaperlessServiceAdapter(paperlessService, this.dmsCacheService, this.dmsConfig);
     }
 
     getStepExecutorDomainService(): StepExecutorDomainService {

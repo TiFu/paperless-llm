@@ -13,8 +13,8 @@ export interface Serializer<T> {
 
 export interface CacheService<T> {
   get(key: string): Promise<T | null>;
-  cache(key: string, object: T): Promise<void>;
-  cacheAll(objects: Array<{ key: string, object: T}>): Promise<void>;
+  cache(key: string, object: T, ttlSecondsOverride?: number): Promise<void>;
+  cacheAll(objects: Array<{ key: string, object: T}>, ttlSecondsOverride?: number): Promise<void>;
   getAll(key: string[]): Promise<(T | null)[]>;
   invalidate(key: string): Promise<void>;
 }
@@ -65,6 +65,9 @@ export class DMSCacheService {
   readonly tagCache: CacheService<ITag>;
   readonly correspondentCache: CacheService<ICorrespondent>
   readonly documentTypeCache: CacheService<IDocumentType>;
+  readonly tagByIdCache: CacheService<ITag>;
+  readonly correspondentByIdCache: CacheService<ICorrespondent>;
+  readonly documentTypeByIdCache: CacheService<IDocumentType>;
   readonly client: ReturnType<typeof createClient>;
   private readonly logger: pino.Logger;
 
@@ -105,6 +108,9 @@ export class DMSCacheService {
       this.tagCache = new RedisCacheService(this.client, config.ttlInSeconds, "tag", dmsSerializers.tag)
       this.correspondentCache = new RedisCacheService(this.client, config.ttlInSeconds, "correspondent", dmsSerializers.correspondent)
       this.documentTypeCache = new RedisCacheService(this.client, config.ttlInSeconds, "documentType", dmsSerializers.documentType)
+      this.tagByIdCache = new RedisCacheService(this.client, config.ttlInSeconds, "tagById", dmsSerializers.tag)
+      this.correspondentByIdCache = new RedisCacheService(this.client, config.ttlInSeconds, "correspondentById", dmsSerializers.correspondent)
+      this.documentTypeByIdCache = new RedisCacheService(this.client, config.ttlInSeconds, "documentTypeById", dmsSerializers.documentType)
   }
 
   /**
@@ -148,7 +154,7 @@ export class RedisCacheService<T> implements CacheService<T> {
   }
 
 
-  async cacheAll(objects: Array<{ key: string; object: T; }>): Promise<void> {
+  async cacheAll(objects: Array<{ key: string; object: T; }>, ttlSecondsOverride?: number): Promise<void> {
     if (objects.length == 0)
       return;
     if (!this.client.isReady) {
@@ -156,7 +162,7 @@ export class RedisCacheService<T> implements CacheService<T> {
     }
     const promises = [];
     for (const object of objects) {
-      promises.push(this.cache(object.key, object.object))
+      promises.push(this.cache(object.key, object.object, ttlSecondsOverride))
     }
     this.logger.info({ keys: objects.map(a => a.key)}, "Cached objects")
     return Promise.all(promises).then(() => {})
@@ -186,14 +192,14 @@ export class RedisCacheService<T> implements CacheService<T> {
       }
   }
 
-  async cache(keyValue: string, object: T): Promise<void> {
+  async cache(keyValue: string, object: T, ttlSecondsOverride?: number): Promise<void> {
       if (!this.client.isReady) {
         return;
       }
       try {
         const value = this.serializer.serialize(object);
         const key = this.getKey(keyValue);
-        await this.client.set(key, value, { EX: this.ttlInSeconds})
+        await this.client.set(key, value, { EX: ttlSecondsOverride ?? this.ttlInSeconds})
       } catch (err) {
         this.logger.warn({ err, key: keyValue }, "Cache write failed, falling back to pass-through");
       }

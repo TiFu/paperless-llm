@@ -1,13 +1,18 @@
 import { UoWImplementation, Saveable } from '../../../src/infrastructure/UoW.js';
 import { DBContextWithRepositoryFactory, RepositoryRegistry } from '../../../src/infrastructure/TransactionManager.js';
-import { IPaperlessConfig, RedisConfig } from '../../../src/config/AppConfig.js';
+import { IPaperlessConfig, IWorkersConfig, RedisConfig } from '../../../src/config/AppConfig.js';
 import { DMSCacheService, DMSSerializers } from '../../../src/services/CacheService.js';
 import { CachedPaperlessServiceAdapter } from '../../../src/services/CachedPaperlessServiceAdapter.js';
 
-const paperlessConfig: IPaperlessConfig = {
+const paperlessConfig: IPaperlessConfig & IWorkersConfig = {
   paperless: { url: 'https://paperless.example.com' },
   getTags: () => undefined,
   getAutoProcessTags: () => [],
+  workers: { instanceId: 'test' },
+  getStepExecution: () => ({ enabled: true, batchSize: 5, pollIntervalMs: 30000 }),
+  getStuckStepReset: () => ({ enabled: true, timeoutMs: 300000, checkIntervalMs: 30000 }),
+  getEntitySync: () => ({ enabled: true, pollIntervalMs: 900000 }),
+  getAutoQueue: () => ({ enabled: false, pollIntervalMs: 60000 }),
 };
 const redisConfig: RedisConfig = { host: 'localhost', port: 6379, username: '', password: '', db: 0, ttlInSeconds: 60 };
 
