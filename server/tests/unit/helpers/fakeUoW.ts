@@ -31,6 +31,7 @@ export function makeFakeJobRepo(): jest.Mocked<IJobRepository> {
     'create',
     'createBulk',
     'getById',
+    'getByIds',
     'update',
     'updateState',
     'listForUser',

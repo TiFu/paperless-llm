@@ -34,6 +34,14 @@ export interface IJobRepository {
   getById(id: string): Promise<Job>;
 
   /**
+   * Get multiple jobs by ID in a batch (avoids N+1 queries when hydrating a
+   * page of jobs). Jobs that don't exist are simply omitted from the result.
+   * @param ids Job IDs
+   * @returns Jobs found, in no particular order
+   */
+  getByIds(ids: string[]): Promise<Job[]>;
+
+  /**
    * Update job (state, data, and documentActions)
    * @param job The job to update with its current state, includign document actions
    */

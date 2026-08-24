@@ -66,14 +66,15 @@ export class ManualStepApplicationService {
       await using context = await this.uowFactory.createUoW(user);
       await context.start();
       const steps = await context.getSteps().getPendingManualSteps(limit, cursor);
-      const jobs = await Promise.all(steps.map((step) => context.getJobs().getById(step.getJobId())));
+      const jobs = await context.getJobs().getByIds(steps.map((step) => step.getJobId()));
+      const jobsById = new Map(jobs.map((job) => [job.id, job]));
       await context.save();
       await context.commit();
 
       const baseApprovalItems = [];
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
-        const job = jobs[i];
+        const job = jobsById.get(step.getJobId());
         if (!job) {
           this.logger.warn({ stepId: step.getStepId() }, 'Skipping approval item - missing job');
           continue;

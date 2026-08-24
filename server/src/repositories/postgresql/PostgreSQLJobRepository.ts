@@ -190,6 +190,28 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     return output
   }
 
+  async getByIds(ids: string[]): Promise<Job[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const query = `SELECT * FROM jobs WHERE id = ANY($1)`;
+    const result = await this.getClient().query(query, [ids]);
+
+    const [actionsByJobId, fieldsByJobId] = await Promise.all([
+      this.loadActionsBulk(ids),
+      this.loadFieldsBulk(ids),
+    ]);
+
+    const output = result.rows.map((row) => Job.fromDb(
+      row,
+      fieldsByJobId.get(row.id as string) ?? [],
+      actionsByJobId.get(row.id as string) ?? [],
+    ));
+    this.uow.registerAll<Job>(output, this);
+    return output;
+  }
+
   private async saveFieldsBulk(fields: Array<{jobId: string, fields: DocumentField[]}>): Promise<void> {
     const paramArray = fields.map((e) => {
       return e.fields.map(f => [e.jobId, f]) as string[][];

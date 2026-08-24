@@ -32,6 +32,29 @@ describe('PostgreSQLJobRepository (integration)', () => {
     });
   });
 
+  it('getByIds batches multiple jobs and their fields in one call', async () => {
+    await withRepositoryTransaction(async (repos) => {
+      const first = await repos.getJobs().create('1', WorkflowType.AUTOMATED, ['title']);
+      const second = await repos.getJobs().create('2', WorkflowType.APPROVAL, ['tags', 'correspondent']);
+      const third = await repos.getJobs().create('3', WorkflowType.AUTOMATED, []);
+
+      const result = await repos.getJobs().getByIds([second.id, first.id]);
+
+      expect(result).toHaveLength(2);
+      const byId = new Map(result.map((j) => [j.id, j]));
+      expect(byId.get(first.id)?.fields.sort()).toEqual(['title']);
+      expect(byId.get(second.id)?.fields.sort()).toEqual(['correspondent', 'tags']);
+      expect(byId.has(third.id)).toBe(false);
+    });
+  });
+
+  it('getByIds returns an empty array for an empty id list without querying', async () => {
+    await withRepositoryTransaction(async (repos) => {
+      const result = await repos.getJobs().getByIds([]);
+      expect(result).toEqual([]);
+    });
+  });
+
   it('update persists state, completedAt, and document actions', async () => {
     await withRepositoryTransaction(async (repos) => {
       const job = await repos.getJobs().create('1', WorkflowType.AUTOMATED, ['title']);

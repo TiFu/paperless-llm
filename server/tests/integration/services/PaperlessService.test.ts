@@ -185,6 +185,20 @@ describe('PaperlessService (integration)', () => {
       expect(docs.map((d) => d.id)).toContain(documentId);
     });
 
+    it('getDocumentsByIds batches multiple ids into a single lookup and silently omits missing ones', async () => {
+      const first = await seedDocument(uniqueName('Integration Test Document'));
+      const second = await seedDocument(uniqueName('Integration Test Document'));
+
+      const docs = await service.getDocumentsByIds([first, second, 999_999_999]);
+
+      expect(docs.map((d) => d.id).sort()).toEqual([first, second].sort());
+    });
+
+    it('getDocumentsByIds returns an empty array for an empty id list', async () => {
+      const docs = await service.getDocumentsByIds([]);
+      expect(docs).toEqual([]);
+    });
+
     it('getDocumentsByTag returns documents tagged with the given tag', async () => {
       const tagName = uniqueName('integration-tag');
       const tagId = await seedTag(tagName);
