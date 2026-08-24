@@ -2309,13 +2309,9 @@ components:
         title:
           type: string
           example: "Invoice 2026-05-11"
-        content:
-          type: string
-          description: Full text content of the document
       required:
         - id
         - title
-        - content
 
     Tag:
       type: object

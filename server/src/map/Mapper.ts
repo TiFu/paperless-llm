@@ -146,7 +146,6 @@ export class AppMapper {
     return {
       id: dto.id,
       title: dto.title ?? '',
-      content: dto.content,
     };
   }
 

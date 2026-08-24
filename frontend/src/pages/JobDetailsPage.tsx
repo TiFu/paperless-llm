@@ -170,20 +170,17 @@ export const JobDetailsPage: React.FC = () => {
                     <TableCell sx={{ fontFamily: 'monospace' }}>{job.id}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Document ID</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Document</TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {job.documentId}
-                        <Link
-                          href={job.paperlessUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                        >
-                          View in Paperless
-                          <OpenInNewIcon fontSize="inherit" />
-                        </Link>
-                      </Box>
+                      <Link
+                        href={job.paperlessUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                      >
+                        View in Paperless
+                        <OpenInNewIcon fontSize="inherit" />
+                      </Link>
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -246,26 +243,6 @@ export const JobDetailsPage: React.FC = () => {
                     <TableRow>
                       <TableCell sx={{ fontWeight: 'bold' }}>Title</TableCell>
                       <TableCell>{document.title || '(No title)'}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Content Preview</TableCell>
-                      <TableCell>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            maxHeight: 150,
-                            overflow: 'auto',
-                            fontFamily: 'monospace',
-                            fontSize: '0.75rem',
-                            bgcolor: 'grey.50',
-                            p: 1,
-                            borderRadius: 1,
-                          }}
-                        >
-                          {document.content.substring(0, 500)}
-                          {document.content.length > 500 && '...'}
-                        </Typography>
-                      </TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>

@@ -6,10 +6,11 @@ import { LogArea } from "../utils/LogArea.js";
 import { AuditLogEntry } from "../domain/audit/AuditLogEntry.js";
 import { UoWFactory } from "../infrastructure/UoW.js";
 import pino from "pino";
-import { IDocument } from '../domain/document/IDocument.js';
 import { enrichAllWithDocument } from './util/documentEnrichment.js';
 import { DocumentActionFactory } from '../domain/actions/DocumentActionFactory.js';
 import { UserContext } from '../domain/auth/UserContext.js';
+import { AppMapper } from '../map/Mapper.js';
+import { Document } from '../web/dtos/models/Document.js';
 
 export interface ApprovalItem {
   stepId: string;
@@ -27,7 +28,7 @@ export interface ApprovalItem {
   }>;
   possibleDecisions: string[];
   createdAt: Date;
-  document: IDocument | null;
+  document: Document | null;
 }
 
 export interface ApprovalStats {
@@ -98,7 +99,11 @@ export class ManualStepApplicationService {
         });
       }
       const dms = await context.getDMS();
-      const approvalItems: ApprovalItem[] = await enrichAllWithDocument(baseApprovalItems, dms);
+      const enrichedItems = await enrichAllWithDocument(baseApprovalItems, dms);
+      const approvalItems: ApprovalItem[] = enrichedItems.map(item => ({
+        ...item,
+        document: item.document ? AppMapper.toDocument(item.document) : null,
+      }));
       const nextCursor = approvalItems.length > 0
         ? encodeCursor({ stepId: approvalItems[approvalItems.length - 1].stepId })
         : null;
