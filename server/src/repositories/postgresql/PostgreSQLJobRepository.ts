@@ -382,12 +382,13 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     `;
 
     const result = await this.getClient().query(query, [documentId]);
-    return Promise.all(
-      result.rows.map(async (row) => {
-        const actions = await this.loadActions(row.id as string);
-        const fields = await this.loadFields(row.id as string);
-        return Job.fromDb(row, fields, actions);
-      }),
+    const jobIds = result.rows.map((row) => row.id as string);
+    const [actionsMap, fieldsMap] = await Promise.all([
+      this.loadActionsBulk(jobIds),
+      this.loadFieldsBulk(jobIds),
+    ]);
+    return result.rows.map((row) =>
+      Job.fromDb(row, fieldsMap.get(row.id) ?? [], actionsMap.get(row.id) ?? []),
     );
   }
 
@@ -403,12 +404,13 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     `;
 
     const result = await this.getClient().query(query, [documentIds]);
-    return Promise.all(
-      result.rows.map(async (row) => {
-        const actions = await this.loadActions(row.id as string);
-        const fields = await this.loadFields(row.id as string);
-        return Job.fromDb(row, fields, actions);
-      }),
+    const jobIds = result.rows.map((row) => row.id as string);
+    const [actionsMap, fieldsMap] = await Promise.all([
+      this.loadActionsBulk(jobIds),
+      this.loadFieldsBulk(jobIds),
+    ]);
+    return result.rows.map((row) =>
+      Job.fromDb(row, fieldsMap.get(row.id) ?? [], actionsMap.get(row.id) ?? []),
     );
   }
 
