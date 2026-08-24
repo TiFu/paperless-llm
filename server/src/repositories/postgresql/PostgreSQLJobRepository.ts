@@ -198,8 +198,10 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     const query = `SELECT * FROM jobs WHERE id = ANY($1)`;
     const result = await this.getClient().query(query, [ids]);
 
-    const actionsByJobId = await this.loadActionsBulk(ids);
-    const fieldsByJobId = await this.loadFieldsBulk(ids);
+    const [actionsByJobId, fieldsByJobId] = await Promise.all([
+      this.loadActionsBulk(ids),
+      this.loadFieldsBulk(ids),
+    ]);
 
     const output = result.rows.map((row) => Job.fromDb(
       row,
@@ -207,38 +209,6 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
       actionsByJobId.get(row.id as string) ?? [],
     ));
     this.uow.registerAll<Job>(output, this);
-    return output;
-  }
-
-  private async loadActionsBulk(jobIds: string[]): Promise<Map<string, DocumentAction[]>> {
-    const query = `
-      SELECT * FROM document_actions
-      WHERE job_id = ANY($1)
-      ORDER BY created_at DESC
-    `;
-
-    const result = await this.getClient().query(query, [jobIds]);
-    const output = new Map<string, DocumentAction[]>();
-    for (const row of result.rows) {
-      const jobId = row.job_id as string;
-      const actions = output.get(jobId) ?? [];
-      actions.push(DocumentActionFactory.fromDb(row));
-      output.set(jobId, actions);
-    }
-    return output;
-  }
-
-  private async loadFieldsBulk(jobIds: string[]): Promise<Map<string, DocumentField[]>> {
-    const query = `SELECT * FROM job_fields WHERE job_id = ANY($1)`;
-    const result = await this.getClient().query(query, [jobIds]);
-
-    const output = new Map<string, DocumentField[]>();
-    for (const row of result.rows) {
-      const jobId = row.job_id as string;
-      const fields = output.get(jobId) ?? [];
-      fields.push(row.field as DocumentField);
-      output.set(jobId, fields);
-    }
     return output;
   }
 
