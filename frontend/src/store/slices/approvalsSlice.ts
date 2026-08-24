@@ -3,6 +3,12 @@ import { apiClient } from '../../services/api/api';
 import { ApprovalItem } from '../../services/api/generated/models/ApprovalItem';
 import { approvalProcessed } from './statsSlice';
 
+interface Snackbar {
+  open: boolean;
+  message: string;
+  severity: 'success' | 'error';
+}
+
 interface ApprovalsState {
   approvals: ApprovalItem[];
   stats: { pendingCount: number } | null;
@@ -11,6 +17,7 @@ interface ApprovalsState {
   loadingMore: boolean;
   error: string | null;
   successMessage: string | null;
+  snackbar: Snackbar;
 }
 
 const initialState: ApprovalsState = {
@@ -21,6 +28,7 @@ const initialState: ApprovalsState = {
   loadingMore: false,
   error: null,
   successMessage: null,
+  snackbar: { open: false, message: '', severity: 'error' },
 };
 
 export const fetchApprovals = createAsyncThunk<
@@ -74,6 +82,9 @@ const approvalsSlice = createSlice({
     clearError(state) {
       state.error = null;
     },
+    closeSnackbar(state) {
+      state.snackbar.open = false;
+    },
   },
   extraReducers(builder) {
     builder
@@ -103,6 +114,11 @@ const approvalsSlice = createSlice({
         state.loading = false;
         state.loadingMore = false;
         state.error = action.error.message ?? 'Failed to fetch approvals';
+        state.snackbar = {
+          open: true,
+          message: action.error.message ?? 'Failed to fetch approvals',
+          severity: 'error',
+        };
       })
       .addCase(processApprovalDecision.fulfilled, (state, action) => {
         state.approvals = state.approvals.filter((a) => a.stepId !== action.payload.stepId);
@@ -112,5 +128,5 @@ const approvalsSlice = createSlice({
   },
 });
 
-export const { clearSuccessMessage, clearError } = approvalsSlice.actions;
+export const { clearSuccessMessage, clearError, closeSnackbar } = approvalsSlice.actions;
 export default approvalsSlice.reducer;

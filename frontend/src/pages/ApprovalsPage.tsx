@@ -7,6 +7,7 @@ import {
   Alert,
   Button,
   Paper,
+  Snackbar,
 } from '@mui/material';
 import { ApprovalCard } from '../components/ApprovalCard';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -14,6 +15,7 @@ import {
   fetchApprovals,
   processApprovalDecision,
   clearSuccessMessage,
+  closeSnackbar,
 } from '../store/slices/approvalsSlice';
 
 export const ApprovalsPage: React.FC = () => {
@@ -25,6 +27,7 @@ export const ApprovalsPage: React.FC = () => {
   const error = useAppSelector((state) => state.approvals.error);
   const nextCursor = useAppSelector((state) => state.approvals.nextCursor);
   const successMessage = useAppSelector((state) => state.approvals.successMessage);
+  const snackbar = useAppSelector((state) => state.approvals.snackbar);
 
   useEffect(() => {
     dispatch(fetchApprovals());
@@ -123,6 +126,17 @@ export const ApprovalsPage: React.FC = () => {
           )}
         </>
       )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => dispatch(closeSnackbar())}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => dispatch(closeSnackbar())} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
