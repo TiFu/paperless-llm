@@ -18,6 +18,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Snackbar,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { JobState } from '../services/api/generated/models/JobState';
@@ -26,6 +27,7 @@ import {
   fetchJobs,
   setStateFilter,
   selectHasActiveJobs,
+  closeSnackbar,
 } from '../store/slices/jobsSlice';
 
 const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
@@ -59,7 +61,9 @@ export const JobsPage: React.FC = () => {
   const nextCursor = useAppSelector((state) => state.jobs.list.nextCursor);
   const stateFilter = useAppSelector((state) => state.jobs.list.stateFilter);
   const loading = useAppSelector((state) => state.jobs.list.loading);
+  const loadingMore = useAppSelector((state) => state.jobs.list.loadingMore);
   const error = useAppSelector((state) => state.jobs.list.error);
+  const snackbar = useAppSelector((state) => state.jobs.list.snackbar);
   const hasLoadedMore = useAppSelector((state) => state.jobs.list.hasLoadedMore);
   const hasActiveJobs = useAppSelector(selectHasActiveJobs);
 
@@ -196,14 +200,25 @@ export const JobsPage: React.FC = () => {
                 <Button
                   variant="contained"
                   onClick={handleLoadMore}
-                  disabled={loading}
+                  disabled={loadingMore}
                 >
-                  {loading ? <CircularProgress size={24} /> : 'Load More'}
+                  {loadingMore ? <CircularProgress size={24} /> : 'Load More'}
                 </Button>
               </Box>
             )}
           </>
         )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => dispatch(closeSnackbar())}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => dispatch(closeSnackbar())} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

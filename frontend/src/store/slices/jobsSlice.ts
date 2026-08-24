@@ -8,13 +8,21 @@ import type { RootState } from '../store';
 
 export const TERMINAL_STATES = [JobState.completed, JobState.failed, JobState.rejected];
 
+interface Snackbar {
+  open: boolean;
+  message: string;
+  severity: 'success' | 'error';
+}
+
 interface JobListState {
   jobs: JobResponse[];
   nextCursor: string | null;
   stateFilter: JobState | '';
   loading: boolean;
+  loadingMore: boolean;
   error: string | null;
   hasLoadedMore: boolean;
+  snackbar: Snackbar;
 }
 
 interface JobDetailState {
@@ -37,8 +45,10 @@ const initialState: JobsState = {
     nextCursor: null,
     stateFilter: '',
     loading: false,
+    loadingMore: false,
     error: null,
     hasLoadedMore: false,
+    snackbar: { open: false, message: '', severity: 'error' },
   },
   detail: {
     job: null,
@@ -95,12 +105,17 @@ const jobsSlice = createSlice({
     clearJobDetails(state) {
       state.detail = initialState.detail;
     },
+    closeSnackbar(state) {
+      state.list.snackbar.open = false;
+    },
   },
   extraReducers(builder) {
     // List
     builder
       .addCase(fetchJobs.pending, (state, action) => {
-        if (!action.meta.arg.append) {
+        if (action.meta.arg.append) {
+          state.list.loadingMore = true;
+        } else {
           state.list.loading = true;
           state.list.hasLoadedMore = false;
         }
@@ -108,6 +123,7 @@ const jobsSlice = createSlice({
       })
       .addCase(fetchJobs.fulfilled, (state, action) => {
         state.list.loading = false;
+        state.list.loadingMore = false;
         const { response, append } = action.payload;
         if (append) {
           state.list.jobs = [...state.list.jobs, ...response.jobs];
@@ -120,7 +136,13 @@ const jobsSlice = createSlice({
       })
       .addCase(fetchJobs.rejected, (state, action) => {
         state.list.loading = false;
+        state.list.loadingMore = false;
         state.list.error = action.error.message ?? 'Failed to fetch jobs';
+        state.list.snackbar = {
+          open: true,
+          message: action.error.message ?? 'Failed to fetch jobs',
+          severity: 'error',
+        };
       });
 
     // Detail
@@ -153,7 +175,7 @@ const jobsSlice = createSlice({
   },
 });
 
-export const { setStateFilter, setAutoRefresh, clearJobDetails } = jobsSlice.actions;
+export const { setStateFilter, setAutoRefresh, clearJobDetails, closeSnackbar } = jobsSlice.actions;
 
 export const selectHasActiveJobs = (state: RootState) =>
   state.jobs.list.jobs.some((job) => !TERMINAL_STATES.includes(job.status));

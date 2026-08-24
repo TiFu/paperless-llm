@@ -18,6 +18,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Snackbar,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { WorkerType } from '../services/api/generated/models/WorkerType';
@@ -28,6 +29,7 @@ import {
   setWorkerTypeFilter,
   setStatusFilter,
   selectHasRunningExecutions,
+  closeSnackbar,
 } from '../store/slices/workerExecutionsSlice';
 
 const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
@@ -54,7 +56,9 @@ export const WorkerExecutionsPage: React.FC = () => {
   const workerTypeFilter = useAppSelector((state) => state.workerExecutions.list.workerTypeFilter);
   const statusFilter = useAppSelector((state) => state.workerExecutions.list.statusFilter);
   const loading = useAppSelector((state) => state.workerExecutions.list.loading);
+  const loadingMore = useAppSelector((state) => state.workerExecutions.list.loadingMore);
   const error = useAppSelector((state) => state.workerExecutions.list.error);
+  const snackbar = useAppSelector((state) => state.workerExecutions.list.snackbar);
   const hasLoadedMore = useAppSelector((state) => state.workerExecutions.list.hasLoadedMore);
   const hasRunningExecutions = useAppSelector(selectHasRunningExecutions);
 
@@ -195,13 +199,24 @@ export const WorkerExecutionsPage: React.FC = () => {
 
           {nextCursor && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-              <Button variant="contained" onClick={handleLoadMore} disabled={loading}>
-                {loading ? <CircularProgress size={24} /> : 'Load More'}
+              <Button variant="contained" onClick={handleLoadMore} disabled={loadingMore}>
+                {loadingMore ? <CircularProgress size={24} /> : 'Load More'}
               </Button>
             </Box>
           )}
         </>
       )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => dispatch(closeSnackbar())}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => dispatch(closeSnackbar())} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

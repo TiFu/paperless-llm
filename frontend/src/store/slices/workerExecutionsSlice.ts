@@ -6,14 +6,22 @@ import { WorkerType } from '../../services/api/generated/models/WorkerType';
 import { WorkerExecutionStatus } from '../../services/api/generated/models/WorkerExecutionStatus';
 import type { RootState } from '../store';
 
+interface Snackbar {
+  open: boolean;
+  message: string;
+  severity: 'success' | 'error';
+}
+
 interface WorkerExecutionListState {
   executions: WorkerExecutionSummary[];
   nextCursor: string | null;
   workerTypeFilter: WorkerType | '';
   statusFilter: WorkerExecutionStatus | '';
   loading: boolean;
+  loadingMore: boolean;
   error: string | null;
   hasLoadedMore: boolean;
+  snackbar: Snackbar;
 }
 
 interface WorkerExecutionDetailState {
@@ -36,8 +44,10 @@ const initialState: WorkerExecutionsState = {
     workerTypeFilter: '',
     statusFilter: '',
     loading: false,
+    loadingMore: false,
     error: null,
     hasLoadedMore: false,
+    snackbar: { open: false, message: '', severity: 'error' },
   },
   detail: {
     execution: null,
@@ -95,12 +105,17 @@ const workerExecutionsSlice = createSlice({
     clearWorkerExecutionDetails(state) {
       state.detail = initialState.detail;
     },
+    closeSnackbar(state) {
+      state.list.snackbar.open = false;
+    },
   },
   extraReducers(builder) {
     // List
     builder
       .addCase(fetchWorkerExecutions.pending, (state, action) => {
-        if (!action.meta.arg.append) {
+        if (action.meta.arg.append) {
+          state.list.loadingMore = true;
+        } else {
           state.list.loading = true;
           state.list.hasLoadedMore = false;
         }
@@ -108,6 +123,7 @@ const workerExecutionsSlice = createSlice({
       })
       .addCase(fetchWorkerExecutions.fulfilled, (state, action) => {
         state.list.loading = false;
+        state.list.loadingMore = false;
         const { response, append } = action.payload;
         if (append) {
           state.list.executions = [...state.list.executions, ...response.executions];
@@ -120,7 +136,13 @@ const workerExecutionsSlice = createSlice({
       })
       .addCase(fetchWorkerExecutions.rejected, (state, action) => {
         state.list.loading = false;
+        state.list.loadingMore = false;
         state.list.error = action.error.message ?? 'Failed to fetch worker executions';
+        state.list.snackbar = {
+          open: true,
+          message: action.error.message ?? 'Failed to fetch worker executions',
+          severity: 'error',
+        };
       });
 
     // Detail
@@ -152,7 +174,7 @@ const workerExecutionsSlice = createSlice({
   },
 });
 
-export const { setWorkerTypeFilter, setStatusFilter, setAutoRefresh, clearWorkerExecutionDetails } =
+export const { setWorkerTypeFilter, setStatusFilter, setAutoRefresh, clearWorkerExecutionDetails, closeSnackbar } =
   workerExecutionsSlice.actions;
 
 export const selectHasRunningExecutions = (state: RootState) =>
