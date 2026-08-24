@@ -9,6 +9,7 @@ import { UoWFactory } from "../infrastructure/UoW.js";
 import { UserContext } from "../domain/auth/UserContext.js";
 import { DocumentEnriched, enrichAllWithDocument, enrichWithDocument } from "./util/documentEnrichment.js";
 import { ApiError } from "../api/middleware/errorHandler.js";
+import { StepTimer } from "../utils/timing.js";
 
 export interface JobStats {
   pending: number;
@@ -144,22 +145,18 @@ export class JobApplicationService {
   ): Promise<{ items: DocumentEnriched<Job>[]; nextCursor: string | null }> {
     const logger = getLogger();
     try {
-      const start = Date.now();
+      const timer = new StepTimer();
 
       await using context = await this.uowFactory.createUoW(user);
       await context.start();
       const result = await context.getJobs().listForUser(limit, cursor, state);
       const dms = await context.getDMS();
       await context.commit();
+      timer.mark('joblist');
 
-      const end2 = Date.now();
       const output = await enrichAllWithDocument(result.items, dms);
-      const end3 = Date.now();
-      logger.info({
-        joblistMs: end2 - start,
-        documentMs: end3 - end2,
-        totalMs: end3 - start,
-      }, 'Time measurement for job list');
+      timer.mark('document');
+      logger.info(timer.finish(), 'Time measurement for job list');
       return { items: output, nextCursor: result.nextCursor };
     } catch (error) {
       logger.error({ error, limit, cursor, state }, 'Failed to list jobs');

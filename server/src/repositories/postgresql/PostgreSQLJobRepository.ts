@@ -8,6 +8,7 @@ import { DocumentActionFactory } from '../../domain/actions/DocumentActionFactor
 import { DocumentField } from '../../domain/steps/StepFactory.js';
 import { createChildLogger } from '../../utils/logger.js';
 import { LogArea } from '../../utils/LogArea.js';
+import { StepTimer } from '../../utils/timing.js';
 import pino from 'pino';
 import { Saveable, UoW } from '../../infrastructure/UoW.js';
 
@@ -325,7 +326,9 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     cursor?: string,
     state?: JobState,
   ): Promise<{ items: Job[]; nextCursor: string | null }> {
+    const timer = new StepTimer();
     const allowedIds = await this.resolveAllowedJobIds();
+    timer.mark('permissions');
     if (allowedIds !== null && allowedIds.length === 0) return { items: [], nextCursor: null };
 
     const conditions: string[] = [];
@@ -361,16 +364,19 @@ export class PostgreSQLJobRepository implements IJobRepository, Saveable<Job> {
     `;
 
     const result = await this.getClient().query(query, params);
+    timer.mark('query');
     const jobIds = result.rows.map((row) => row.id as string);
     const [actionsMap, fieldsMap] = await Promise.all([
       this.loadActionsBulk(jobIds),
       this.loadFieldsBulk(jobIds),
     ]);
+    timer.mark('bulkLoad');
     const items = result.rows.map((row) =>
       Job.fromDb(row, fieldsMap.get(row.id) ?? [], actionsMap.get(row.id) ?? []),
     );
     const nextCursor = items.length === limit ? items[items.length - 1].id : null;
 
+    this.logger.debug(timer.finish(), 'Time measurement for listForUser');
     return { items, nextCursor };
   }
 

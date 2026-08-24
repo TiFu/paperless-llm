@@ -3,6 +3,7 @@ import { UserContext } from '../domain/auth/UserContext.js';
 import { IDocument } from '../domain/document/IDocument.js';
 import { ITag, ICorrespondent, IDocumentType } from '../domain/document/IDocumentEntities.js';
 import { getLogger } from '../utils/logger.js';
+import { StepTimer } from '../utils/timing.js';
 
 export type EntityValueType = 'tag' | 'correspondent' | 'document_type';
 
@@ -40,15 +41,18 @@ export class DocumentApplicationService {
       const documents: DocumentWithStatus[] = [];
       let nextCursor: string | undefined = cursor;
       let pagesFetched = 0;
+      const timer = new StepTimer();
 
       for (;;) {
         const paginatedResult = await dms.getDocumentsByTag(tag, limit, nextCursor);
         pagesFetched++;
+        timer.mark(`dms${pagesFetched}`);
 
         const documentIds = paginatedResult.documents.map(doc => doc.id);
         const inProgressIds = documentIds.length > 0
           ? await jobs.filterInProgressDocuments(documentIds)
           : [];
+        timer.mark(`filter${pagesFetched}`);
 
         const pageDocuments = paginatedResult.documents.map(doc => ({
           ...doc,
@@ -65,6 +69,7 @@ export class DocumentApplicationService {
       }
 
       await context.commit();
+      logger.info({ ...timer.finish(), pagesFetched }, 'Time measurement for document list');
       return { documents, nextCursor: nextCursor ?? null };
     } catch (error) {
       logger.error({ error, tag }, 'Failed to fetch documents');

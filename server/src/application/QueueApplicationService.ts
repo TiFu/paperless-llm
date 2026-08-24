@@ -3,6 +3,7 @@ import { StepStatus } from '../domain/steps/IStep.js';
 import { StepWithJob } from '../domain/steps/IStepRepository.js';
 import { UoWFactory } from '../infrastructure/UoW.js';
 import { getLogger } from '../utils/logger.js';
+import { StepTimer } from '../utils/timing.js';
 import { DocumentEnriched, enrichAllWithDocument } from './util/documentEnrichment.js';
 import { UserContext } from '../domain/auth/UserContext.js';
 import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
@@ -94,6 +95,7 @@ export class QueueApplicationService {
     const logger = getLogger();
 
     try {
+      const timer = new StepTimer();
       await using context = await this.uowFactory.createUoW(user);
       await context.start();
 
@@ -101,6 +103,7 @@ export class QueueApplicationService {
       logger.info({ limit, cursor, stepStatus }, 'Requesting automated steps for queue');
       const result = await context.getSteps().listAutomatedStepsWithJob(limit, cursor, stepStatus);
       const dms = await context.getDMS()
+      timer.mark('stepsQuery');
 
       const items = result.items.map((step) => this.mapStepToQueueItem(step));
 
@@ -120,10 +123,13 @@ export class QueueApplicationService {
           item.auditLog = auditLogByStepId.get(item.id) ?? [];
         }
       }
+      timer.mark('auditLog');
 
       await context.commit();
 
       const enrichedItems = await enrichAllWithDocument(items, dms);
+      timer.mark('enrich');
+      logger.info(timer.finish(), 'Time measurement for queue items list');
 
       return {
         items: enrichedItems,
