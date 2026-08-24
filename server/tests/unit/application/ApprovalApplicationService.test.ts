@@ -51,7 +51,7 @@ describe('ManualStepApplicationService', () => {
         paperlessUrl: `${paperlessBaseUrl}/documents/1`,
         possibleDecisions: ['APPROVED', 'REJECTED'],
       });
-      expect(result.items[0].document).toEqual(makeDocument());
+      expect(result.items[0].document).toEqual({ id: 1, title: 'Doc' });
       expect(result.nextCursor).not.toBeNull();
     });
 
