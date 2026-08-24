@@ -16,13 +16,6 @@ import {
 } from '@mui/material';
 import { DocumentListItem } from '../services/api/generated/models/DocumentListItem';
 
-const CONTENT_PREVIEW_LENGTH = 150;
-
-function truncateContent(content: string, maxLength: number): string {
-  if (content.length <= maxLength) return content;
-  return content.slice(0, maxLength).trimEnd() + '…';
-}
-
 interface DocumentListProps {
   documents: DocumentListItem[];
   selectedIds: number[];
@@ -83,7 +76,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                 <TableCell>ID</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Title</TableCell>
-                <TableCell sx={{ maxWidth: 400 }}>Content</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -106,11 +98,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                       {doc.inProgress && <Chip size="small" color="warning" label="In progress" />}
                     </TableCell>
                     <TableCell>{doc.title || '(No Title)'}</TableCell>
-                    <TableCell sx={{ maxWidth: 400 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {truncateContent(doc.content, CONTENT_PREVIEW_LENGTH)}
-                      </Typography>
-                    </TableCell>
                   </TableRow>
                 );
               })}
