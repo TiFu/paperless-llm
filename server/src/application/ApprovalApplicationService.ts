@@ -3,6 +3,7 @@ import { ManualStep } from "../domain/steps/userinteraction/ManualStep.js";
 import { Cursor, encodeCursor } from "../domain/common/Cursor.js";
 import { createChildLogger } from "../utils/logger.js";
 import { LogArea } from "../utils/LogArea.js";
+import { StepTimer } from "../utils/timing.js";
 import { AuditLogEntry } from "../domain/audit/AuditLogEntry.js";
 import { UoWFactory } from "../infrastructure/UoW.js";
 import pino from "pino";
@@ -64,11 +65,14 @@ export class ManualStepApplicationService {
     cursor?: Cursor
   ): Promise<{ items: ApprovalItem[]; nextCursor: string | null }> {
     try {
+      const timer = new StepTimer();
       await using context = await this.uowFactory.createUoW(user);
       await context.start();
       const steps = await context.getSteps().getPendingManualSteps(limit, cursor);
+      timer.mark('pendingSteps');
       const jobs = await context.getJobs().getByIds(steps.map((step) => step.getJobId()));
       const jobsById = new Map(jobs.map((job) => [job.id, job]));
+      timer.mark('jobFetch');
       await context.save();
       await context.commit();
 
@@ -104,10 +108,12 @@ export class ManualStepApplicationService {
         ...item,
         document: item.document ? AppMapper.toDocument(item.document) : null,
       }));
+      timer.mark('enrich');
       const nextCursor = approvalItems.length > 0
         ? encodeCursor({ stepId: approvalItems[approvalItems.length - 1].stepId })
         : null;
 
+      this.logger.info(timer.finish(), 'Time measurement for approvals list');
       return { items: approvalItems, nextCursor };
     } catch (error) {
       this.logger.error({ error }, 'Failed to list pending approvals');
