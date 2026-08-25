@@ -25,11 +25,26 @@ import { Link as RouterLink } from 'react-router-dom';
 import {
   Refresh as RefreshIcon,
   Cancel as CancelIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { QueueItem } from '../services/api/generated/models/QueueItem';
 import { WorkItemStatus } from '../services/api/generated/models/WorkItemStatus';
 import { JobState } from '../services/api/generated/models/JobState';
+import { StepExecutedEntry } from '../services/api/generated/models/StepExecutedEntry';
 import { apiClient } from '../services/api/api';
+import { StepDetailsDialog } from './StepDetailsDialog';
+
+/**
+ * Finds the most recent failed step-execution message for a queue item, if any.
+ * Entries are ordered newest-first (per the audit log repository's query), so the
+ * first matching STEP_EXECUTED failure is the most recent one.
+ */
+const getLastErrorMessage = (item: QueueItem): string | null => {
+  const failedExecution = item.auditLog?.find(
+    (entry): entry is StepExecutedEntry => entry.eventType === 'STEP_EXECUTED' && entry.success === false
+  );
+  return failedExecution?.message ?? null;
+};
 
 interface AutomatedStepsItemsTableProps {
   items: QueueItem[];
@@ -65,6 +80,7 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
   const [processingStepId, setProcessingStepId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [detailsItem, setDetailsItem] = useState<QueueItem | null>(null);
 
   const handleStatusChange = (event: { target: { value: string } }) => {
     const value = event.target.value as WorkItemStatus | '';
@@ -169,6 +185,7 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
                 <TableCell>Step Type</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Job State</TableCell>
+                <TableCell>Last Error</TableCell>
                 <TableCell>Created At</TableCell>
                 <TableCell>Updated At</TableCell>
                 <TableCell>Actions</TableCell>
@@ -176,7 +193,7 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
             </TableHead>
             <TableBody>
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
                   {loading ? (
                     <CircularProgress size={24} />
                   ) : (
@@ -229,13 +246,16 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
               <TableCell>Step Type</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Job State</TableCell>
+              <TableCell>Last Error</TableCell>
               <TableCell>Created At</TableCell>
               <TableCell>Updated At</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map((item) => (
+            {items.map((item) => {
+              const lastErrorMessage = getLastErrorMessage(item);
+              return (
               <TableRow key={item.id}>
                 <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                   <Link
@@ -263,37 +283,61 @@ export const AutomatedStepsItemsTable: React.FC<AutomatedStepsItemsTableProps> =
                 <TableCell>
                   <Chip label={item.jobState} color={getJobStateColor(item.jobState)} size="small" />
                 </TableCell>
+                <TableCell sx={{ maxWidth: 240 }}>
+                  {lastErrorMessage && (
+                    <Tooltip title={lastErrorMessage}>
+                      <Typography
+                        variant="body2"
+                        color="error"
+                        noWrap
+                        sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      >
+                        {lastErrorMessage}
+                      </Typography>
+                    </Tooltip>
+                  )}
+                </TableCell>
                 <TableCell>{formatDate(item.createdAt)}</TableCell>
                 <TableCell>{formatDate(item.updatedAt)}</TableCell>
                 <TableCell>
-                  {canRetryOrCancel(item.status) && (
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Tooltip title="Retry">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRetry(item.id)}
-                          disabled={processingStepId === item.id}
-                        >
-                          <RefreshIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Cancel">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleCancel(item.id)}
-                          disabled={processingStepId === item.id}
-                        >
-                          <CancelIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  )}
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <Tooltip title="View Details">
+                      <IconButton size="small" onClick={() => setDetailsItem(item)}>
+                        <VisibilityIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    {canRetryOrCancel(item.status) && (
+                      <>
+                        <Tooltip title="Retry">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRetry(item.id)}
+                            disabled={processingStepId === item.id}
+                          >
+                            <RefreshIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Cancel">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleCancel(item.id)}
+                            disabled={processingStepId === item.id}
+                          >
+                            <CancelIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    )}
+                  </Box>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>
+
+      <StepDetailsDialog item={detailsItem} onClose={() => setDetailsItem(null)} />
 
       {nextCursor && (
         <Box sx={{ mt: 2, textAlign: 'center' }}>
