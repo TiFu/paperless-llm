@@ -6,7 +6,7 @@ import { getLogger } from '../utils/logger.js';
 import { StepTimer } from '../utils/timing.js';
 import { DocumentEnriched, enrichAllWithDocument } from './util/documentEnrichment.js';
 import { UserContext } from '../domain/auth/UserContext.js';
-import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
+import { AuditEventType, AuditLogEntry, StepExecutionMetadata } from '../domain/audit/AuditLogEntry.js';
 
 /**
  * Queue statistics response
@@ -40,6 +40,8 @@ export interface QueueItem {
   jobState: string;
   // Present only when requested via includeAuditLog
   auditLog?: AuditLogEntry[];
+  // Latest failure message, derived from auditLog; present only when requested via includeAuditLog
+  errorMessage?: string | null;
 }
 
 export type QueueItemWithDocument = DocumentEnriched<QueueItem>;
@@ -120,7 +122,9 @@ export class QueueApplicationService {
           }
         }
         for (const item of items) {
-          item.auditLog = auditLogByStepId.get(item.id) ?? [];
+          const stepAuditLog = auditLogByStepId.get(item.id) ?? [];
+          item.auditLog = stepAuditLog;
+          item.errorMessage = this.getLatestFailureMessage(stepAuditLog);
         }
       }
       timer.mark('auditLog');
@@ -139,6 +143,24 @@ export class QueueApplicationService {
       logger.error({ error, limit, cursor, status }, 'Failed to list queue items');
       throw error;
     }
+  }
+
+  /**
+   * Find the message of the most recent failed STEP_EXECUTED audit entry for a step
+   * @param auditLog Audit log entries for a single step
+   * @returns The latest failure message, or null if the step has no recorded failure
+   */
+  private getLatestFailureMessage(auditLog: AuditLogEntry[]): string | null {
+    const failures = auditLog.filter(
+      (entry): entry is AuditLogEntry & { metadata: StepExecutionMetadata } =>
+        entry.eventType === AuditEventType.STEP_EXECUTED &&
+        entry.metadata !== null &&
+        (entry.metadata as StepExecutionMetadata).success === false
+    );
+    if (failures.length === 0) return null;
+
+    const latest = failures.reduce((a, b) => (a.eventTimestamp > b.eventTimestamp ? a : b));
+    return latest.metadata.message;
   }
 
   /**
