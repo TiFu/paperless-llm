@@ -44,12 +44,12 @@ export const DocumentActionViewer: React.FC<DocumentActionViewerProps> = ({
 
   return (
     <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
-      <Table size="small">
+      <Table size="small" sx={{ tableLayout: 'fixed' }}>
         <TableHead>
           <TableRow>
-            <TableCell>Action Type</TableCell>
-            <TableCell>Current Value</TableCell>
-            <TableCell>Proposed Value</TableCell>
+            <TableCell sx={{ width: 120 }}>Action Type</TableCell>
+            <TableCell sx={{ width: '30%' }}>Current Value</TableCell>
+            <TableCell sx={{ width: '30%' }}>Proposed Value</TableCell>
             {editable && <TableCell padding="checkbox" />}
           </TableRow>
         </TableHead>
@@ -59,7 +59,7 @@ export const DocumentActionViewer: React.FC<DocumentActionViewerProps> = ({
               <TableCell>
                 <Chip label={formatActionType(action.actionType)} size="small" />
               </TableCell>
-              <TableCell>
+              <TableCell sx={{ width: '30%' }}>
                 <Box sx={{ textDecoration: 'line-through', color: 'text.secondary' }}>
                   <DocumentActionDisplay
                     action={action}
@@ -68,7 +68,7 @@ export const DocumentActionViewer: React.FC<DocumentActionViewerProps> = ({
                   />
                 </Box>
               </TableCell>
-              <TableCell sx={{ minWidth: 220 }}>
+              <TableCell sx={{ width: '30%' }}>
                 <DocumentActionDisplay
                   action={action}
                   value={action.newValue ?? null}
