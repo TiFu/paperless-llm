@@ -18,6 +18,8 @@ import {
   closeSnackbar,
 } from '../store/slices/approvalsSlice';
 
+const LOW_WATERMARK = 10;
+
 export const ApprovalsPage: React.FC = () => {
   const dispatch = useAppDispatch();
 
@@ -39,6 +41,12 @@ export const ApprovalsPage: React.FC = () => {
 
     return () => clearInterval(interval);*/
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!loading && !loadingMore && nextCursor && approvals.length < LOW_WATERMARK) {
+      dispatch(fetchApprovals({ append: true }));
+    }
+  }, [approvals.length, nextCursor, loading, loadingMore, dispatch]);
 
   useEffect(() => {
     if (successMessage) {
