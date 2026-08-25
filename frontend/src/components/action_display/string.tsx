@@ -15,6 +15,8 @@ export const StringActionEditor: FC<ActionDisplayProps> = ({ value, onChange }) 
     value={value ?? ''}
     onChange={(e) => onChange(e.target.value)}
     fullWidth
+    multiline
+    maxRows={6}
     variant="outlined"
   />
 );
