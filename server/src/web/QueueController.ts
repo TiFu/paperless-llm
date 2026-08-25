@@ -6,9 +6,11 @@ import { UserContext } from '../domain/auth/UserContext.js';
 
 export class QueueController {
   private queueAppService;
+  private readonly paperlessBaseUrl: string;
 
   constructor(appFactory: ApplicationServiceFactory) {
     this.queueAppService = appFactory.createQueueApplicationService();
+    this.paperlessBaseUrl = appFactory.getPaperlessBaseUrl();
   }
 
   async getQueueStats(user: UserContext): Promise<QueueStats> {
@@ -18,7 +20,7 @@ export class QueueController {
   async listQueueItems(user: UserContext, limit: number = 50, cursor?: string, status?: string, includeAuditLog: boolean = false): Promise<QueueItemsResponse> {
     const { items, nextCursor } = await this.queueAppService.getQueueItems(user, limit, cursor, status, includeAuditLog);
     return {
-      items: AppMapper.toQueueItemList(items),
+      items: AppMapper.toQueueItemList(items, this.paperlessBaseUrl),
       pagination: { limit, nextCursor },
     };
   }

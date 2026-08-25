@@ -2284,6 +2284,15 @@ components:
           description: Audit log entries for this step, only present when includeAuditLog=true was requested
           items:
             $ref: '#/components/schemas/AuditLogEntry'
+        errorMessage:
+          type: string
+          nullable: true
+          description: Latest failure message for this step, derived from its audit log; only present when includeAuditLog=true was requested
+          example: "LLM request timed out after 3 retries"
+        paperlessUrl:
+          type: string
+          description: Link to the document in Paperless
+          example: "http://localhost:8000/documents/123"
       required:
         - id
         - jobId
@@ -2299,6 +2308,7 @@ components:
         - createdAt
         - updatedAt
         - jobState
+        - paperlessUrl
 
     Document:
       type: object

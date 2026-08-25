@@ -91,7 +91,7 @@ export class AppMapper {
     return domains.map(AppMapper.toAuditLogEntry);
   }
   // --- QueueItem Mapping ---
-  static toQueueItem(domain: QueueItemWithDocument): DtoQueueItem {
+  static toQueueItem(domain: QueueItemWithDocument, paperlessBaseUrl: string): DtoQueueItem {
     return {
       id: domain.id,
       jobId: domain.jobId,
@@ -108,11 +108,13 @@ export class AppMapper {
       updatedAt: domain.updatedAt,
       jobState: domain.jobState,
       auditLog: domain.auditLog ? AppMapper.toAuditLogEntryList(domain.auditLog) : undefined,
+      errorMessage: domain.errorMessage ?? null,
+      paperlessUrl: `${paperlessBaseUrl}/documents/${domain.documentId}`,
     };
   }
 
-  static toQueueItemList(domains: QueueItemWithDocument[]): DtoQueueItem[] {
-    return domains.map(AppMapper.toQueueItem);
+  static toQueueItemList(domains: QueueItemWithDocument[], paperlessBaseUrl: string): DtoQueueItem[] {
+    return domains.map((domain) => AppMapper.toQueueItem(domain, paperlessBaseUrl));
   }
   // Map a single Prompt domain object to a PromptResponse DTO
   static toPromptResponse(prompt: Prompt): PromptResponse {
