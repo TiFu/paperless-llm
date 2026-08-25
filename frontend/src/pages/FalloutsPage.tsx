@@ -8,7 +8,7 @@ import {
   Button,
   Paper,
 } from '@mui/material';
-import { FalloutCard } from '../components/FalloutCard';
+import { FalloutsTable } from '../components/FalloutsTable';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   fetchFallouts,
@@ -49,12 +49,10 @@ export const FalloutsPage: React.FC = () => {
 
   const handleRetry = async (stepId: string) => {
     await dispatch(retryFallout(stepId)).unwrap();
-    // unwrap() re-throws on rejection so FalloutCard can handle the error
   };
 
   const handleCancel = async (stepId: string) => {
     await dispatch(cancelFallout(stepId)).unwrap();
-    // unwrap() re-throws on rejection so FalloutCard can handle the error
   };
 
   const handleLoadMore = () => {
@@ -107,16 +105,7 @@ export const FalloutsPage: React.FC = () => {
         </Paper>
       ) : (
         <>
-          <Box>
-            {fallouts.map((fallout) => (
-              <FalloutCard 
-                key={fallout.id} 
-                fallout={fallout} 
-                onRetry={handleRetry} 
-                onCancel={handleCancel}
-              />
-            ))}
-          </Box>
+          <FalloutsTable fallouts={fallouts} onRetry={handleRetry} onCancel={handleCancel} />
 
           {nextCursor && (
             <Box sx={{ mt: 3, textAlign: 'center' }}>
