@@ -6,6 +6,7 @@ import { JobState } from '../../../src/domain/job/JobState.js';
 import { WorkflowType } from '../../../src/domain/workflows/WorkflowType.js';
 import { createFakeUoW, makeFakeUoWFactory } from '../helpers/fakeUoW.js';
 import { IDocument } from '../../../src/domain/document/IDocument.js';
+import { TitleUpdateAction } from '../../../src/domain/actions/TitleUpdateAction.js';
 
 const user = { username: 'alice' };
 const paperlessBaseUrl = 'https://paperless.example.com';
@@ -88,6 +89,24 @@ describe('ManualStepApplicationService', () => {
       expect(fakeUoW.repos.steps.create).toHaveBeenCalled(); // next step persisted
       expect(fakeUoW.save).toHaveBeenCalled();
       expect(fakeUoW.commit).toHaveBeenCalled();
+    });
+
+    it('sanitizes action overrides by stripping embedded newlines and trimming whitespace', async () => {
+      const fakeUoW = createFakeUoW(user);
+      const job = makeJob(JobState.PENDING_APPROVAL);
+      job.documentActions.push(new TitleUpdateAction('action-1', job.id, 'Old Title', 'Old Title'));
+      const step = new ApprovalInteractionStep('step-1', job.id, StepStatus.WAITING);
+      fakeUoW.repos.steps.getById.mockResolvedValue(step);
+      fakeUoW.repos.jobs.getById.mockResolvedValue(job);
+      fakeUoW.repos.permissions.hasPermission.mockResolvedValue(true);
+      const service = new ManualStepApplicationService(makeFakeUoWFactory(fakeUoW), paperlessBaseUrl);
+
+      await service.processApprovalDecision('step-1', 'APPROVED', user, [
+        { id: 'action-1', newValue: '  Multi\nLine\n Title  ' },
+      ]);
+
+      expect(job.documentActions[0].newValue).toBe('Multi Line Title');
+      expect(fakeUoW.repos.jobs.update).toHaveBeenCalled();
     });
 
     it('throws Forbidden when the user lacks write permission on the job', async () => {

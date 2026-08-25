@@ -46,6 +46,10 @@ export class ManualStepApplicationService {
     this.logger = createChildLogger(LogArea.WORKFLOW, "ManualStepApplicationService");
   }
 
+  private sanitizeProposedValue(value: string): string {
+    return value.replace(/\s*\r?\n+\s*/g, ' ').trim();
+  }
+
   async getApprovalStats(user: UserContext): Promise<ApprovalStats> {
     try {
       await using context = await this.uowFactory.createUoW(user);
@@ -144,7 +148,9 @@ export class ManualStepApplicationService {
       if (!canWrite) throw new Error(`Forbidden: user ${user.username} cannot act on job ${job.id}`);
 
       if (actionOverrides) {
-        const overrideMap = new Map(actionOverrides.map(o => [o.id, o.newValue]));
+        const overrideMap = new Map(
+          actionOverrides.map(o => [o.id, o.newValue != null ? this.sanitizeProposedValue(o.newValue) : o.newValue])
+        );
         job.documentActions = job.documentActions
           .filter(a => a.id != null && overrideMap.has(a.id as string))
           .map(a => {
