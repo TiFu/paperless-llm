@@ -61,11 +61,26 @@ interface PaperlessPaginatedResponse<T> {
   results: T[];
 }
 
+/**
+ * Resolves tag/correspondent/document-type ids to names in bulk, once per
+ * page of documents converted, instead of one HTTP call per id per
+ * document. PaperlessService's default implementation (below) is a live,
+ * uncached fetch of the whole catalog — fine for standalone/test use, but
+ * CachedPaperlessServiceAdapter overrides it (via setEntityNameResolver)
+ * with a cache-only resolver for the normal request path.
+ */
+export interface EntityNameResolver {
+  resolveTagNames(ids: number[]): Promise<Map<number, string>>;
+  resolveCorrespondentNames(ids: number[]): Promise<Map<number, string>>;
+  resolveDocumentTypeNames(ids: number[]): Promise<Map<number, string>>;
+}
+
 export class PaperlessService implements IDocumentManagementSystem, IPaperlessAuthService {
   private readonly client: AxiosInstance;
   private readonly authClient: AxiosInstance;
   private readonly paperlessConfig: PaperlessServiceConfig;
   private readonly logger: pino.Logger;
+  private resolver: EntityNameResolver;
 
   constructor(config: PaperlessServiceConfig) {
     this.paperlessConfig = config;
@@ -83,6 +98,21 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
       timeout: 10000,
     });
     this.logger = createChildLogger(LogArea.PAPERLESS, "PaperlessService");
+    this.resolver = {
+      resolveTagNames: async (): Promise<Map<number, string>> => new Map((await this.getTags()).map((t) => [t.id, t.name])),
+      resolveCorrespondentNames: async (): Promise<Map<number, string>> => new Map((await this.getCorrespondents()).map((c) => [c.id, c.name])),
+      resolveDocumentTypeNames: async (): Promise<Map<number, string>> => new Map((await this.getDocumentTypes()).map((d) => [d.id, d.name])),
+    };
+  }
+
+  /**
+   * Lets a wrapper (e.g. CachedPaperlessServiceAdapter) swap in a different
+   * id→name resolution strategy — the default above always hits Paperless
+   * live. `wrap` receives the current resolver so it can be composed rather
+   * than only replaced outright.
+   */
+  setEntityNameResolver(wrap: (defaultResolver: EntityNameResolver) => EntityNameResolver): void {
+    this.resolver = wrap(this.resolver);
   }
 
   async authenticate(username: string, password: string): Promise<PaperlessAuthResult> {
@@ -147,6 +177,27 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     }
   }
 
+  /**
+   * Follows Paperless's `next` pagination link to accumulate every page's
+   * `results` into a single array. Paperless's default page size is small
+   * (25), so any collection-listing endpoint (tags, correspondents,
+   * document types) can silently truncate at page 1 without this.
+   */
+  private async fetchAllPages<T>(url: string, params?: Record<string, unknown>): Promise<T[]> {
+    const results: T[] = [];
+    let next: string | null = url;
+    let isFirst = true;
+    while (next) {
+      const response: { data: PaperlessPaginatedResponse<T> } = isFirst
+        ? await this.client.get<PaperlessPaginatedResponse<T>>(next, { params })
+        : await this.client.get<PaperlessPaginatedResponse<T>>(next);
+      results.push(...response.data.results);
+      next = response.data.next;
+      isFirst = false;
+    }
+    return results;
+  }
+
   async getAvailableFields(): Promise<AvailableFields> {
     const [tags, correspondents, documentTypes] = await Promise.all([
       this.getTags(),
@@ -186,7 +237,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
         },
       );
 
-      return await Promise.all(response.data.results.map((doc) => this.convertToIDocument(doc)));
+      return await this.convertDocumentsPage(response.data.results);
     } catch (error) {
       this.logger.error({ error, api: 'getDocumentsByIds' });
       if (axios.isAxiosError(error)) {
@@ -258,9 +309,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
       // No in-memory caching; handled by adapter
 
       // Convert
-      const documents = await Promise.all(
-        results.map((doc) => this.convertToIDocument(doc)),
-      );
+      const documents = await this.convertDocumentsPage(results);
 
       // Determine nextCursor
       let nextCursor: string | null = null;
@@ -307,7 +356,7 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
         `/api/documents/${documentId}/`,
       );
 
-      const document = await this.convertToIDocument(response.data);
+      const [document] = await this.convertDocumentsPage([response.data]);
       return document;
     } catch (error) {
       this.logger.error({ error, "api": "getDocument"})
@@ -369,57 +418,14 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     }
   }
 
-  async getDocumentTypeById(id: number): Promise<string> {
-    // No in-memory cache; handled by adapter
-    try {
-      const response = await this.client.get<{id: number, name: string}>(
-        "/api/document_types/" + id + "/"
-      );
-      const name = response.data.name;
-
-      // No in-memory cache; handled by adapter
-
-      return name
-    } catch (error) {
-      this.logger.error({ error, "api": "getDocumentTypeById"})
-      if (axios.isAxiosError(error)) {
-        throw new Error(`Paperless-NG API error fetching tags: ${error.message}`, { cause: error });
-      }
-      throw error;
-    }
-  }
-
-
-  async getCorrespondentById(id: number): Promise<string> {
-    // No in-memory cache; handled by adapter
-    try {
-      const response = await this.client.get<{id: number, name: string}>(
-        "/api/correspondents/" + id + "/"
-      );
-      const name = response.data.name;
-
-      // No in-memory cache; handled by adapter
-
-      return name
-    } catch (error) {
-      this.logger.error({ error, "api": "getCorrespondentById"})
-      if (axios.isAxiosError(error)) {
-        throw new Error(`Paperless-NG API error fetching tags: ${error.message}`, { cause: error });
-      }
-      throw error;
-    }
-  }
-
   /**
    * Get all available tags
    */
   async getTags(): Promise<ITag[]> {
     try {
-      const response = await this.client.get<PaperlessPaginatedResponse<PaperlessTag>>(
-        '/api/tags/' // Large page size to get all tags
-      );
+      const results = await this.fetchAllPages<PaperlessTag>('/api/tags/');
 
-      const tags = response.data.results.map((tag) => ({
+      const tags = results.map((tag) => ({
         id: tag.id,
         name: tag.name,
         color: tag.color,
@@ -443,11 +449,9 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
    */
   async getCorrespondents(): Promise<ICorrespondent[]> {
     try {
-      const response = await this.client.get<PaperlessPaginatedResponse<PaperlessCorrespondent>>(
-        '/api/correspondents/'
-      );
+      const results = await this.fetchAllPages<PaperlessCorrespondent>('/api/correspondents/');
 
-      const correspondents = response.data.results.map((correspondent) => ({
+      const correspondents = results.map((correspondent) => ({
         id: correspondent.id,
         name: correspondent.name,
       }));
@@ -469,11 +473,9 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
    */
   async getDocumentTypes(): Promise<IDocumentType[]> {
     try {
-      const response = await this.client.get<PaperlessPaginatedResponse<PaperlessDocumentType>>(
-        '/api/document_types/'
-      );
+      const results = await this.fetchAllPages<PaperlessDocumentType>('/api/document_types/');
 
-      const types = response.data.results.map((docType) => ({
+      const types = results.map((docType) => ({
         id: docType.id,
         name: docType.name,
       }));
@@ -639,43 +641,42 @@ export class PaperlessService implements IDocumentManagementSystem, IPaperlessAu
     await this.removeTagsFromDocument(documentId, tags);
   }
 
-  private async convertToIDocument(doc: PaperlessDocument): Promise<IDocument> {
-    const tagNames = await this.getTagNames(doc.tags);
-    let correspondent = null;
-    if (doc.correspondent)
-      correspondent = await this.getCorrespondentById(doc.correspondent)
-    let document_type = null;
-    if (doc.document_type)
-      document_type = await this.getDocumentTypeById(doc.document_type)
-    
-    const result = {
+  /**
+   * Batches id→name resolution once per page instead of once per document:
+   * collects every tag/correspondent/documentType id referenced anywhere in
+   * the page, resolves each set in a single call via `this.resolver`, then
+   * maps each document synchronously against the resulting lookup tables.
+   */
+  private async convertDocumentsPage(docs: PaperlessDocument[]): Promise<IDocument[]> {
+    const tagIds = [...new Set(docs.flatMap((d) => d.tags))];
+    const correspondentIds = [...new Set(docs.map((d) => d.correspondent).filter((id): id is number => id != null))];
+    const documentTypeIds = [...new Set(docs.map((d) => d.document_type).filter((id): id is number => id != null))];
+
+    const [tagNames, correspondentNames, documentTypeNames] = await Promise.all([
+      this.resolver.resolveTagNames(tagIds),
+      this.resolver.resolveCorrespondentNames(correspondentIds),
+      this.resolver.resolveDocumentTypeNames(documentTypeIds),
+    ]);
+
+    return docs.map((doc) => this.convertToIDocument(doc, tagNames, correspondentNames, documentTypeNames));
+  }
+
+  private convertToIDocument(
+    doc: PaperlessDocument,
+    tagNames: Map<number, string>,
+    correspondentNames: Map<number, string>,
+    documentTypeNames: Map<number, string>,
+  ): IDocument {
+    return {
       id: doc.id,
       content: doc.content || '',
       title: doc.title || null,
-      tags: tagNames,
-      correspondent: correspondent,
-      documentType: document_type,
+      tags: doc.tags.map((id) => tagNames.get(id)).filter((name): name is string => name !== undefined),
+      correspondent: doc.correspondent != null ? (correspondentNames.get(doc.correspondent) ?? null) : null,
+      documentType: doc.document_type != null ? (documentTypeNames.get(doc.document_type) ?? null) : null,
       createdDate: doc.created ? new Date(doc.created) : null,
       modifiedDate: doc.modified ? new Date(doc.modified) : null,
     };
-    return result
-  }
-
-  // TODO Requires rewrite, just one query instead of n queries...
-  private async getTagNames(tagIds: number[]): Promise<string[]> {
-    const names: string[] = [];
-
-    for (const tagId of tagIds) {
-      try {
-        const response = await this.client.get<PaperlessTag>(`/api/tags/${tagId}/`);
-        names.push(response.data.name);
-      } catch(error) {
-        this.logger.error({ error, "api": "getTagNames"})
-        // Skip tags that can't be resolved
-      }
-    }
-
-    return names;
   }
 
   /**

@@ -1,8 +1,9 @@
 import { IDocument, PaginatedDocuments } from '../domain/document/IDocument.js';
 import { AvailableFields, ICorrespondent, IDocumentType, ITag } from '../domain/document/IDocumentEntities.js';
 import { IDocumentManagementSystem } from '../domain/document/IDocumentManagementSystem.js';
-import { PaperlessService } from './PaperlessService.js';
-import { DMSCacheService } from './CacheService.js';
+import { EntityNameResolver, PaperlessService } from './PaperlessService.js';
+import { CacheService, DMSCacheService } from './CacheService.js';
+import { IWorkersConfig } from '../config/AppConfig.js';
 import pino from 'pino';
 import { createChildLogger } from '../utils/logger.js';
 import { LogArea } from '../utils/LogArea.js';
@@ -10,6 +11,47 @@ import { LogArea } from '../utils/LogArea.js';
 interface IDable {
   id: string | number
 }
+
+/**
+ * Resolves tag/correspondent/document-type ids to names by reading
+ * DMSCacheService's id-keyed catalog caches only — never falls back to a
+ * live Paperless call. An id that isn't cached is simply omitted from the
+ * result (same "unresolved" behavior as before this cache existed). The
+ * catalog is kept warm by EntitySyncApplicationService's existing scheduled
+ * sync, which calls CachedPaperlessServiceAdapter.getTags/getCorrespondents/
+ * getDocumentTypes below.
+ */
+class CachingEntityNameResolver implements EntityNameResolver {
+  constructor(private readonly cache: DMSCacheService) {}
+
+  resolveTagNames(ids: number[]): Promise<Map<number, string>> {
+    return this.resolveViaCache(ids, this.cache.tagByIdCache);
+  }
+
+  resolveCorrespondentNames(ids: number[]): Promise<Map<number, string>> {
+    return this.resolveViaCache(ids, this.cache.correspondentByIdCache);
+  }
+
+  resolveDocumentTypeNames(ids: number[]): Promise<Map<number, string>> {
+    return this.resolveViaCache(ids, this.cache.documentTypeByIdCache);
+  }
+
+  private async resolveViaCache(ids: number[], idCache: CacheService<{ id: number; name: string }>): Promise<Map<number, string>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+    const uniqueIds = [...new Set(ids)];
+    const cached = await idCache.getAll(uniqueIds.map((id) => "" + id));
+    const result = new Map<number, string>();
+    cached.forEach((entry, index) => {
+      if (entry) {
+        result.set(uniqueIds[index], entry.name);
+      }
+    });
+    return result;
+  }
+}
+
 /**
  * Adapter that adds Redis caching to the PaperlessService.
  */
@@ -17,12 +59,24 @@ export class CachedPaperlessServiceAdapter implements IDocumentManagementSystem 
   static readonly ALL_KEY = 'all';
   private readonly cache: DMSCacheService;
   private readonly service: PaperlessService;
+  private readonly config: IWorkersConfig;
   private readonly logger: pino.Logger;
 
-  constructor(service: PaperlessService, cacheService: DMSCacheService) {
+  constructor(service: PaperlessService, cacheService: DMSCacheService, config: IWorkersConfig) {
     this.service = service;
     this.cache = cacheService;
+    this.config = config;
     this.logger = createChildLogger(LogArea.PAPERLESS, "CachedPaperlessServiceAdapter");
+    this.service.setEntityNameResolver(() => new CachingEntityNameResolver(this.cache));
+  }
+
+  /**
+   * Catalog cache TTL tracks the live, UI-editable entity-sync poll
+   * interval (5x it) rather than the shared document/name-cache TTL, so a
+   * single missed sync cycle doesn't expire the catalog mid-cycle.
+   */
+  private catalogTtlSeconds(): number {
+    return 5 * this.config.getEntitySync().pollIntervalMs / 1000;
   }
 
   async getDocument(documentId: number): Promise<IDocument> {
@@ -90,29 +144,31 @@ export class CachedPaperlessServiceAdapter implements IDocumentManagementSystem 
 
   async getTags(): Promise<ITag[]> {
     const tags = await this.service.getTags();
-    const mappedTags = tags.map((t) => {
-     return { key: "" + t.name, object: t }
-    })
-    await this.cache.tagCache.cacheAll(mappedTags);
+    const ttl = this.catalogTtlSeconds();
+    await Promise.all([
+      this.cache.tagCache.cacheAll(tags.map((t) => ({ key: "" + t.name, object: t })), ttl),
+      this.cache.tagByIdCache.cacheAll(tags.map((t) => ({ key: "" + t.id, object: t })), ttl),
+    ]);
     return tags;
   }
 
   async getCorrespondents(): Promise<ICorrespondent[]> {
     const correspondents = await this.service.getCorrespondents();
-    
-    const mappedCorrespondents = correspondents.map((t) => {
-     return { key: "" + t.name, object: t }
-    })
-    await this.cache.tagCache.cacheAll(mappedCorrespondents);
+    const ttl = this.catalogTtlSeconds();
+    await Promise.all([
+      this.cache.correspondentCache.cacheAll(correspondents.map((c) => ({ key: "" + c.name, object: c })), ttl),
+      this.cache.correspondentByIdCache.cacheAll(correspondents.map((c) => ({ key: "" + c.id, object: c })), ttl),
+    ]);
     return correspondents;
   }
 
   async getDocumentTypes(): Promise<IDocumentType[]> {
     const types = await this.service.getDocumentTypes();
-    const mappedTypes = types.map((t) => {
-     return { key: "" + t.name, object: t }
-    })
-    await this.cache.tagCache.cacheAll(mappedTypes);
+    const ttl = this.catalogTtlSeconds();
+    await Promise.all([
+      this.cache.documentTypeCache.cacheAll(types.map((t) => ({ key: "" + t.name, object: t })), ttl),
+      this.cache.documentTypeByIdCache.cacheAll(types.map((t) => ({ key: "" + t.id, object: t })), ttl),
+    ]);
     return types;
   }
 

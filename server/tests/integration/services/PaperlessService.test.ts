@@ -210,6 +210,60 @@ describe('PaperlessService (integration)', () => {
       expect(documents.map((d) => d.id)).toContain(documentId);
     });
 
+    it('getDocumentsByTag resolves tags, correspondent, and document type for a matching document', async () => {
+      const tagName = uniqueName('integration-tag');
+      const otherTagName = uniqueName('integration-tag-other');
+      const tagId = await seedTag(tagName);
+      const otherTagId = await seedTag(otherTagName);
+      const correspondentName = uniqueName('integration-correspondent');
+      await seedCorrespondent(correspondentName);
+      const documentTypeName = uniqueName('integration-doctype');
+      await seedDocumentType(documentTypeName);
+      const title = uniqueName('Integration Test Document');
+      const documentId = await seedDocument(title, [tagId, otherTagId]);
+      await service.updateDocument(documentId, { correspondent: correspondentName, documentType: documentTypeName });
+
+      const { documents } = await service.getDocumentsByTag(tagName, 10);
+
+      const doc = documents.find((d) => d.id === documentId);
+      expect(doc).toBeDefined();
+      expect(doc!.tags).toEqual(expect.arrayContaining([tagName, otherTagName]));
+      expect(doc!.correspondent).toBe(correspondentName);
+      expect(doc!.documentType).toBe(documentTypeName);
+    });
+
+    it('getDocumentsByTag resolves shared/overlapping tags across multiple matching documents in one page', async () => {
+      const sharedTagName = uniqueName('integration-tag-shared');
+      const sharedTagId = await seedTag(sharedTagName);
+      const first = await seedDocument(uniqueName('Integration Test Document'), [sharedTagId]);
+      const second = await seedDocument(uniqueName('Integration Test Document'), [sharedTagId]);
+
+      const { documents } = await service.getDocumentsByTag(sharedTagName, 10);
+
+      const ids = documents.map((d) => d.id);
+      expect(ids).toEqual(expect.arrayContaining([first, second]));
+      for (const doc of documents.filter((d) => d.id === first || d.id === second)) {
+        expect(doc.tags).toContain(sharedTagName);
+      }
+    });
+
+    it('getDocumentsByTag omits a tag that was deleted after the document was tagged', async () => {
+      const keepTagName = uniqueName('integration-tag-keep');
+      const keepTagId = await seedTag(keepTagName);
+      const staleTagName = uniqueName('integration-tag-stale');
+      const staleTagId = (await getOrCreateTag(token, staleTagName)).id;
+      const title = uniqueName('Integration Test Document');
+      const documentId = await seedDocument(title, [keepTagId, staleTagId]);
+      await deleteTag(token, staleTagId);
+
+      const { documents } = await service.getDocumentsByTag(keepTagName, 10);
+
+      const doc = documents.find((d) => d.id === documentId);
+      expect(doc).toBeDefined();
+      expect(doc!.tags).toContain(keepTagName);
+      expect(doc!.tags).not.toContain(staleTagName);
+    });
+
     it('updateDocument persists title, tags, correspondent and document type changes', async () => {
       const documentId = await seedDocument(uniqueName('Integration Test Document'));
       const newTitle = uniqueName('Updated Title');
