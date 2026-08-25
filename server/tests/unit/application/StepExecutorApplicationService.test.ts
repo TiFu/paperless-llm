@@ -75,6 +75,14 @@ describe('StepExecutorApplicationService', () => {
       expect(result.processed).toBe(0);
       expect(result.items[0]).toMatchObject({ outcome: 'failed', errorMessage: expect.stringContaining('DB connection lost') });
       expect(step.getStepStatus()).toBe(StepStatus.RETRYING);
+      // A setup-phase failure (thrown before StepExecutorDomainService ever runs) must still
+      // leave an audit trail explaining why - see #69.
+      expect(fakeUoW.repos.auditCollector.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'ERROR',
+          metadata: expect.objectContaining({ message: expect.stringContaining('DB connection lost') }),
+        }),
+      );
     });
 
     it('counts the run as "success" when only the step\'s own business logic fails (ExecutableStep.execute swallows it into a RETRYING result)', async () => {

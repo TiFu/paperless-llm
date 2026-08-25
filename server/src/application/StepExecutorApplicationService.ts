@@ -7,6 +7,7 @@ import { createChildLogger } from '../utils/logger.js';
 import { LogArea } from '../utils/LogArea.js';
 import { runWithLogContext } from '../utils/LogContext.js';
 import { ExecutableStep } from '../domain/steps/automated/ExecutableStep.js';
+import { AuditLogEntry } from '../domain/audit/AuditLogEntry.js';
 import { AuditCollector, UoWFactory } from '../infrastructure/UoW.js';
 import { StepExecutorDomainService } from '../domain/services/StepExecutorDomainService.js';
 import { UserContext } from '../domain/auth/UserContext.js';
@@ -104,6 +105,9 @@ export class StepExecutorApplicationService {
         await using uow3 = await this.uowFactory.createUoW(user);
         await uow3.start();
         uow3.getAuditCollector().recordAll(stepExecutionCollector.getEvents());
+        uow3.getAuditCollector().record(
+          AuditLogEntry.createError(step.getJobId(), step.getStepId(), { message: "" + error })
+        );
         step.markExecutionFailed(this.retryConfig.getRetry());
         uow3.getSteps().update(step);
         await uow3.save();
