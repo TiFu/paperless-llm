@@ -251,7 +251,7 @@ describe('PaperlessService (integration)', () => {
       const keepTagName = uniqueName('integration-tag-keep');
       const keepTagId = await seedTag(keepTagName);
       const staleTagName = uniqueName('integration-tag-stale');
-      const staleTagId = await getOrCreateTag(token, staleTagName);
+      const staleTagId = (await getOrCreateTag(token, staleTagName)).id;
       const title = uniqueName('Integration Test Document');
       const documentId = await seedDocument(title, [keepTagId, staleTagId]);
       await deleteTag(token, staleTagId);
