@@ -31,7 +31,7 @@ export const fetchQueueItems = createAsyncThunk(
     append?: boolean;
     statusFilter: WorkItemStatus | '';
   }) => {
-    const response = await apiClient.fetchQueueItems(50, cursor, statusFilter || undefined);
+    const response = await apiClient.fetchQueueItems(50, cursor, statusFilter || undefined, true);
     return { response, append: append ?? false };
   },
 );
