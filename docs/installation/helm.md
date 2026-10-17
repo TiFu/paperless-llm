@@ -251,6 +251,55 @@ and map the `config.yaml` key to `/config.yaml` inside their container via
 between sensitive and non-sensitive fields; the whole rendered config is
 treated as secret material.
 
+### Secrets from External Secrets Operator
+
+Instead of passing the DB password and JWT secret as values, the chart can
+have [External Secrets Operator](https://external-secrets.io) render the
+same `<release>-config` Secret from a `ClusterSecretStore`:
+
+```yaml
+externalSecrets:
+  enabled: true
+  clusterSecretStore: vault-applications
+  vaultPath: paperless-llm
+```
+
+`config-secret.yaml` is then skipped and `externalsecret-config.yaml`
+renders `config.yaml` with every field taken from values as usual, except:
+
+| config.yaml field | Store key | Property |
+|---|---|---|
+| `database.username` | `<vaultPath>/postgres` | `username` |
+| `database.password` | `<vaultPath>/postgres` | `password` |
+| `auth.jwtSecret` | `<vaultPath>/application` | `jwtSecret` |
+
+`externalDatabase.username`/`password` and `config.auth.jwtSecret` are
+ignored in this mode. ESO refreshes the Secret hourly; the backend and worker
+carry a Reloader annotation for it, so they restart when it changes.
+
+## Gateway API Route
+
+As an alternative to `frontend.ingress`, the chart can serve the UI and the
+API on one hostname through a Gateway API `HTTPRoute`:
+
+```yaml
+route:
+  enabled: true
+  hostname: paperless-llm.example.com
+
+gateway:
+  name: public-gateway
+  namespace: proxy
+  sectionName: websecure
+
+frontend:
+  apiBaseUrl: https://paperless-llm.example.com/api/
+```
+
+Requests under `/api` go to the backend Service (the server already serves
+its routes under `/api`, so no path rewrite is needed); everything else goes
+to the frontend. TLS is terminated at the gateway.
+
 ## Health Checks
 
 The backend Deployment defines both probes against the `/health` endpoint:

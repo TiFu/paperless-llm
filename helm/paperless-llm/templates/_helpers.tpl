@@ -54,3 +54,53 @@ Shared config Secret name, mounted by both the backend and worker Deployments.
 {{- define "paperless-llm.frontend.fullname" -}}
 {{- printf "%s-frontend" .Release.Name -}}
 {{- end }}
+
+{{/*
+Rendered config.yaml, shared by config-secret.yaml (plain Secret from values)
+and externalsecret-config.yaml (ESO template filled from Vault). Called with a
+dict: root (the chart context) plus dbUsername, dbPassword and jwtSecret,
+already rendered as YAML scalars by the caller.
+*/}}
+{{- define "paperless-llm.configYaml" -}}
+{{- $root := .root -}}
+database:
+  host: {{ include "paperless-llm.database.host" $root | quote }}
+  port: {{ include "paperless-llm.database.port" $root }}
+  username: {{ .dbUsername }}
+  password: {{ .dbPassword }}
+  database: {{ include "paperless-llm.database.name" $root | quote }}
+
+redis:
+  host: {{ include "paperless-llm.redis.host" $root | quote }}
+  port: {{ include "paperless-llm.redis.port" $root }}
+  username: {{ include "paperless-llm.redis.username" $root | quote }}
+  password: {{ include "paperless-llm.redis.password" $root | quote }}
+  db: {{ include "paperless-llm.redis.db" $root }}
+  ttlInSeconds: {{ $root.Values.config.redisCache.ttlInSeconds }}
+  reconnectBaseDelayMs: {{ $root.Values.config.redisCache.reconnectBaseDelayMs }}
+  reconnectMaxDelayMs: {{ $root.Values.config.redisCache.reconnectMaxDelayMs }}
+
+paperless:
+  url: {{ $root.Values.config.paperless.url | quote }}
+
+llm:
+  url: {{ $root.Values.config.llm.url | quote }}
+
+workers:
+  instanceId: {{ $root.Values.config.workers.instanceId | default "null" }}
+
+logging:
+  level: {{ $root.Values.config.logging.level | quote }}
+  pretty: {{ $root.Values.config.logging.pretty }}
+
+api:
+  port: {{ $root.Values.config.api.port }}
+  corsOrigins:
+    {{- range $root.Values.config.api.corsOrigins }}
+    - {{ . | quote }}
+    {{- end }}
+
+auth:
+  jwtSecret: {{ .jwtSecret }}
+  jwtExpiresIn: {{ $root.Values.config.auth.jwtExpiresIn | quote }}
+{{- end }}

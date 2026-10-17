@@ -84,3 +84,26 @@ frontend:
           - path: /
             pathType: Prefix
     tls: []
+
+# Render the config Secret through External Secrets Operator instead of from
+# values. The DB username/password and auth.jwtSecret then come from the
+# ClusterSecretStore (externalDatabase.username/password and
+# config.auth.jwtSecret are ignored):
+#   <vaultPath>/postgres     properties: username, password
+#   <vaultPath>/application  property:   jwtSecret
+externalSecrets:
+  enabled: false
+  clusterSecretStore: ""
+  vaultPath: ""
+
+# Gateway API HTTPRoute serving the UI and /api on one hostname (alternative
+# to frontend.ingress). Needs the gateway below.
+route:
+  enabled: false
+  hostname: ""
+
+# Gateway the HTTPRoute attaches to.
+gateway:
+  name: ""
+  namespace: ""
+  sectionName: ""

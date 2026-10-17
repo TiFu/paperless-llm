@@ -1,0 +1,40 @@
+{{- if .Values.route.enabled }}
+{{- /*
+Gateway API route for UI and API on one hostname: /api goes to the backend
+(which serves its routes under /api, so no rewrite), everything else to the
+frontend. Set frontend.apiBaseUrl to https://<hostname>/api/ to match.
+*/}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "paperless-llm.frontend.fullname" . }}
+spec:
+  parentRefs:
+    - name: {{ required "gateway.name is required when route.enabled" .Values.gateway.name }}
+      {{- with .Values.gateway.namespace }}
+      namespace: {{ . }}
+      {{- end }}
+      {{- with .Values.gateway.sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+
+  hostnames:
+    - {{ required "route.hostname is required when route.enabled" .Values.route.hostname | quote }}
+
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      backendRefs:
+        - name: {{ include "paperless-llm.backend.fullname" . }}
+          port: {{ .Values.config.api.port }}
+
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ include "paperless-llm.frontend.fullname" . }}
+          port: 80
+{{- end }}
