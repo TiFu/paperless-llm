@@ -93,6 +93,37 @@ describe('CachedPaperlessServiceAdapter', () => {
     });
   });
 
+  describe('getDocumentsByIds', () => {
+    const doc = (id: number) => ({ id, title: `doc ${id}` }) as unknown as import('../../../src/domain/document/IDocument.js').IDocument;
+
+    it('leaves out ids Paperless did not return instead of returning null entries', async () => {
+      const cache = fakeDmsCacheService();
+      (cache.documentCache.getAll as jest.Mock).mockResolvedValue([null, null, null]);
+      const service = fakePaperlessService();
+      // id 2 was deleted in Paperless (or is not visible): not in the response
+      (service as unknown as { getDocumentsByIds: jest.Mock }).getDocumentsByIds = jest.fn().mockResolvedValue([doc(1), doc(3)]);
+      const adapter = new CachedPaperlessServiceAdapter(service, cache, fakeWorkersConfig());
+
+      const result = await adapter.getDocumentsByIds([1, 2, 3]);
+
+      expect(result).toEqual([doc(1), doc(3)]);
+      expect(result).not.toContain(null);
+    });
+
+    it('matches fetched documents by id, not by response order', async () => {
+      const cache = fakeDmsCacheService();
+      (cache.documentCache.getAll as jest.Mock).mockResolvedValue([null, doc(2), null]);
+      const service = fakePaperlessService();
+      (service as unknown as { getDocumentsByIds: jest.Mock }).getDocumentsByIds = jest.fn().mockResolvedValue([doc(3), doc(1)]);
+      const adapter = new CachedPaperlessServiceAdapter(service, cache, fakeWorkersConfig());
+
+      const result = await adapter.getDocumentsByIds([1, 2, 3]);
+
+      expect(result.map((d) => d.id)).toEqual([1, 2, 3]);
+      expect((service as unknown as { getDocumentsByIds: jest.Mock }).getDocumentsByIds).toHaveBeenCalledWith([1, 3]);
+    });
+  });
+
   describe('getTags/getCorrespondents/getDocumentTypes', () => {
     it('getTags writes into tagCache and tagByIdCache (not correspondent/documentType caches)', async () => {
       const cache = fakeDmsCacheService();

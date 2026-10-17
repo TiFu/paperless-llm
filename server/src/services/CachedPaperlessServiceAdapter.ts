@@ -102,16 +102,17 @@ export class CachedPaperlessServiceAdapter implements IDocumentManagementSystem 
 
     this.logger.info({ cacheHits: cachedDocuments.length - missingIds.length, cacheMiss: missingIds.length}, "Document cache")
 
+    // The service returns only the documents Paperless found (deleted or not
+    // visible to this user are left out), in no guaranteed order, so match
+    // them back by id rather than by position.
     const missingDocuments = await this.service.getDocumentsByIds(missingIds.map((a) => a.id));
-    const promises = missingDocuments.map(async (val, idx) => {
-      const initialIndex = missingIds[idx].index
-      cachedDocuments[initialIndex] = val
-      //this.cache.documentCache.cache(this.getCacheKey(val), val).catch((err) => { this.logger.error(err, "Failed to cache document " + val.id) })
-    })
+    const fetchedById = new Map(missingDocuments.map((doc) => [Number(doc.id), doc]))
+    for (const missing of missingIds) {
+      cachedDocuments[missing.index] = fetchedById.get(Number(missing.id)) ?? null
+    }
 
-
-    await Promise.all(promises)
-    const documentsToCache = cachedDocuments.filter((c) => c != null).map((c) => { return {
+    const documents = cachedDocuments.filter((c): c is IDocument => c != null)
+    const documentsToCache = documents.map((c) => { return {
       key: this.getCacheKey(c),
       object: c
     }})
@@ -120,7 +121,7 @@ export class CachedPaperlessServiceAdapter implements IDocumentManagementSystem 
     }).catch((err) => {
       this.logger.error(err, "Failed to cache")
     })
-    return cachedDocuments as IDocument[]
+    return documents
   }
 
   private getCacheKey(doc: IDable): string {
